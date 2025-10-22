@@ -13,11 +13,36 @@ const comboRoutes = require('./routes/comboRoutes');
 const customerRoutes = require('./routes/customerRoutes');
 const vendorPricingRoutes = require('./routes/vendorPricing');
 const modelRoutes = require('./routes/modelRoutes');
+const Master = require('./models/Master');
 
 const app = express();
 
 // Connect to MongoDB
 connectDB();
+
+// Seed: ensure 'Sizuki' brand exists for Manage Cars
+mongoose.connection.once('open', async () => {
+    try {
+        const upserted = await Master.findOneAndUpdate(
+            { name: 'Sizuki', type: 'brand' },
+            {
+                $set: {
+                    name: 'Sizuki',
+                    type: 'brand',
+                    imageUrl: '/uploads/1760082212948.jpg',
+                    sequence: 0,
+                    fieldType: null,
+                    options: [],
+                    autoCalc: false,
+                }
+            },
+            { upsert: true, new: true }
+        );
+        console.log('✅ Ensured brand exists:', upserted.name);
+    } catch (e) {
+        console.error('❌ Failed to seed brand:', e.message);
+    }
+});
 
 // Middleware
 app.use(cors());
