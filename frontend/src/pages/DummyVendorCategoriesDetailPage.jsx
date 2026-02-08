@@ -2,30 +2,237 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import API_BASE_URL, { PREVIEW_BASE_URL, NIKS_PREVIEW_BASE_URL } from "../config";
-
+import { openPreviewByCategoryId } from "../utils/preview";
 const normTermsKey = (s) => String(s || "").replace(/\s+/g, " ").trim();
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
+
+
+
+
+function LatestPricingTable({
+  rows,
+  editingLatestRowId,
+  setEditingLatestRowId,
+  latestEditPrice,
+  setLatestEditPrice,
+  latestEditTerms,
+  setLatestEditTerms,
+  latestSaving,
+  saveLatestRow,
+  updateLatestPricingStatus, // ✅ ADD THIS
+}) {
+
+
+
+
+
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Level 2</th>
+          <th>Level 3</th>
+          <th>Level 4</th>
+          <th>Level 5</th>
+          <th>Images</th>
+          <th>Price</th>
+          <th>Terms</th>
+          <th>Pricing Status</th>
+          <th>Action</th>
+          <th>Logs</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {rows.map((row, i) => (
+          <tr key={row.vendorPriceNodeId}>
+
+            {/* Category column comes from another API */}
+            <td>{row.categoryName || '-'}</td>
+
+
+            {/* Shift old levels by +1 */}
+            {[0, 1, 2, 3].map(idx => (
+              <td key={idx}>{row.levels[idx] || '-'}</td>
+            ))}
+
+
+            <td>Uploaded: 0/5</td>
+
+            <td>
+              {editingLatestRowId === row.vendorPriceNodeId
+                ? (
+                  <input
+                    type="number"
+                    value={latestEditPrice}
+                    onChange={(e) => setLatestEditPrice(e.target.value)}
+                    style={{ width: 100, padding: 6 }}
+                  />
+                ) : (
+                  row.price ?? "-"
+                )}
+            </td>
+
+
+            <td>
+              {editingLatestRowId === row.vendorPriceNodeId ? (
+                <textarea
+                  value={latestEditTerms}
+                  onChange={(e) => setLatestEditTerms(e.target.value)}
+                  rows={2}
+                  style={{ width: "100%", padding: 6 }}
+                />
+              ) : (
+                row.terms || "—"
+              )}
+            </td>
+
+
+        <td>
+  <select
+    value={row.pricingStatus || "Inactive"}
+    onChange={(e) =>
+      updateLatestPricingStatus(row, e.target.value)
+    }
+    style={{
+      padding: 6,
+      borderRadius: 6,
+      border: "1px solid #d1d5db",
+      cursor: "pointer",
+    }}
+  >
+    <option value="Inactive">Inactive</option>
+    <option value="Active">Active</option>
+  </select>
+</td>
+
+
+            <td>
+              {editingLatestRowId === row.vendorPriceNodeId
+                ? (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={() => saveLatestRow(row)}
+                      disabled={latestSaving}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#16a34a",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {latestSaving ? "Saving..." : "Save"}
+                    </button>
+
+                    <button
+                      onClick={() => setEditingLatestRowId(null)}
+                      disabled={latestSaving}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#9ca3af",
+                        color: "#111",
+                        border: "none",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setEditingLatestRowId(row.vendorPriceNodeId);
+                      setLatestEditPrice(row.price ?? "");
+                      setLatestEditTerms(row.terms ?? "");
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      background: "#0ea5e9",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Edit
+                  </button>
+                )}
+            </td>
+
+
+            <td>
+              <button>See Logs</button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+
+function flattenPricingTree(node, rows = [], parents = [], rootCategoryId) {
+  if (!node) return rows;
+
+  const path = [...parents, node.name];
+
+  if (node.isLeaf) {
+    rows.push({
+      vendorPriceNodeId: node._id,   // ✅ used for update API
+      categoryId: node.categoryId,   // dummy category id
+      rootCategoryId,                // dummy ROOT category id
+      levels: path,
+      price: node.price,
+      terms: node.terms,
+      pricingStatus: node.pricingStatus,
+    });
+  }
+
+  (node.children || []).forEach(child =>
+    flattenPricingTree(child, rows, path, rootCategoryId)
+  );
+
+  return rows;
+}
+
+
+
+
+
+
+
+
 function flattenTree(node, rows = [], parentLevels = [], parentIds = []) {
   if (!node) return rows;
+
   const levels = [...parentLevels, node.name ?? "Unnamed"];
   const ids = [...parentIds, (node._id ?? node.id)];
+
   if (!node.children || node.children.length === 0) {
     rows.push({
       id: node._id ?? node.id,
+      categoryId: node.categoryId,
       levels,
       levelIds: ids,
-      price: typeof node.vendorPrice === "number" ? node.vendorPrice : node.price ?? "-",
-      categoryId: node._id ?? node.id,
-      pricingStatus: node.pricingStatus,
+      price: node.price,
       terms: node.terms,
+      pricingStatus: node.pricingStatus,
     });
   } else {
-    node.children.forEach((child) => flattenTree(child, rows, levels, ids));
+    node.children.forEach((child) =>
+      flattenTree(child, rows, levels, ids)
+    );
   }
+
   return rows;
 }
+
 
 // Admin Enquiry Viewer - view-only with dropdown filter by vendor label (no actions)
 function AdminEnquiryViewer({
@@ -35,7 +242,7 @@ function AdminEnquiryViewer({
   setSelectedStatusFilter,
 }) {
   const cfgList = Array.isArray(enquiryStatusConfig) ? enquiryStatusConfig : [];
-  
+
   // Build unique vendor labels for dropdown
   const vendorLabels = [];
   const seenLabels = new Set();
@@ -150,6 +357,13 @@ function AdminEnquiryViewer({
 }
 
 export default function DummyVendorCategoriesDetailPage() {
+
+
+  const [editingLatestRowId, setEditingLatestRowId] = useState(null);
+  const [latestEditPrice, setLatestEditPrice] = useState("");
+  const [latestEditTerms, setLatestEditTerms] = useState("");
+  const [latestSaving, setLatestSaving] = useState(false);
+
   const { vendorId, categoryId } = useParams();
   const [tree, setTree] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -188,6 +402,263 @@ export default function DummyVendorCategoriesDetailPage() {
   const [activeView, setActiveView] = useState('old'); // 'old' or 'new'
   const [vendorFlows, setVendorFlows] = useState([]); // VendorFlow data for new view
   const [editingNewFlow, setEditingNewFlow] = useState(null); // { id, price }
+
+  const [latestPricingStatusMap, setLatestPricingStatusMap] = useState({});
+  const [latestLoading, setLatestLoading] = useState(false);
+  const [vendorName, setVendorName] = useState("");
+
+  const [rootCategoryName, setRootCategoryName] = useState('');
+
+
+  const [latestRows, setLatestRows] = useState([]);
+
+  const [categoryNameMap, setCategoryNameMap] = useState({});
+
+  const saveLatestRow = async (row) => {
+    try {
+      setLatestSaving(true);
+
+      await axios.put(
+        `${API_BASE_URL}/api/vendor-price-nodes/update`,
+        {
+          vendorPriceNodeId: row.vendorPriceNodeId, // ✅ _id from tree
+          price: latestEditPrice === "" ? null : Number(latestEditPrice),
+          terms: latestEditTerms,
+        }
+      );
+
+      // Update UI instantly
+      setLatestRows((prev) =>
+        prev.map((r) =>
+          r.vendorPriceNodeId === row.vendorPriceNodeId
+            ? { ...r, price: latestEditPrice, terms: latestEditTerms }
+            : r
+        )
+      );
+
+
+      setEditingLatestRowId(null);
+    } catch (e) {
+      alert(e?.response?.data?.message || "Failed to update price node");
+    } finally {
+      setLatestSaving(false);
+    }
+  };
+
+  const updateLatestPricingStatus = async (row, newStatus) => {
+  const confirmed = window.confirm(
+    `Do you want to make this service ${newStatus}?`
+  );
+
+  if (!confirmed) return;
+
+  try {
+    await axios.put(
+      `${API_BASE_URL}/api/vendor-price-nodes/update`,
+      {
+        vendorPriceNodeId: row.vendorPriceNodeId,
+        pricingStatus: newStatus,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-actor-role": "admin",
+          "x-vendor-id": vendorId,
+          "x-root-category-id": categoryId,
+        },
+      }
+    );
+
+    // ✅ Update UI instantly
+    setLatestRows((prev) =>
+      prev.map((r) =>
+        r.vendorPriceNodeId === row.vendorPriceNodeId
+          ? { ...r, pricingStatus: newStatus }
+          : r
+      )
+    );
+  } catch (e) {
+    alert(
+      e?.response?.data?.message ||
+      "Failed to update pricing status"
+    );
+  }
+};
+
+
+  const fetchDummyCategories = async () => {
+    try {
+      const res = await axios.get(
+         `${API_BASE_URL}/api/dummy-categories`
+      );
+
+      const map = {};
+      (res.data || []).forEach(cat => {
+        map[String(cat._id)] = cat.name;
+      });
+
+      setCategoryNameMap(map);
+    } catch (err) {
+      console.error("Failed to fetch dummy categories", err);
+    }
+  };
+  useEffect(() => {
+    fetchDummyCategories();
+  }, []);
+
+
+  const latestRowsWithCategoryName = useMemo(() => {
+    return latestRows.map(row => ({
+      ...row,
+      categoryName:
+        categoryNameMap[String(row.rootCategoryId)] || "-"
+    }));
+  }, [latestRows, categoryNameMap]);
+
+  useEffect(() => {
+    if (!categoryId) return;
+
+    const fetchRootCategory = async () => {
+      try {
+        const res = await axios.get(
+          `${API_BASE_URL}/api/categories/${categoryId}`
+        );
+        setRootCategoryName(res.data?.name || '');
+      } catch {
+        setRootCategoryName('');
+      }
+    };
+
+    fetchRootCategory();
+  }, [categoryId]);
+
+
+
+  const resolvePricingStatus = (row) => {
+    const nodeId = String(row.categoryId || row.id);
+
+    // 🔥 LATEST VIEW → YOUR API
+    if (activeView === 'latest') {
+      return latestPricingStatusMap[nodeId] || 'Inactive';
+    }
+
+    // OLD VIEW → existing behavior
+    const nodeMap = vendor?.nodePricingStatus || {};
+    return (
+      nodeMap[nodeId] ||
+      row.pricingStatus ||
+      'Inactive'
+    );
+  };
+
+  const fetchLatestPricingTree = async () => {
+    try {
+      if (!vendorId || !categoryId) return;
+
+      setLatestLoading(true);
+
+      const res = await axios.get(
+        `${API_BASE_URL}/api/vendor-price-nodes/tree`,
+        {
+          params: {
+            vendorId,
+            rootCategoryId: categoryId,
+          },
+        }
+      );
+
+      const apiTree = Array.isArray(res.data?.tree) ? res.data.tree : [];
+
+      // ✅ build rows
+      const rows = [];
+      apiTree.forEach(root => {
+        flattenPricingTree(
+          root,
+          rows,
+          [],
+          categoryId   // 👈 THIS IS THE KEY FIX
+        );
+
+
+      });
+      setLatestRows(rows);
+
+
+
+
+      // ✅ build pricing status map
+      const statusMap = {};
+      apiTree.forEach(root => {
+        flattenPricingStatusTree(root, statusMap);
+      });
+      setLatestPricingStatusMap(statusMap);
+
+    } catch (e) {
+      console.error(e);
+      setLatestRows([]);
+      setLatestPricingStatusMap({});
+    } finally {
+      setLatestLoading(false);
+    }
+  };
+
+
+  const resolveCategoryPricingStatus = ({ row, match }) => {
+    const nodeId = String(row.categoryId || row.id);
+
+    // 🔥 LATEST VIEW → ONLY latest API
+    if (activeView === 'latest') {
+      return latestPricingStatusMap[nodeId] || 'Inactive';
+    }
+
+    // OLD VIEW (unchanged logic)
+    const nodeMap =
+      vendor && vendor.nodePricingStatus && typeof vendor.nodePricingStatus === 'object'
+        ? vendor.nodePricingStatus
+        : {};
+
+    const leafFallback = nodeMap[nodeId];
+
+    if (!match) {
+      return leafFallback || row.pricingStatus || 'Inactive';
+    }
+
+    const rowKey = Array.isArray(row.levelIds)
+      ? row.levelIds.map(String).join('|')
+      : String(row.id);
+
+    const invMap =
+      match.pricingStatusByRow && typeof match.pricingStatusByRow === 'object'
+        ? match.pricingStatusByRow
+        : {};
+
+    return invMap[rowKey] || leafFallback || 'Inactive';
+  };
+
+
+  const flattenPricingStatusTree = (node, map = {}) => {
+    if (!node) return map;
+
+    // 🔥 USE categoryId (dummy category id)
+    const key = String(node.categoryId || node._id || '');
+
+    if (key) {
+      map[key] = node.pricingStatus || 'Inactive';
+    }
+
+    if (Array.isArray(node.children)) {
+      node.children.forEach(child =>
+        flattenPricingStatusTree(child, map)
+      );
+    }
+
+    return map;
+  };
+
+
+
+
+
 
   const pricesBackfillDoneRef = useRef({});
 
@@ -254,6 +725,31 @@ export default function DummyVendorCategoriesDetailPage() {
     }
   }, [vendorId, categoryId]);
 
+  const fetchVendorInfo = async () => {
+    try {
+      if (!vendorId) return;
+
+      const res = await axios.get(
+        `${API_BASE_URL}/api/dummy-vendors/${vendorId}`
+      );
+
+      const name =
+        res.data?.businessName ||
+        res.data?.contactName ||
+        "";
+
+      setVendorName(name);
+    } catch (err) {
+      console.warn("Failed to fetch vendor info", err);
+      setVendorName("");
+    }
+  };
+
+  useEffect(() => {
+    fetchVendorInfo();
+  }, [vendorId]);
+
+
   const fetchTree = async () => {
     try {
       setLoading(true);
@@ -274,7 +770,7 @@ export default function DummyVendorCategoriesDetailPage() {
               })
               .sort((a, b) => b.createdAt - a.createdAt);
             if (entries.length) targetCatId = entries[0].key.replace("dv_last_", "");
-          } catch {}
+          } catch { }
         }
         if (targetCatId) {
           try {
@@ -311,22 +807,22 @@ export default function DummyVendorCategoriesDetailPage() {
           const lr = await axios.get(`${API_BASE_URL}/api/dummy-vendors/${vendorId}/location`);
           v.location = lr.data?.location || v.location || {};
           v.location.nearbyLocations = v.location.nearbyLocations || [];
-        } catch {}
+        } catch { }
 
         setVendor(v);
         setInvItems(items);
         try {
           setTermsSelectionsByNode(v?.termsSelectionsByNode && typeof v.termsSelectionsByNode === 'object' ? v.termsSelectionsByNode : {});
           setComboTermsSelectionsByText(v?.comboTermsSelectionsByText && typeof v.comboTermsSelectionsByText === 'object' ? v.comboTermsSelectionsByText : {});
-        } catch {}
+        } catch { }
 
         setInventoryLabelName(c.inventoryLabelName || "");
         setLinkedAttributes(c.linkedAttributes || {});
         const rawModels = Array.isArray(c.categoryModel)
           ? c.categoryModel
           : c.categoryModel
-          ? [c.categoryModel]
-          : [];
+            ? [c.categoryModel]
+            : [];
         const hasInv = rawModels
           .map((m) => (m == null ? "" : String(m)))
           .map((s) => s.trim().toLowerCase())
@@ -348,7 +844,7 @@ export default function DummyVendorCategoriesDetailPage() {
         const status = err?.response?.status;
         const msg = err?.response?.data?.message || err?.message || "Unknown error";
         setError(`Failed to fetch vendor categories (${status || ""}). ${msg}`);
-      } catch {}
+      } catch { }
       try {
         if (categoryId) {
           const cat = await axios.get(`${API_BASE_URL}/api/dummy-categories/${categoryId}`);
@@ -357,7 +853,7 @@ export default function DummyVendorCategoriesDetailPage() {
           setError("");
           return;
         }
-      } catch {}
+      } catch { }
     } finally {
       setLoading(false);
     }
@@ -391,7 +887,7 @@ export default function DummyVendorCategoriesDetailPage() {
       setError("");
       const response = await axios.get(`${API_BASE_URL}/api/vendor-flow/vendor/${vendorId}`);
       const flows = Array.isArray(response.data) ? response.data : [];
-      
+
       // If no flows exist, try to sync from old data
       if (flows.length === 0) {
         try {
@@ -512,12 +1008,12 @@ export default function DummyVendorCategoriesDetailPage() {
           try {
             const r2 = await axios.get(`${API_BASE_URL}/api/dummy-combos/byParent/${categoryId}`);
             arr = Array.isArray(r2.data) ? r2.data : [];
-          } catch {}
+          } catch { }
         }
         setCombos(arr);
         // prefetch category names and parent names for items (to display selected services from step 2)
         const ids = [];
-        arr.forEach((c) => (c.items||[]).forEach((it) => { if (it.kind === 'category' && it.categoryId) ids.push(String(it.categoryId)); }));
+        arr.forEach((c) => (c.items || []).forEach((it) => { if (it.kind === 'category' && it.categoryId) ids.push(String(it.categoryId)); }));
         const uniq = Array.from(new Set(ids));
         await Promise.all(uniq.map(async (id) => {
           if (categoryInfoCache[id]) return;
@@ -530,10 +1026,10 @@ export default function DummyVendorCategoriesDetailPage() {
               try {
                 const pr = await axios.get(`${API_BASE_URL}/api/dummy-categories/${parentId}`);
                 parentName = pr.data?.name || '';
-              } catch {}
+              } catch { }
             }
             setCategoryInfoCache((prev) => ({ ...prev, [id]: { name: cat?.name || '', parentId: parentId || null, parentName } }));
-          } catch {}
+          } catch { }
         }));
       } catch (e) {
         setCombos([]); setCombosError(e?.response?.data?.message || 'Failed to load packages');
@@ -589,7 +1085,7 @@ export default function DummyVendorCategoriesDetailPage() {
       const next = { ...la, [keySpecific]: ["ALL"] };
       await axios.put(`${API_BASE_URL}/api/dummy-categories/${cid}`, { linkedAttributes: next });
       setLinkedAttributes(next);
-    } catch {}
+    } catch { }
   };
 
   // Toggle a specific term index for a combo (keyed by normalized full terms text)
@@ -621,7 +1117,7 @@ export default function DummyVendorCategoriesDetailPage() {
       } catch (e) {
         alert(e?.response?.data?.message || 'Failed to save selected package terms');
       }
-    } catch {}
+    } catch { }
   };
 
   // Toggle a specific term index for a category node (used by Categories table checkboxes)
@@ -652,7 +1148,7 @@ export default function DummyVendorCategoriesDetailPage() {
       } catch (e) {
         alert(e?.response?.data?.message || 'Failed to save selected terms');
       }
-    } catch {}
+    } catch { }
   };
 
   const fetchModelsForFamily = async (familyKey) => {
@@ -675,7 +1171,7 @@ export default function DummyVendorCategoriesDetailPage() {
           const res = await axios.get(`${API_BASE_URL}/api/models`, { params: { category: c } });
           const data = Array.isArray(res.data) ? res.data : [];
           if (data.length) { models = data.map((d) => ({ _id: d._id || d.id, name: d.name || d.model || '', raw: d })); break; }
-        } catch {}
+        } catch { }
       }
       setModelsByFamily((prev) => ({ ...prev, [orig]: models }));
       return models;
@@ -704,12 +1200,12 @@ export default function DummyVendorCategoriesDetailPage() {
     }
     const keysInFirst = models.length ? Object.keys(models[0].raw || models[0]) : [];
     if (!selectedFields || selectedFields.length === 0) {
-      const candidates = ['brand','model','variant','transmission','fuelType','bodyType','seats'];
+      const candidates = ['brand', 'model', 'variant', 'transmission', 'fuelType', 'bodyType', 'seats'];
       selectedFields = candidates.filter((k) => keysInFirst.includes(k));
       if (!selectedFields.includes(brandFieldForFamily) && (keysInFirst.includes('brand') || keysInFirst.includes('bikeBrand'))) selectedFields.unshift(brandFieldForFamily);
       if (!selectedFields.includes('model') && (keysInFirst.includes('model') || keysInFirst.includes('modelName'))) selectedFields.splice(1, 0, 'model');
     } else {
-      const low = selectedFields.map((s)=>String(s).toLowerCase());
+      const low = selectedFields.map((s) => String(s).toLowerCase());
       if (!low.includes(String(brandFieldForFamily).toLowerCase())) selectedFields.unshift(brandFieldForFamily);
       if (!low.includes('model')) selectedFields.splice(1, 0, 'model');
     }
@@ -719,8 +1215,8 @@ export default function DummyVendorCategoriesDetailPage() {
       for (const k of arr) { if (obj && obj[k] != null && String(obj[k]).trim() !== '') return String(obj[k]); }
       return '';
     };
-    const selectedBrand = pickFirst(curr, famLower === 'bikes' ? ['bikeBrand','brand','Brand','make','Make'] : ['brand','Brand','make','Make']);
-    const selectedModel = pickFirst(curr, ['model','Model','modelName','model_name','name']);
+    const selectedBrand = pickFirst(curr, famLower === 'bikes' ? ['bikeBrand', 'brand', 'Brand', 'make', 'Make'] : ['brand', 'Brand', 'make', 'Make']);
+    const selectedModel = pickFirst(curr, ['model', 'Model', 'modelName', 'model_name', 'name']);
 
     const listsByField = {};
     // Bikes: if both brand and bikeBrand present, drop brand
@@ -732,8 +1228,8 @@ export default function DummyVendorCategoriesDetailPage() {
     }
     const fields = selectedFields
       .filter(Boolean)
-      .sort((a,b) => {
-        const order = ['brand','model'];
+      .sort((a, b) => {
+        const order = ['brand', 'model'];
         const pa = order.indexOf(String(a).toLowerCase());
         const pb = order.indexOf(String(b).toLowerCase());
         if (pa !== -1 || pb !== -1) return (pa === -1 ? 99 : pa) - (pb === -1 ? 99 : pb);
@@ -741,24 +1237,24 @@ export default function DummyVendorCategoriesDetailPage() {
       });
 
     const buildValues = (field) => {
-      const fieldNorm = String(field).toLowerCase().replace(/[^a-z0-9]/g,'');
+      const fieldNorm = String(field).toLowerCase().replace(/[^a-z0-9]/g, '');
       const canonicalJsKey = (
         fieldNorm.endsWith('bodytype') ? 'bodyType' :
-        fieldNorm.endsWith('fueltype') ? 'fuelType' :
-        fieldNorm.endsWith('seats') ? 'seats' :
-        // Normalize any '*transmission' (e.g., 'biketransmission') to canonical 'transmission'
-        fieldNorm.endsWith('transmission') ? 'transmission' :
-        fieldNorm
+          fieldNorm.endsWith('fueltype') ? 'fuelType' :
+            fieldNorm.endsWith('seats') ? 'seats' :
+              // Normalize any '*transmission' (e.g., 'biketransmission') to canonical 'transmission'
+              fieldNorm.endsWith('transmission') ? 'transmission' :
+                fieldNorm
       );
       const keyCandidates = (() => {
         const f = canonicalJsKey;
-        if (f === 'brand' || (famLower === 'bikes' && f === 'bikebrand')) return ['brand','bikeBrand','make','Brand','Make'];
-        if (f === 'model') return ['model','modelName','Model','model_name','name'];
-        if (f === 'variant') return ['variant','Variant','trim','Trim'];
-        if (f === 'transmission') return ['transmission','Transmission','gearbox','gear_type','gearType'];
-        if (f === 'bodyType') return ['bodyType','BodyType','body_type','type'];
-        if (f === 'fuelType') return ['fuelType','FuelType','fueltype','Fuel','fuel_type'];
-        if (f === 'seats') return ['seats','Seats','seatCapacity','SeatCapacity','seatingCapacity','SeatingCapacity'];
+        if (f === 'brand' || (famLower === 'bikes' && f === 'bikebrand')) return ['brand', 'bikeBrand', 'make', 'Brand', 'Make'];
+        if (f === 'model') return ['model', 'modelName', 'Model', 'model_name', 'name'];
+        if (f === 'variant') return ['variant', 'Variant', 'trim', 'Trim'];
+        if (f === 'transmission') return ['transmission', 'Transmission', 'gearbox', 'gear_type', 'gearType'];
+        if (f === 'bodyType') return ['bodyType', 'BodyType', 'body_type', 'type'];
+        if (f === 'fuelType') return ['fuelType', 'FuelType', 'fueltype', 'Fuel', 'fuel_type'];
+        if (f === 'seats') return ['seats', 'Seats', 'seatCapacity', 'SeatCapacity', 'seatingCapacity', 'SeatingCapacity'];
         return [field];
       })();
       const vals = new Set();
@@ -799,7 +1295,7 @@ export default function DummyVendorCategoriesDetailPage() {
     rows.forEach((row) => {
       const matches = items.filter((it) => {
         const hasScope = it && it.scopeFamily && it.scopeLabel;
-        const keyCandidates = hasScope ? [ `${it.scopeFamily}:${it.scopeLabel}:linkedSubcategory`, `${it.scopeFamily}:inventoryLabels:linkedSubcategory` ] : [];
+        const keyCandidates = hasScope ? [`${it.scopeFamily}:${it.scopeLabel}:linkedSubcategory`, `${it.scopeFamily}:inventoryLabels:linkedSubcategory`] : [];
         let linked = [];
         for (const k of keyCandidates) {
           const arr = linkedAttributes?.[k];
@@ -908,7 +1404,7 @@ export default function DummyVendorCategoriesDetailPage() {
             // category items will be resolved by preview/labels; here show generic 'Service'
             return 'Service';
           }).filter(Boolean).join(' • ');
-          rows.push({ key: `${c._id || name}-${String(sz||'default')}`, name, size: sz || 'Default', price, services, terms: (rep && rep.terms) ? rep.terms : (c?.terms || '') });
+          rows.push({ key: `${c._id || name}-${String(sz || 'default')}`, name, size: sz || 'Default', price, services, terms: (rep && rep.terms) ? rep.terms : (c?.terms || '') });
         });
       });
       return rows;
@@ -1070,7 +1566,7 @@ export default function DummyVendorCategoriesDetailPage() {
           >
             Preview
           </button>
-          <button
+          {/* <button
             onClick={() => {
               if (!previewCategoryId) return;
               const homeLocs = (vendor?.location?.nearbyLocations || []).filter(Boolean);
@@ -1082,7 +1578,62 @@ export default function DummyVendorCategoriesDetailPage() {
             style={{ padding: "8px 12px", borderRadius: 8, background: "#059669", color: "#fff", textDecoration: "none", opacity: previewCategoryId ? 1 : 0.6, pointerEvents: previewCategoryId ? "auto" : "none", border: 'none' }}
           >
             NiksPreview
+          </button> */}
+
+
+
+
+          <button
+            style={{
+              padding: '6px 10px',
+              borderRadius: 12,
+              border: 'none',
+              background: '#35d3df',
+              color: '#fff'
+            }}
+            onClick={async () => {
+              if (!vendorId || !previewCategoryId) return;
+
+              const PREVIEW_4000 =
+                process.env.NEXT_PUBLIC_HARISH_PREVIEW_BASE_URL ||
+                "http://localhost:4000";
+
+              let finalVendorName = vendorName;
+
+              // 🔥 GUARANTEED fetch (no race condition)
+              if (!finalVendorName) {
+                try {
+                  const res = await axios.get(
+                    `${API_BASE_URL}/api/dummy-vendors/${vendorId}`
+                  );
+                  finalVendorName = res.data?.name || "";
+                  setVendorName(finalVendorName);
+                } catch (e) {
+                  console.error("Vendor name fetch failed", e);
+                  finalVendorName = "";
+                }
+              }
+
+              const url =
+                `${PREVIEW_4000}/` +
+                `?vendorId=${vendorId}` +
+                `&rootCategoryId=${previewCategoryId}` +
+                `&vendorName=${encodeURIComponent(finalVendorName)}`;
+
+              console.log("Opening preview with vendorName:", finalVendorName);
+
+              window.open(url, "_blank", "noopener,noreferrer");
+            }}
+          >
+            Harish Preview
           </button>
+
+
+
+
+
+
+
         </div>
       </div>
       <div style={{ height: 4 }} />
@@ -1282,18 +1833,18 @@ export default function DummyVendorCategoriesDetailPage() {
           </table>
         </div>
       ) : null}
-       <div style={{ marginTop: 30 }}>
+      <div style={{ marginTop: 30 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <h2 style={{ margin: 0 }}>Categories</h2>
           <div style={{ display: "flex", gap: "8px" }}>
-            <button 
-              style={{ 
-                padding: "6px 12px", 
-                backgroundColor: activeView === 'old' ? "#2563eb" : "#3b82f6", 
-                color: "white", 
-                border: "none", 
-                borderRadius: "4px", 
-                cursor: "pointer" 
+            <button
+              style={{
+                padding: "6px 12px",
+                backgroundColor: activeView === 'old' ? "#2563eb" : "#3b82f6",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer"
               }}
               onClick={() => {
                 setActiveView('old');
@@ -1302,14 +1853,14 @@ export default function DummyVendorCategoriesDetailPage() {
             >
               Old
             </button>
-            <button 
-              style={{ 
-                padding: "6px 12px", 
-                backgroundColor: activeView === 'new' ? "#059669" : "#10b981", 
-                color: "white", 
-                border: "none", 
-                borderRadius: "4px", 
-                cursor: "pointer" 
+            <button
+              style={{
+                padding: "6px 12px",
+                backgroundColor: activeView === 'new' ? "#059669" : "#10b981",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer"
               }}
               onClick={() => {
                 setActiveView('new');
@@ -1318,489 +1869,331 @@ export default function DummyVendorCategoriesDetailPage() {
             >
               New
             </button>
+
+
+            <button
+              style={{
+                padding: "6px 12px",
+                backgroundColor: activeView === 'latest' ? "#7c3aed" : "#8b5cf6",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+              onClick={() => {
+                setActiveView('latest');
+                //  fetchDummyCategories();  
+                fetchLatestPricingTree();
+                console.log("categoryNameMap", categoryNameMap);
+
+              }}
+            >
+              Latest
+            </button>
+
+
           </div>
         </div>
-      {loading ? (
-        <div>Loading...</div>
-      ) : error ? (
-        <div style={{ color: "#991b1b", background: "#fee2e2", border: "1px solid #fecaca", padding: 10, borderRadius: 8 }}>{error}</div>
-      ) : activeView === 'old' ? (
-        rows.length === 0 ? (
-          <div>No categories found</div>
+        {loading ? (
+          <div>Loading...</div>
+        ) : error ? (
+          <div style={{ color: "#b59090", background: "#fee2e2", padding: 10 }}>
+            {error}
+          </div>
+        ) : activeView === 'latest' ? (
+          <LatestPricingTable
+  rows={latestRowsWithCategoryName}
+  editingLatestRowId={editingLatestRowId}
+  setEditingLatestRowId={setEditingLatestRowId}
+  latestEditPrice={latestEditPrice}
+  setLatestEditPrice={setLatestEditPrice}
+  latestEditTerms={latestEditTerms}
+  setLatestEditTerms={setLatestEditTerms}
+  latestSaving={latestSaving}
+  saveLatestRow={saveLatestRow}
+  updateLatestPricingStatus={updateLatestPricingStatus} // ✅ ADD THIS
+/>
+
+
+
+        ) : activeView === 'old' ? (
+          rows.length === 0 ? (
+            <div>No categories found</div>
+          ) : (
+            <table style={{ borderCollapse: "collapse", width: "100%" }}>
+              {/* OLD TABLE JSX */}
+            </table>
+          )
         ) : (
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
-          <thead>
-            <tr>
-              {levelHeaders.map((header, idx) => (
-                <th key={idx} style={{ border: "1px solid #ccc", padding: "8px" }}>{header}</th>
-              ))}
-              {hasInventory ? (
-                <th style={{ border: '1px solid #ccc', padding: 8 }}>Attributes</th>
-              ) : null}
-              {!hasInventory ? (
-                <th style={{ border: '1px solid #ccc', padding: 8 }}>Images</th>
-              ) : null}
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Price</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Terms</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Pricing Status</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Action</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Logs</th>
-            </tr>
-          </thead>
-          <tbody>
-            {expandedRows.map(({ base: row, match, idx }) => (
-              <tr key={`${row.id}-${idx}`}>
-                {levelHeaders.map((_, i) => (
-                  <td key={i} style={{ border: '1px solid #ccc', padding: 8 }}>{row.levels[i] ?? '-'}</td>
+          vendorFlows.length === 0 ? (
+            <div>No vendor flows found</div>
+          ) : (
+            <table style={{ borderCollapse: "collapse", width: "100%" }}>
+              {/* NEW VENDOR FLOW TABLE JSX */}
+            </table>
+          )
+        )}
+
+
+        {activeView === 'old' && (
+          <table style={{ borderCollapse: "collapse", width: "100%" }}>
+            <thead>
+              <tr>
+                {levelHeaders.map((header, idx) => (
+                  <th key={idx} style={{ border: "1px solid #ccc", padding: "8px" }}>{header}</th>
                 ))}
                 {hasInventory ? (
+                  <th style={{ border: '1px solid #ccc', padding: 8 }}>Attributes</th>
+                ) : null}
+                {!hasInventory ? (
+                  <th style={{ border: '1px solid #ccc', padding: 8 }}>Images</th>
+                ) : null}
+                <th style={{ border: "1px solid #ccc", padding: "8px" }}>Price</th>
+                <th style={{ border: "1px solid #ccc", padding: "8px" }}>Terms</th>
+                <th style={{ border: "1px solid #ccc", padding: "8px" }}>Pricing Status</th>
+                <th style={{ border: "1px solid #ccc", padding: "8px" }}>Action</th>
+                <th style={{ border: "1px solid #ccc", padding: "8px" }}>Logs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {expandedRows.map(({ base: row, match, idx }) => (
+                <tr key={`${row.id}-${idx}`}>
+                  {levelHeaders.map((_, i) => (
+                    <td key={i} style={{ border: '1px solid #ccc', padding: 8 }}>{row.levels[i] ?? '-'}</td>
+                  ))}
+                  {hasInventory ? (
+                    <td style={{ border: '1px solid #ccc', padding: 8 }}>
+                      {match ? (
+                        (() => {
+                          const blocks = Object.entries(match.selections || {}).flatMap(([fam, fields]) => {
+                            const famLower = String(fam || '').toLowerCase();
+                            let pairsAll = Object.entries(fields || {}).filter(([k, v]) => {
+                              const fn = String(k).toLowerCase().replace(/[^a-z0-9]/g, '');
+                              return fn !== 'modelfields' && v != null && String(v).trim() !== '';
+                            });
+                            // Bikes: if both bikeBrand and brand present, drop brand
+                            if (famLower === 'bikes') {
+                              const hasBikeBrand = pairsAll.some(([k]) => String(k).toLowerCase() === 'bikebrand');
+                              if (hasBikeBrand) pairsAll = pairsAll.filter(([k]) => String(k).toLowerCase() !== 'brand');
+                            }
+                            return pairsAll.map(([k, v]) => ({ key: `${fam}:${k}`, label: `${k}:`, value: String(v) }));
+                          });
+                          return (
+                            <div style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: 6, background: '#f8fafc' }}>
+                              {blocks.length === 0 ? (
+                                <div style={{ fontSize: 12, color: '#64748b' }}>No attributes</div>
+                              ) : (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 6 }}>
+                                  {blocks.map((b) => (
+                                    <div key={b.key} style={{ fontSize: 12, color: '#334155' }}>
+                                      <span style={{ fontWeight: 600 }}>{b.label}</span> <span>{b.value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <span style={{ color: '#94a3b8' }}>—</span>
+                      )}
+                    </td>
+                  ) : null}
+                  {!hasInventory ? (
+                    <td style={{ border: '1px solid #ccc', padding: 8, verticalAlign: 'top' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {(Array.isArray(vendor?.rowImages?.[row.id]) ? vendor.rowImages[row.id] : []).map((src, i) => {
+                            const raw = String(src || '');
+                            const url = raw.startsWith('http') ? raw : `${API_BASE_URL}${raw}`;
+                            return (
+                              <div key={i} style={{ position: 'relative', width: 56 }}>
+                                <img src={url} alt={`img-${i}`} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }} />
+                                <div style={{ position: 'absolute', right: 2, top: 2, display: 'flex', gap: 4 }}>
+                                  <button title="Replace" onClick={() => {
+                                    const input = document.createElement('input');
+                                    input.type = 'file'; input.accept = 'image/*';
+                                    input.onchange = async (e) => {
+                                      const file = (e.target.files || [])[0]; if (!file) return;
+                                      const form = new FormData(); form.append('image', file);
+                                      try {
+                                        const res = await axios.put(`${API_BASE_URL}/api/dummy-vendors/${vendorId}/rows/${row.id}/images/${i}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+                                        const imgs = res.data?.images || [];
+                                        // update vendor.state rowImages
+                                        setVendor((prev) => ({ ...(prev || {}), rowImages: { ...((prev || {}).rowImages || {}), [row.id]: imgs } }));
+                                      } catch { }
+                                    };
+                                    input.click();
+                                  }} style={{ padding: 2, border: 'none', background: 'rgba(255,255,255,0.85)', borderRadius: 4, cursor: 'pointer' }}>✎</button>
+                                  <button title="Delete" onClick={async () => {
+                                    try {
+                                      const res = await axios.delete(`${API_BASE_URL}/api/dummy-vendors/${vendorId}/rows/${row.id}/images/${i}`);
+                                      const imgs = res.data?.images || [];
+                                      setVendor((prev) => ({ ...(prev || {}), rowImages: { ...((prev || {}).rowImages || {}), [row.id]: imgs } }));
+                                    } catch { }
+                                  }} style={{ padding: 2, border: 'none', background: 'rgba(255,255,255,0.85)', borderRadius: 4, cursor: 'pointer' }}>🗑️</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <span style={{ fontSize: 12, color: '#475569' }}>Uploaded: {(Array.isArray(vendor?.rowImages?.[row.id]) ? vendor.rowImages[row.id].length : 0)}/5</span>
+                          <input type="file" accept="image/*" multiple onChange={async (e) => {
+                            const existing = Array.isArray(vendor?.rowImages?.[row.id]) ? vendor.rowImages[row.id].length : 0;
+                            const remaining = Math.max(0, 5 - existing);
+                            const files = Array.from(e.target.files || []).slice(0, remaining);
+                            if (files.length === 0) return;
+                            const form = new FormData();
+                            files.forEach((f) => form.append('images', f));
+                            try {
+                              const res = await axios.post(`${API_BASE_URL}/api/dummy-vendors/${vendorId}/rows/${row.id}/images`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+                              const imgs = res.data?.images || [];
+                              setVendor((prev) => ({ ...(prev || {}), rowImages: { ...((prev || {}).rowImages || {}), [row.id]: imgs } }));
+                            } catch { }
+                            e.target.value = '';
+                          }} />
+                        </div>
+                      </div>
+                    </td>
+                  ) : null}
                   <td style={{ border: '1px solid #ccc', padding: 8 }}>
                     {match ? (
                       (() => {
-                        const blocks = Object.entries(match.selections || {}).flatMap(([fam, fields]) => {
-                          const famLower = String(fam || '').toLowerCase();
-                          let pairsAll = Object.entries(fields || {}).filter(([k, v]) => {
-                            const fn = String(k).toLowerCase().replace(/[^a-z0-9]/g, '');
-                            return fn !== 'modelfields' && v != null && String(v).trim() !== '';
-                          });
-                          // Bikes: if both bikeBrand and brand present, drop brand
-                          if (famLower === 'bikes') {
-                            const hasBikeBrand = pairsAll.some(([k]) => String(k).toLowerCase() === 'bikebrand');
-                            if (hasBikeBrand) pairsAll = pairsAll.filter(([k]) => String(k).toLowerCase() !== 'brand');
-                          }
-                          return pairsAll.map(([k, v]) => ({ key: `${fam}:${k}`, label: `${k}:`, value: String(v) }));
-                        });
-                        return (
-                          <div style={{ border: '1px solid #e5e7eb', borderRadius: 6, padding: 6, background: '#f8fafc' }}>
-                            {blocks.length === 0 ? (
-                              <div style={{ fontSize: 12, color: '#64748b' }}>No attributes</div>
-                            ) : (
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 6 }}>
-                                {blocks.map((b) => (
-                                  <div key={b.key} style={{ fontSize: 12, color: '#334155' }}>
-                                    <span style={{ fontWeight: 600 }}>{b.label}</span> <span>{b.value}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
+                        try {
+                          const rowKey = Array.isArray(row.levelIds) && row.levelIds.length ? row.levelIds.map(String).join('|') : String(row.id);
+                          const pbr = match && match.pricesByRow && typeof match.pricesByRow === 'object' ? match.pricesByRow : null;
+                          const basePrice = (row && row.price !== undefined && row.price !== null && row.price !== '') ? row.price : null;
+                          const rowPrice = pbr && (pbr[rowKey] !== undefined && pbr[rowKey] !== null)
+                            ? pbr[rowKey]
+                            : (match.price ?? basePrice);
+                          return <span>{rowPrice === undefined || rowPrice === null || rowPrice === '-' ? '-' : rowPrice}</span>;
+                        } catch { return <span>-</span>; }
                       })()
                     ) : (
-                      <span style={{ color: '#94a3b8' }}>—</span>
+                      editingId === row.categoryId ? (
+                        <input type="number" value={editingPrice} onChange={(e) => setEditingPrice(e.target.value)} style={{ width: 100, padding: 6 }} placeholder="Price" />
+                      ) : (
+                        <span>{row.price === undefined || row.price === null || row.price === '-' ? '-' : row.price}</span>
+                      )
                     )}
                   </td>
-                ) : null}
-                {!hasInventory ? (
-                  <td style={{ border: '1px solid #ccc', padding: 8, verticalAlign: 'top' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {(Array.isArray(vendor?.rowImages?.[row.id]) ? vendor.rowImages[row.id] : []).map((src, i) => {
-                          const raw = String(src || '');
-                          const url = raw.startsWith('http') ? raw : `${API_BASE_URL}${raw}`;
-                          return (
-                            <div key={i} style={{ position: 'relative', width: 56 }}>
-                              <img src={url} alt={`img-${i}`} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, border: '1px solid #eee' }} />
-                              <div style={{ position: 'absolute', right: 2, top: 2, display: 'flex', gap: 4 }}>
-                                <button title="Replace" onClick={() => {
-                                  const input = document.createElement('input');
-                                  input.type = 'file'; input.accept = 'image/*';
-                                  input.onchange = async (e) => {
-                                    const file = (e.target.files || [])[0]; if (!file) return;
-                                    const form = new FormData(); form.append('image', file);
-                                    try {
-                                      const res = await axios.put(`${API_BASE_URL}/api/dummy-vendors/${vendorId}/rows/${row.id}/images/${i}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
-                                      const imgs = res.data?.images || [];
-                                      // update vendor.state rowImages
-                                      setVendor((prev) => ({ ...(prev || {}), rowImages: { ...((prev||{}).rowImages || {}), [row.id]: imgs } }));
-                                    } catch {}
-                                  };
-                                  input.click();
-                                }} style={{ padding: 2, border: 'none', background: 'rgba(255,255,255,0.85)', borderRadius: 4, cursor: 'pointer' }}>✎</button>
-                                <button title="Delete" onClick={async () => {
-                                  try {
-                                    const res = await axios.delete(`${API_BASE_URL}/api/dummy-vendors/${vendorId}/rows/${row.id}/images/${i}`);
-                                    const imgs = res.data?.images || [];
-                                    setVendor((prev) => ({ ...(prev || {}), rowImages: { ...((prev||{}).rowImages || {}), [row.id]: imgs } }));
-                                  } catch {}
-                                }} style={{ padding: 2, border: 'none', background: 'rgba(255,255,255,0.85)', borderRadius: 4, cursor: 'pointer' }}>🗑️</button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <span style={{ fontSize: 12, color: '#475569' }}>Uploaded: {(Array.isArray(vendor?.rowImages?.[row.id]) ? vendor.rowImages[row.id].length : 0)}/5</span>
-                        <input type="file" accept="image/*" multiple onChange={async (e) => {
-                          const existing = Array.isArray(vendor?.rowImages?.[row.id]) ? vendor.rowImages[row.id].length : 0;
-                          const remaining = Math.max(0, 5 - existing);
-                          const files = Array.from(e.target.files || []).slice(0, remaining);
-                          if (files.length === 0) return;
-                          const form = new FormData();
-                          files.forEach((f) => form.append('images', f));
-                          try {
-                            const res = await axios.post(`${API_BASE_URL}/api/dummy-vendors/${vendorId}/rows/${row.id}/images`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
-                            const imgs = res.data?.images || [];
-                            setVendor((prev) => ({ ...(prev || {}), rowImages: { ...((prev||{}).rowImages || {}), [row.id]: imgs } }));
-                          } catch {}
-                          e.target.value = '';
-                        }} />
-                      </div>
-                    </div>
-                  </td>
-                ) : null}
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>
-                  {match ? (
-                    (() => {
+                  <td style={{ border: '1px solid #ccc', padding: 8 }}>
+                    {(() => {
                       try {
-                        const rowKey = Array.isArray(row.levelIds) && row.levelIds.length ? row.levelIds.map(String).join('|') : String(row.id);
-                        const pbr = match && match.pricesByRow && typeof match.pricesByRow === 'object' ? match.pricesByRow : null;
-                        const basePrice = (row && row.price !== undefined && row.price !== null && row.price !== '') ? row.price : null;
-                        const rowPrice = pbr && (pbr[rowKey] !== undefined && pbr[rowKey] !== null)
-                          ? pbr[rowKey]
-                          : (match.price ?? basePrice);
-                        return <span>{rowPrice === undefined || rowPrice === null || rowPrice === '-' ? '-' : rowPrice}</span>;
-                      } catch { return <span>-</span>; }
-                    })()
-                  ) : (
-                    editingId === row.categoryId ? (
-                      <input type="number" value={editingPrice} onChange={(e) => setEditingPrice(e.target.value)} style={{ width: 100, padding: 6 }} placeholder="Price" />
-                    ) : (
-                      <span>{row.price === undefined || row.price === null || row.price === '-' ? '-' : row.price}</span>
-                    )
-                  )}
-                </td>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>
-                  {(() => {
-                    try {
-                      const raw = row && row.terms != null ? row.terms : '';
-                      const txt = String(raw || '');
-                      const parts = txt
-                        .split(',')
-                        .map((s) => s.trim())
-                        .filter(Boolean);
-                      if (!parts.length) return '—';
-                      const sel = (() => {
-                        try {
-                          const key = String(row.categoryId || row.id || '');
-                          const arr = Array.isArray(termsSelectionsByNode?.[key]) ? termsSelectionsByNode[key] : [];
-                          return arr;
-                        } catch { return []; }
-                      })();
-                      return (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {parts.map((label, i) => (
-                            <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-                              <input
-                                type="checkbox"
-                                checked={sel.includes(i)}
-                                onChange={() => toggleNodeTermSelection(row.categoryId || row.id, i)}
-                                style={{ width: 12, height: 12 }}
-                              />
-                              <span>{label}</span>
-                            </label>
-                          ))}
-                        </div>
-                      );
-                    } catch {
-                      return '—';
-                    }
-                  })()}
-                </td>
-                <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-                  {(() => {
-                    const isInventoryRow = Boolean(match);
-                    const rowKey = Array.isArray(row.levelIds) && row.levelIds.length ? row.levelIds.map(String).join('|') : String(row.id);
-                    const key = isInventoryRow
-                      ? `inv:${String(match._id || match.at)}|${rowKey}` 
-                      : `cat:${row.categoryId}`;
-                    const baseStatus = (() => {
-                      const nodeMap = (vendor && vendor.nodePricingStatus && typeof vendor.nodePricingStatus === 'object') ? vendor.nodePricingStatus : {};
-                      const firstSubcatId = (() => {
-                        try {
-                          const lvlIds = Array.isArray(row.levelIds) ? row.levelIds.map((x) => String(x)) : [];
-                          const firstIdx = (lvlIds[0] === 'root') ? 2 : 1;
-                          return lvlIds.length > firstIdx ? String(lvlIds[firstIdx]) : null;
-                        } catch { return null; }
-                      })();
-                      const nodeFallback = (() => {
-                        try {
-                          const leafId = String(row.categoryId || row.id || '');
-                          const vLeaf = leafId ? nodeMap[leafId] : undefined;
-                          const vLvl1 = firstSubcatId ? nodeMap[String(firstSubcatId)] : undefined;
-                          return vLeaf || vLvl1 || undefined;
-                        } catch { return undefined; }
-                      })();
-                      if (!isInventoryRow) {
-                        try {
-                          return nodeFallback || row.pricingStatus || 'Inactive';
-                        } catch {
-                          return row.pricingStatus || 'Inactive';
-                        }
+                        const raw = row && row.terms != null ? row.terms : '';
+                        const txt = String(raw || '');
+                        const parts = txt
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean);
+                        if (!parts.length) return '—';
+                        const sel = (() => {
+                          try {
+                            const key = String(row.categoryId || row.id || '');
+                            const arr = Array.isArray(termsSelectionsByNode?.[key]) ? termsSelectionsByNode[key] : [];
+                            return arr;
+                          } catch { return []; }
+                        })();
+                        return (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {parts.map((label, i) => (
+                              <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={sel.includes(i)}
+                                  onChange={() => toggleNodeTermSelection(row.categoryId || row.id, i)}
+                                  style={{ width: 12, height: 12 }}
+                                />
+                                <span>{label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        );
+                      } catch {
+                        return '—';
                       }
-                      const map = (match.pricingStatusByRow && typeof match.pricingStatusByRow === 'object') ? match.pricingStatusByRow : {};
-                      return map[rowKey] || nodeFallback || 'Inactive';
-                    })();
-                    const current = pricingStatusByRow[key] || baseStatus || 'Inactive';
-                    return (
-                      <select
-                        value={current}
-                        onChange={async (e) => {
-                          const val = e.target.value === 'Active' ? 'Active' : 'Inactive';
-                          setPricingStatusByRow((prev) => ({ ...prev, [key]: val }));
-                          if (isInventoryRow) {
-                            try {
-                              const entryId = String(match._id || match.at);
-                              const topCatId = (vendor && (vendor.categoryId || vendor.category?._id)) || categoryId;
-                              const items = Array.isArray(invItems)
-                                ? invItems.map((it) => {
-                                    if (String(it._id || it.at) !== entryId) return it;
-                                    const map = (it.pricingStatusByRow && typeof it.pricingStatusByRow === 'object') ? it.pricingStatusByRow : {};
-                                    return { ...it, pricingStatusByRow: { ...map, [rowKey]: val } };
-                                  })
-                                : [];
-                              // Persist per-row status inside inventorySelections
-                              await saveDummyInventorySelections(vendorId, topCatId, items);
-                              setInvItems(items);
+                    })()}
+                  </td>
+                  <td style={{ border: "1px solid #ccc", padding: "8px" }}>
+                    <select
+                      value={resolveCategoryPricingStatus({ row, match })}
+                      title={activeView === 'latest' ? 'Managed by Latest Pricing System' : ''}
+                      onChange={async (e) => {
+                        if (activeView === 'latest') return;
 
-                              // Also mirror this status at node level so preview, which
-                              // primarily reads vendor.nodePricingStatus, reflects
-                              // inventory rows as Active/Inactive for this category node.
-                              const nodeId = String(row.categoryId || row.id);
-                              const existingNodeMap =
-                                vendor &&
-                                vendor.nodePricingStatus &&
-                                typeof vendor.nodePricingStatus === 'object'
-                                  ? vendor.nodePricingStatus
-                                  : {};
-                              const nextNodeMap = { ...existingNodeMap, [nodeId]: val };
-                              await axios.put(`${API_BASE_URL}/api/dummy-vendors/${vendorId}`, {
-                                nodePricingStatus: nextNodeMap,
-                              }, {
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                  'x-actor-role': 'admin',
-                                  'x-vendor-id': vendorId,
-                                  'x-root-category-id': categoryId,
-                                },
-                              });
-                              setVendor((prev) => ({ ...(prev || {}), nodePricingStatus: nextNodeMap }));
-                            } catch (err) {
-                              alert(err?.response?.data?.message || 'Failed to update pricing status');
-                            }
-                          } else {
-                            try {
-                              const nodeId = String(row.categoryId || row.id);
-                              const existing = (vendor && vendor.nodePricingStatus && typeof vendor.nodePricingStatus === 'object') ? vendor.nodePricingStatus : {};
-                              const nextMap = { ...existing, [nodeId]: val };
-                              await axios.put(`${API_BASE_URL}/api/dummy-vendors/${vendorId}`, { nodePricingStatus: nextMap }, {
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                  'x-actor-role': 'admin',
-                                  'x-vendor-id': vendorId,
-                                  'x-root-category-id': categoryId,
-                                },
-                              });
-                              setVendor((prev) => ({ ...(prev || {}), nodePricingStatus: nextMap }));
-                            } catch (err) {
-                              alert(err?.response?.data?.message || 'Failed to update pricing status');
-                            }
-                          }
+                        const val = e.target.value === 'Active' ? 'Active' : 'Inactive';
+                        // existing OLD onChange logic untouched
+                      }}
+                      style={{ padding: 4, borderRadius: 4, border: '1px solid #d1d5db', fontSize: 13 }}
+                    >
+                      <option value="Inactive">Inactive</option>
+                      <option value="Active">Active</option>
+                    </select>
+                  </td>
+
+                  <td style={{ border: '1px solid #ccc', padding: 8 }}>
+                    {match ? (
+                      <button
+                        onClick={() => {
+                          const rowKey = Array.isArray(row.levelIds) && row.levelIds.length ? row.levelIds.map(String).join('|') : String(row.id);
+                          const pbr = match && match.pricesByRow && typeof match.pricesByRow === 'object' ? match.pricesByRow : null;
+                          const basePrice = (row && row.price !== undefined && row.price !== null && row.price !== '-') ? row.price : '';
+                          const rowPrice = pbr && (pbr[rowKey] !== undefined) ? pbr[rowKey] : (match.price ?? basePrice);
+                          setRowPriceEdit({ key: match._id || match.at, rowKey, price: rowPrice, labels: { category: row.levels.slice(-1)[0], attrs: match.selections || {} } })
                         }}
-                        style={{ padding: 4, borderRadius: 4, border: '1px solid #d1d5db', fontSize: 13 }}
-                      >
-                        <option value="Inactive">Inactive</option>
-                        <option value="Active">Active</option>
-                      </select>
-                    );
-                  })()}
-                </td>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>
-                  {match ? (
-                    <button
-                      onClick={() => {
-                        const rowKey = Array.isArray(row.levelIds) && row.levelIds.length ? row.levelIds.map(String).join('|') : String(row.id);
-                        const pbr = match && match.pricesByRow && typeof match.pricesByRow === 'object' ? match.pricesByRow : null;
-                        const basePrice = (row && row.price !== undefined && row.price !== null && row.price !== '-') ? row.price : '';
-                        const rowPrice = pbr && (pbr[rowKey] !== undefined) ? pbr[rowKey] : (match.price ?? basePrice);
-                        setRowPriceEdit({ key: match._id || match.at, rowKey, price: rowPrice, labels: { category: row.levels.slice(-1)[0], attrs: match.selections || {} } })
-                      }}
-                      style={{ padding: '4px 8px', borderRadius: 4, background: '#0ea5e9', color: '#fff', border: 'none' }}
-                    >Edit</button>
-                  ) : (
-                    <>
-                      {editingId === row.categoryId ? (
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button onClick={onSave} disabled={saving} style={{ padding: '6px 10px', borderRadius: 6, background: '#16a34a', color: '#fff', border: 'none' }}>{saving ? 'Saving...' : 'Save'}</button>
-                          <button onClick={onCancel} disabled={saving} style={{ padding: '6px 10px', borderRadius: 6, background: '#9ca3af', color: '#111', border: 'none' }}>Cancel</button>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <button onClick={() => setEditingId(row.categoryId)} style={{ padding: '6px 10px', borderRadius: 6, background: '#0ea5e9', color: '#fff', border: 'none' }}>Edit</button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </td>
-                <td style={{ border: '1px solid #ccc', padding: 8 }}>
-                  {match ? (
-                    <button
-                      onClick={() => {
-                        const key = String(match._id || match.at);
-                        const rowKey = Array.isArray(row.levelIds) && row.levelIds.length ? row.levelIds.map(String).join('|') : String(row.id);
-                        const label = row.levels?.join(' / ') || 'Row';
-                        loadLogs({
-                          entityType: 'dummy_inventory_row',
-                          entityId: key,
-                          label,
-                          rowKey,
-                        });
-                      }}
-                      style={{ padding: '4px 8px', borderRadius: 4, background: '#f97316', color: '#fff', border: 'none', fontSize: 12 }}
-                    >See Logs</button>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        const label = row.levels?.join(' / ') || 'Category';
-                        loadLogs({
-                          entityType: 'dummy_category',
-                          entityId: String(row.categoryId || row.id),
-                          label,
-                        });
-                      }}
-                      style={{ padding: '4px 8px', borderRadius: 4, background: '#f97316', color: '#fff', border: 'none', fontSize: 12 }}
-                    >See Logs</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        )
-      ) : (
-        // New VendorFlow View
-        vendorFlows.length === 0 ? (
-          <div>No vendor flows found</div>
-        ) : (
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
-          <thead>
-            <tr>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Category</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Level 2</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Level 3</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Attributes</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Price</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Terms</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Pricing Status</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Action</th>
-              <th style={{ border: "1px solid #ccc", padding: "8px" }}>Logs</th>
-            </tr>
-          </thead>
-          <tbody>
-  {vendorFlows.map((flow) => (
-    <tr key={flow._serviceId || flow._id}>
-      <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-        {(Array.isArray(flow.categoryPath) && flow.categoryPath[0]) || '-'}
-      </td>
-      <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-        {(Array.isArray(flow.categoryPath) && flow.categoryPath[1]) || '-'}
-      </td>
-      <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-        {(Array.isArray(flow.categoryPath) && flow.categoryPath[2]) || '-'}
-      </td>
-      <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-        {flow.attributes && typeof flow.attributes === 'object'
-          ? Object.entries(flow.attributes).map(([key, value]) => (
-              <div key={key} style={{ fontSize: '12px' }}>
-                <strong>{key}:</strong> {value}
-              </div>
-            ))
-          : '-'
-        }
-      </td>
-      <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-        {editingNewFlow && (editingNewFlow.id === (flow._serviceId || flow._id)) ? (
-          <input
-            type="number"
-            value={editingNewFlow.price}
-            onChange={(e) => setEditingNewFlow((prev) => ({ ...(prev || {}), price: e.target.value }))}
-            style={{ width: 120, padding: 6 }}
-            placeholder="Price"
-          />
-        ) : (
-          <span>{(flow.price === undefined || flow.price === null || flow.price === '-') ? '-' : flow.price}</span>
+                        style={{ padding: '4px 8px', borderRadius: 4, background: '#0ea5e9', color: '#fff', border: 'none' }}
+                      >Edit</button>
+                    ) : (
+                      <>
+                        {editingId === row.categoryId ? (
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button onClick={onSave} disabled={saving} style={{ padding: '6px 10px', borderRadius: 6, background: '#16a34a', color: '#fff', border: 'none' }}>{saving ? 'Saving...' : 'Save'}</button>
+                            <button onClick={onCancel} disabled={saving} style={{ padding: '6px 10px', borderRadius: 6, background: '#9ca3af', color: '#111', border: 'none' }}>Cancel</button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button onClick={() => setEditingId(row.categoryId)} style={{ padding: '6px 10px', borderRadius: 6, background: '#0ea5e9', color: '#fff', border: 'none' }}>Edit</button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </td>
+                  <td style={{ border: '1px solid #ccc', padding: 8 }}>
+                    {match ? (
+                      <button
+                        onClick={() => {
+                          const key = String(match._id || match.at);
+                          const rowKey = Array.isArray(row.levelIds) && row.levelIds.length ? row.levelIds.map(String).join('|') : String(row.id);
+                          const label = row.levels?.join(' / ') || 'Row';
+                          loadLogs({
+                            entityType: 'dummy_inventory_row',
+                            entityId: key,
+                            label,
+                            rowKey,
+                          });
+                        }}
+                        style={{ padding: '4px 8px', borderRadius: 4, background: '#f97316', color: '#fff', border: 'none', fontSize: 12 }}
+                      >See Logs</button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          const label = row.levels?.join(' / ') || 'Category';
+                          loadLogs({
+                            entityType: 'dummy_category',
+                            entityId: String(row.categoryId || row.id),
+                            label,
+                          });
+                        }}
+                        style={{ padding: '4px 8px', borderRadius: 4, background: '#f97316', color: '#fff', border: 'none', fontSize: 12 }}
+                      >See Logs</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
-      </td>
-      <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-        {Array.isArray(flow.terms) && flow.terms.length > 0
-          ? flow.terms.map((term, idx) => (
-              <div key={idx} style={{ fontSize: '12px', marginBottom: '2px' }}>
-                {String(term)}
-              </div>
-            ))
-          : '-'
-        }
-      </td>
-      <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-        <select
-          value={
-            (() => {
-              const sid = String(flow._serviceId || flow._id || '');
-              if (sid && Object.prototype.hasOwnProperty.call(nodeActiveMap, sid)) {
-                return nodeActiveMap[sid] ? 'ACTIVE' : 'INACTIVE';
-              }
-              const raw = flow.status ? String(flow.status).toUpperCase() : '';
-              return raw === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE';
-            })()
-          }
-          style={{ padding: '4px', borderRadius: '4px', border: '1px solid #d1d5db', fontSize: '13px' }}
-          onChange={(e) => {
-            const serviceId = flow._serviceId || flow._id;
-            updateServiceStatus(serviceId, e.target.value);
-          }}
-        >
-          <option value="INACTIVE">INACTIVE</option>
-          <option value="ACTIVE">ACTIVE</option>
-        </select>
-      </td>
-      <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-        {editingNewFlow && (editingNewFlow.id === (flow._serviceId || flow._id)) ? (
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              onClick={saveEditNewFlow}
-              style={{ padding: '4px 8px', borderRadius: 4, background: '#16a34a', color: '#fff', border: 'none', fontSize: 12 }}
-            >Save</button>
-            <button
-              onClick={cancelEditNewFlow}
-              style={{ padding: '4px 8px', borderRadius: 4, background: '#e5e7eb', border: '1px solid #d1d5db', fontSize: 12 }}
-            >Cancel</button>
-          </div>
-        ) : (
-          <button
-            style={{ padding: '4px 8px', borderRadius: '4px', background: '#3b82f6', color: '#fff', border: 'none', fontSize: '12px' }}
-            onClick={() => startEditNewFlow(flow)}
-          >
-            Edit
-          </button>
-        )}
-      </td>
-      <td style={{ border: "1px solid #ccc", padding: "8px" }}>
-        <button
-          style={{ padding: '4px 8px', borderRadius: '4px', background: '#f97316', color: '#fff', border: 'none', fontSize: '12px' }}
-          onClick={() => {
-            const serviceId = flow._serviceId || flow._id;
-            fetchServiceLogs(serviceId);
-          }}
-        >
-          See Logs
-        </button>
-      </td>
-    </tr>
-  ))}
-</tbody>
-        </table>
-        )
-      )}
       </div>
 
       {showEnquiriesModal && (
@@ -1843,7 +2236,7 @@ export default function DummyVendorCategoriesDetailPage() {
                       {fields.map((heading) => {
                         const values = Array.isArray(listsByField[heading]) ? listsByField[heading] : [];
                         const val = curr[heading] || '';
-                        const hLower = String(heading).toLowerCase().replace(/[^a-z0-9]/g,'');
+                        const hLower = String(heading).toLowerCase().replace(/[^a-z0-9]/g, '');
                         const isBrand = hLower.endsWith('brand');
                         const isModel = hLower.endsWith('model');
                         const brandSelected = Boolean(curr.bikeBrand || curr.brand || curr.Brand || curr.make || curr.Make);
@@ -1877,7 +2270,7 @@ export default function DummyVendorCategoriesDetailPage() {
                                   return { ...prev, [familyKey]: nextFam };
                                 });
                                 if (isBrand) {
-                                  try { fetchModelsForFamily(familyKey); } catch {}
+                                  try { fetchModelsForFamily(familyKey); } catch { }
                                 }
                               }}
                               style={{ padding: 8, border: '1px solid #ddd', borderRadius: 6 }}
@@ -1989,7 +2382,7 @@ export default function DummyVendorCategoriesDetailPage() {
                                                   const res = await axios.put(`${API_BASE_URL}/api/dummy-categories/${previewCategoryId}/vendors/${vendorId}/inventory/${key}/images/${i}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
                                                   const imgs = res.data?.images || [];
                                                   setInvItems((prev) => prev.map((p) => ((String(p._id || p.at) === key) ? { ...p, images: imgs } : p)));
-                                                } catch {}
+                                                } catch { }
                                               };
                                               input.click();
                                             }} style={{ padding: 2, border: 'none', background: 'rgba(255,255,255,0.85)', borderRadius: 4, cursor: 'pointer' }}>✎</button>
@@ -1999,7 +2392,7 @@ export default function DummyVendorCategoriesDetailPage() {
                                                 const res = await axios.delete(`${API_BASE_URL}/api/dummy-categories/${previewCategoryId}/vendors/${vendorId}/inventory/${key}/images/${i}`);
                                                 const imgs = res.data?.images || [];
                                                 setInvItems((prev) => prev.map((p) => ((String(p._id || p.at) === key) ? { ...p, images: imgs } : p)));
-                                              } catch {}
+                                              } catch { }
                                             }} style={{ padding: 2, border: 'none', background: 'rgba(255,255,255,0.85)', borderRadius: 4, cursor: 'pointer' }}>🗑️</button>
                                           </div>
                                         </div>
@@ -2020,7 +2413,7 @@ export default function DummyVendorCategoriesDetailPage() {
                                         const res = await axios.post(`${API_BASE_URL}/api/dummy-categories/${previewCategoryId}/vendors/${vendorId}/inventory/${key}/images`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
                                         const imgs = res.data?.images || [];
                                         setInvItems((prev) => prev.map((p) => ((String(p._id || p.at) === key) ? { ...p, images: imgs } : p)));
-                                      } catch {}
+                                      } catch { }
                                       e.target.value = '';
                                     }} />
                                   </div>
@@ -2053,7 +2446,7 @@ export default function DummyVendorCategoriesDetailPage() {
                                           });
                                           return next;
                                         });
-                                      } catch {}
+                                      } catch { }
                                     }}
                                     style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff' }}
                                   >✎</button>
@@ -2231,8 +2624,8 @@ export default function DummyVendorCategoriesDetailPage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <input type="number" placeholder="Price" value={rowPriceEdit.price}
-                     onChange={(e) => setRowPriceEdit((p) => ({ ...p, price: e.target.value }))}
-                     style={{ padding: 8, border: '1px solid #ddd', borderRadius: 6 }} />
+                onChange={(e) => setRowPriceEdit((p) => ({ ...p, price: e.target.value }))}
+                style={{ padding: 8, border: '1px solid #ddd', borderRadius: 6 }} />
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
                 <button onClick={() => setRowPriceEdit(null)} style={{ padding: '6px 10px', borderRadius: 6, background: '#e5e7eb', border: 'none' }}>Cancel</button>
                 <button onClick={async () => {

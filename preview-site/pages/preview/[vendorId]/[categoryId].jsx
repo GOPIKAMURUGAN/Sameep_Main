@@ -13,6 +13,208 @@ import Footer from "../../../components/Footer";
 import FullPageShimmer from "../../../components/FullPageShimmer";
 import API_BASE_URL, { ASSET_BASE_URL } from "../../../config";
 
+
+
+// ----------------- Helpers -----------------
+
+const hasChildren = (node) => node?.children?.length > 0;
+
+/**
+ * Extract active leaf category IDs from selection map
+ * { id: true/false } → [id, id]
+ */
+const extractActiveLeafIds = (selectedMap = {}) => {
+  return Object.keys(selectedMap).filter(
+    (id) => selectedMap[id] === true
+  );
+};
+
+// 🔽 Recursive tree renderer (READ-ONLY, Step 3.3)
+
+const CategoryTreeNode = ({
+  node,
+  level = 0,
+  selectedMap = {},
+  setSelectedMap = () => {},
+}) => {
+  console.log(
+    "🌿 CategoryTreeNode",
+    "name:", node?.name,
+    "level:", level,
+    "isLeaf:", !node?.children?.length,
+    "selectedMap defined:", typeof selectedMap === "object"
+  );
+
+  return (
+    <div style={{ marginLeft: level * 16 }}>
+
+
+<div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "4px 0",
+  }}
+>
+  {/* ✅ Checkbox ONLY for leaf nodes */}
+  {!node?.children?.length && (
+    <input
+      type="checkbox"
+      checked={!!selectedMap[node._id || node.id]}
+onChange={() => {
+  const id = node._id || node.id;
+  setSelectedMap((prev) => ({
+    ...prev,
+    [id]: !prev[id],
+  }));
+}}
+
+    />
+  )}
+
+<div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 14,
+    fontWeight: node?.children?.length ? 600 : 400,
+  }}
+>
+
+{/* Checkbox only for LEAF nodes */}
+{!hasChildren(node) && (
+  <input
+    type="checkbox"
+    checked={!!selectedMap[node._id || node.id]}
+    onChange={() => {
+      const id = node._id || node.id;
+      setSelectedMap((prev) => ({
+        ...prev,
+        [id]: !prev[id],
+      }));
+    }}
+  />
+)}
+
+
+  <span>{node.name}</span>
+</div>
+
+</div>
+
+{Array.isArray(node.children) &&
+  node.children.map((child) => (
+    <CategoryTreeNode
+      key={child._id || child.id}
+      node={child}
+      level={level + 1}
+      selectedMap={selectedMap}
+      setSelectedMap={setSelectedMap}
+    />
+  ))}
+</div>
+
+
+  );
+};
+
+/**
+ * Recursively fetch full category tree
+ * Uses /api/dummy-categories?parentId=
+ */
+const fetchCategoryTreeRecursive = async (parentId) => {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/dummy-categories?parentId=${parentId}`
+    );
+
+    if (!res.ok) {
+      console.error("❌ Failed to fetch children for:", parentId);
+      return [];
+    }
+
+    const children = await res.json();
+    const list = Array.isArray(children) ? children : [];
+
+    // For each child, fetch its children
+    const withChildren = await Promise.all(
+      list.map(async (node) => {
+        const nodeId = node._id || node.id;
+        if (!nodeId) return node;
+
+        const subChildren = await fetchCategoryTreeRecursive(nodeId);
+
+        return {
+          ...node,
+          children: subChildren,
+        };
+      })
+    );
+
+    return withChildren;
+  } catch (err) {
+    console.error("❌ Recursive fetch error:", err);
+    return [];
+  }
+};
+
+/**
+ * Render subcategory hierarchy recursively (UI)
+ * Supports unlimited depth
+ */
+const renderSubcategoryTree = (nodes = [], level = 0, {
+  setupSelectedSubcategories,
+  setSetupSelectedSubcategories,
+}) => {
+  if (!Array.isArray(nodes) || nodes.length === 0) return null;
+
+  return nodes.map((node) => {
+    const id = node._id || node.id;
+    const name = node.name || "Unnamed";
+    const isChecked = !!setupSelectedSubcategories[id];
+    const hasKids = Array.isArray(node.children) && node.children.length > 0;
+
+    return (
+      <div key={id} style={{ marginLeft: level * 16 }}>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px 12px",
+            borderRadius: 8,
+            border: isChecked ? "2px solid #2563eb" : "1px solid #e5e7eb",
+            background: isChecked ? "#eff6ff" : "#fff",
+            cursor: "pointer",
+            marginBottom: 6,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={() =>
+              setSetupSelectedSubcategories((prev) => ({
+                ...prev,
+                [id]: !prev[id],
+              }))
+            }
+          />
+          <span style={{ fontSize: 14, fontWeight: 500 }}>{name}</span>
+        </label>
+
+        {hasKids &&
+          renderSubcategoryTree(node.children, level + 1, {
+            setupSelectedSubcategories,
+            setSetupSelectedSubcategories,
+          })}
+      </div>
+    );
+  });
+};
+
+
 const LocationPickerModal = dynamic(() => import("../../../components/LocationPickerModal"), { ssr: false });
 const BusinessLocationModal = dynamic(() => import("../../../components/BusinessLocationModal"), { ssr: false });
 const BusinessHoursModal = dynamic(() => import("../../../components/BusinessHoursModal"), { ssr: false });
@@ -115,6 +317,25 @@ export default function PreviewPage() {
   const [setupSubcategories, setSetupSubcategories] = useState([]); // first-level children of selected category
   const [setupSelectedSubcategories, setSetupSelectedSubcategories] = useState({}); // { [id]: true/false }
   const [setupSubcategoriesLoading, setSetupSubcategoriesLoading] = useState(false);
+
+  const [setupCategoryTree, setSetupCategoryTree] = useState([]);
+  console.log("🧪 Selected map:", setupSelectedSubcategories);
+
+
+
+  console.log(
+  "🧠 POPUP STATE",
+  "show:", showSubcategoryPopup,
+  "loading:", setupSubcategoriesLoading,
+  "count:", setupSubcategories.length
+);
+
+  // ----------------- Derived values -----------------
+
+const activeLeafCategoryIds = extractActiveLeafIds(
+  setupSelectedSubcategories
+);
+
   // Vehicle count popup state for inventory model categories
   const [showVehicleCountPopup, setShowVehicleCountPopup] = useState(false);
   const [setupVehicleCounts, setSetupVehicleCounts] = useState({}); // { [serviceId]: count }
@@ -165,6 +386,11 @@ export default function PreviewPage() {
   const [expandedEnquiryId, setExpandedEnquiryId] = useState(null); // which individual enquiry card details are visible
 
   const loading = loadingVendor || loadingCategories;
+
+
+
+console.log("🟢 Active leaf category IDs:", activeLeafCategoryIds);
+
 
   const formatElapsed = useCallback((ms) => {
     try {
@@ -649,7 +875,7 @@ export default function PreviewPage() {
       setSetupOtpSendError("");
       setSetupOtpVerifyError("");
 
-      const bypassRes = await fetch(`/api/customers/bypass-otp`, {
+      const bypassRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/customers/bypass-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -939,77 +1165,100 @@ export default function PreviewPage() {
     }
   };
 
-  const loadSetupFirstLevelServices = useCallback(async () => {
-    try {
-      const opts = (arguments && arguments.length > 0 ? arguments[0] : null) || {};
-      const openPopup = opts && typeof opts.openPopup === "boolean" ? opts.openPopup : true;
-      const preserveSelection = opts && typeof opts.preserveSelection === "boolean" ? opts.preserveSelection : false;
-      const overrideDvId = opts && typeof opts.overrideDvId === "string" ? opts.overrideDvId : "";
-      const overrideCatId = opts && (typeof opts.overrideCatId === "string" || typeof opts.overrideCatId === "number")
-        ? String(opts.overrideCatId)
-        : "";
+  const loadSetupFirstLevelServices = useCallback(
+  async ({ preserveSelection = false, openPopup = false } = {}) => {
+    console.log("🟢 loadSetupFirstLevelServices called");
+    console.log("🟡 setupSelectedCategory:", setupSelectedCategory);
+    setSetupSubcategoriesLoading(true);
 
-      setSetupGeneratePreviewError("");
-      const dvId = overrideDvId || setupGeneratedDummyVendorId;
-      const catId = overrideCatId || setupSelectedCategory?._id || setupSelectedCategory?.id;
+    try {
+      const catId =
+        setupSelectedCategory?._id || setupSelectedCategory?.id;
+
+        // 🔵 Load full category tree once
+        const fullTree = await fetchCategoryTreeRecursive(catId);
+        setSetupCategoryTree(fullTree);
+
+        console.log("🌳 Full category tree loaded:", fullTree);
+
+
+        console.log("🟠 raw _id:", setupSelectedCategory?._id);
+      console.log("🟠 computed catId:", catId, typeof catId);
+
       if (!catId) {
-        setSetupGeneratePreviewError("Preview link not ready yet");
-        return false;
-      }
-      setSetupSubcategoriesLoading(true);
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/dummy-categories?parentId=${catId}`);
-        if (res.ok) {
-          const children = await res.json();
-          const childrenArr = Array.isArray(children) ? children : [];
-          // Include all subcategories - allow packages and other categories to show
-          const filteredChildren = childrenArr.filter((c) => {
-            const name = String(c.name || "").toLowerCase().trim();
-            return true; // Show all categories including packages
-          });
-          setSetupSubcategories(filteredChildren);
-          if (!preserveSelection) {
-            const defaultSelected = {};
-            filteredChildren.forEach((c) => {
-              const id = c._id || c.id;
-              if (id) defaultSelected[id] = true;
-            });
-            setSetupSelectedSubcategories(defaultSelected);
-          } else {
-            setSetupSelectedSubcategories((prev) => {
-              try {
-                const base = prev && typeof prev === "object" ? prev : {};
-                const out = { ...base };
-                filteredChildren.forEach((c) => {
-                  const id = c._id || c.id;
-                  if (!id) return;
-                  if (typeof out[id] === "undefined") out[id] = true;
-                });
-                return out;
-              } catch {
-                return prev;
-              }
-            });
-          }
-        } else {
-          setSetupSubcategories([]);
-          setSetupSelectedSubcategories({});
-        }
-      } catch {
         setSetupSubcategories([]);
         setSetupSelectedSubcategories({});
-      } finally {
-        setSetupSubcategoriesLoading(false);
+        return false;
       }
+
+      const res = await fetch(
+  `${API_BASE_URL}/api/dummy-categories?parentId=${catId}`
+);
+
+console.log("🟢 Subcategory API status:", res.status);
+
+const children = await res.json();
+console.log("🟢 Subcategory API response:", children);
+
+if (!res.ok) {
+  throw new Error("Failed to fetch subcategories");
+}
+
+const filteredChildren = Array.isArray(children) ? children : [];
+
+
+      setSetupSubcategories(filteredChildren);
+      setShowSubcategoryPopup(true);
+
+      console.log("🟣 setupSubcategories set to:", filteredChildren);
+
+      console.log(
+  "🧪 filteredChildren length:",
+  filteredChildren.length,
+  Array.isArray(filteredChildren)
+);
+
+      if (!preserveSelection) {
+        const defaultSelected = {};
+        filteredChildren.forEach((c) => {
+          const id = c._id || c.id;
+          if (id) defaultSelected[id] = true;
+        });
+        setSetupSelectedSubcategories(defaultSelected);
+      } else {
+        setSetupSelectedSubcategories((prev) => {
+          const base = prev && typeof prev === "object" ? prev : {};
+          const out = { ...base };
+
+          filteredChildren.forEach((c) => {
+            const id = c._id || c.id;
+            if (id && typeof out[id] === "undefined") {
+              out[id] = true;
+            }
+          });
+
+          return out;
+        });
+      }
+
       if (openPopup) {
         setShowSubcategoryPopup(true);
       }
+
       return true;
     } catch (e) {
+      console.error("❌ Failed to load services:", e);
       setSetupGeneratePreviewError("Failed to load services");
+      setSetupSubcategories([]);
+      setSetupSelectedSubcategories({});
       return false;
+    } finally {
+      setSetupSubcategoriesLoading(false);
     }
-  }, [setupGeneratedDummyVendorId, setupSelectedCategory]);
+  },
+  [setupSelectedCategory]
+);
+
 
   const handleSetupPreviewPromptYes = useCallback(async () => {
     try {
@@ -3763,8 +4012,7 @@ console.log("✅ Total dummy categories count:", list.length);
     };
   }, [vendorId, categoryId, fetchData]);
 
-  // ----------------- Helpers -----------------
-  const hasChildren = (node) => node?.children?.length > 0;
+  
 
   const parentById = useMemo(() => {
     try {
@@ -9572,7 +9820,7 @@ console.log("✅ Total dummy categories count:", list.length);
                                                       setSetupOtpSendError("Phone number not available from Google");
                                                       return;
                                                     }
-                                                    const bypassRes = await fetch(`/api/customers/bypass-otp`, {
+                                                    const bypassRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/customers/bypass-otp`, {
                                                       method: "POST",
                                                       headers: { "Content-Type": "application/json" },
                                                       body: JSON.stringify({
@@ -9843,7 +10091,8 @@ console.log("✅ Total dummy categories count:", list.length);
             </div>
           )}
           {/* Subcategory Selection Popup for Generate Preview Page */}
-          {showSubcategoryPopup && (
+      {showSubcategoryPopup && (
+
             <div
               style={{
                 position: "fixed",
@@ -9878,48 +10127,70 @@ console.log("✅ Total dummy categories count:", list.length);
                 <p style={{ margin: 0, marginBottom: 16, fontSize: 13, color: "#6b7280" }}>
                   Choose which services you want to display on your preview page. Only selected services will be shown as active.
                 </p>
-                {setupSubcategoriesLoading ? (
-                  <div style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>Loading services...</div>
-                ) : setupSubcategories.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>No services found for this category.</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {setupSubcategories.map((subcat) => {
-                      const id = subcat._id || subcat.id;
-                      const name = subcat.name || "Unnamed Service";
-                      const isChecked = !!setupSelectedSubcategories[id];
-                      return (
-                        <label
-                          key={id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: "10px 12px",
-                            borderRadius: 8,
-                            border: isChecked ? "2px solid #2563eb" : "1px solid #e5e7eb",
-                            background: isChecked ? "#eff6ff" : "#fff",
-                            cursor: "pointer",
-                            transition: "all 0.15s",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              setSetupSelectedSubcategories((prev) => ({
-                                ...prev,
-                                [id]: !prev[id],
-                              }));
-                            }}
-                            style={{ width: 18, height: 18, accentColor: "#2563eb" }}
-                          />
-                          <span style={{ fontSize: 14, fontWeight: 500, color: "#111827" }}>{name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
+                {/* 🔍 DEBUG: Full category hierarchy (read-only) */}
+{/* 🔍 Category hierarchy (with loader) */}
+{setupSubcategoriesLoading ? (
+  <div
+    style={{
+      marginBottom: 16,
+      padding: 12,
+      borderRadius: 8,
+      background: "#f9fafb",
+      color: "#6b7280",
+      fontSize: 13,
+      textAlign: "center",
+    }}
+  >
+    Loading services…
+  </div>
+) : (
+  Array.isArray(setupCategoryTree) &&
+  setupCategoryTree.length > 0 && (
+    <div
+      style={{
+        marginBottom: 16,
+        padding: 12,
+        border: "1px dashed #d1d5db",
+        borderRadius: 8,
+        background: "#f9fafb",
+      }}
+    >
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+        Category hierarchy
+      </div>
+
+      {setupCategoryTree.map((node) => (
+  <CategoryTreeNode
+    key={node._id || node.id}
+    node={node}
+    level={0}
+    selectedMap={setupSelectedSubcategories}
+    setSelectedMap={setSetupSelectedSubcategories}
+  />
+))}
+
+    
+    </div>
+  )
+)}
+
+        
+
+{false && (
+  setupSubcategoriesLoading ? (
+    <div style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>
+      Loading services...
+    </div>
+  ) : setupSubcategories.length === 0 ? (
+    <div style={{ textAlign: "center", padding: 20, color: "#6b7280" }}>
+      No services found for this category.
+    </div>
+  ) : (
+    <div />
+  )
+)}
+
+
                 <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
                   <button
                     type="button"
@@ -9991,13 +10262,22 @@ console.log("✅ Total dummy categories count:", list.length);
 
                         // Non-inventory model or no services with inventory config - do NOT open preview directly
                         // Build nodePricingStatus map: selected = Active, unselected = Inactive
-                        const nodePricingStatus = {};
-                        setupSubcategories.forEach((subcat) => {
-                          const id = subcat._id || subcat.id;
-                          if (id) {
-                            nodePricingStatus[id] = setupSelectedSubcategories[id] ? "Active" : "Inactive";
-                          }
-                        });
+                        //const nodePricingStatus = {};
+                        //setupSubcategories.forEach((subcat) => {
+                          //const id = subcat._id || subcat.id;
+                          //if (id) {
+                            //nodePricingStatus[id] = setupSelectedSubcategories[id] ? "Active" : "Inactive";
+                          //}
+                        //});
+                        // STEP 3.8 – Build pricing ONLY from selected leaf nodes
+const nodePricingStatus = {};
+
+Object.keys(setupSelectedSubcategories).forEach((nodeId) => {
+  if (setupSelectedSubcategories[nodeId] === true) {
+    nodePricingStatus[nodeId] = "Active";
+  }
+});
+
                         // Save nodePricingStatus to dummy vendor
                         try {
                           await fetch(`${API_BASE_URL}/api/dummy-vendors/${dvId}`, {
@@ -10005,6 +10285,13 @@ console.log("✅ Total dummy categories count:", list.length);
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ nodePricingStatus }),
                           });
+                          const activeLeafIds = Object.keys(nodePricingStatus);
+
+console.log(
+  "🟢 Step 3.9 – Active leaf IDs for pricing:",
+  activeLeafIds
+);
+
                         } catch (e) {
                           console.error("Failed to save nodePricingStatus", e);
                         }

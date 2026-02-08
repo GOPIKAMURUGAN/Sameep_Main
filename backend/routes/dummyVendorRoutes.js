@@ -314,11 +314,34 @@ router.get("/:vendorId/inventory/:categoryId/:entryKey/images", async (req, res)
 });
 
 // Create dummy vendor
+// Create dummy vendor
+
 router.post("/", async (req, res) => {
+  console.log("🔥 HIT:", __filename);
+
   try {
-    const { customerId, phone, businessName, contactName, categoryId, location, businessHours, openingHoursText, status } = req.body;
+    console.log(
+  "CREATE_VENDOR req.body.googlePlaceDetails =",
+  JSON.stringify(req.body.googlePlaceDetails, null, 2)
+);
+
+    const {
+      customerId,
+      phone,
+      businessName,
+      contactName,
+      categoryId,
+      location,
+      businessHours,
+      openingHoursText,
+      status,
+      googlePlaceDetails // 👈 optional
+    } = req.body;
+
     if (!customerId || !phone || !businessName || !contactName || !categoryId) {
-      return res.status(400).json({ message: "customerId, phone, businessName, contactName, categoryId are required" });
+      return res.status(400).json({
+        message: "customerId, phone, businessName, contactName, categoryId are required",
+      });
     }
 
     const normalizeBusinessHours = () => {
@@ -354,51 +377,107 @@ router.post("/", async (req, res) => {
     if (!cat) return res.status(404).json({ message: "Dummy category not found" });
 
     // Idempotent: avoid duplicate vendors for same customer + category
-    const existing = await DummyVendor.findOne({
-      customerId,
-      categoryId,
-    });
+    console.log(
+  "CHECK EXISTING vendor for",
+  "customerId =", customerId,
+  "categoryId =", categoryId
+);
 
+    const existing = await DummyVendor.findOne({ customerId, categoryId });
+
+    /* ===========================
+       UPDATE EXISTING VENDOR
+       =========================== */
     if (existing) {
       existing.phone = phone;
       existing.businessName = businessName;
       existing.contactName = contactName;
-      if (typeof status === 'string' && status.trim()) {
+
+      if (typeof status === "string" && status.trim()) {
         existing.status = status.trim();
       }
-      if (location && typeof location === 'object') {
+
+      if (location && typeof location === "object") {
         existing.location = {
-          lat: typeof location.lat === 'number' ? location.lat : existing.location?.lat,
-          lng: typeof location.lng === 'number' ? location.lng : existing.location?.lng,
-          address: typeof location.address === 'string' ? location.address : existing.location?.address,
+          lat: typeof location.lat === "number" ? location.lat : existing.location?.lat,
+          lng: typeof location.lng === "number" ? location.lng : existing.location?.lng,
+          address: typeof location.address === "string"
+            ? location.address
+            : existing.location?.address,
           nearbyLocations: Array.isArray(location.nearbyLocations)
             ? location.nearbyLocations
             : (existing.location?.nearbyLocations || []),
         };
       }
+
       const bh = normalizeBusinessHours();
       if (bh.length) existing.businessHours = bh;
+
+      // ✅ NEW: persist Google Place data on UPDATE
+      if (googlePlaceDetails && typeof googlePlaceDetails === "object") {
+        existing.googlePlace = {
+          placeId: googlePlaceDetails.placeId,
+          rating: googlePlaceDetails.rating ?? null,
+          userRatingsTotal: googlePlaceDetails.userRatingsTotal ?? 0,
+          mapsUrl: googlePlaceDetails.mapsUrl ?? "",
+          types: Array.isArray(googlePlaceDetails.types)
+            ? googlePlaceDetails.types
+            : [],
+          lastSyncedAt: new Date(),
+        };
+      }
+
       await existing.save();
       return res.json(existing);
     }
 
-    const vendor = await DummyVendor.create({
+    /* ===========================
+       CREATE NEW VENDOR
+       =========================== */
+    const vendorPayload = {
       customerId,
       phone,
       businessName,
       contactName,
       categoryId,
-      status: (typeof status === 'string' && status.trim()) ? status.trim() : 'Registered',
-      location: (location && typeof location === 'object') ? {
-        lat: typeof location.lat === 'number' ? location.lat : undefined,
-        lng: typeof location.lng === 'number' ? location.lng : undefined,
-        address: typeof location.address === 'string' ? location.address : undefined,
-        nearbyLocations: Array.isArray(location.nearbyLocations) ? location.nearbyLocations : [],
-      } : undefined,
+      status:
+        typeof status === "string" && status.trim()
+          ? status.trim()
+          : "Registered",
+      location:
+        location && typeof location === "object"
+          ? {
+              lat: typeof location.lat === "number" ? location.lat : undefined,
+              lng: typeof location.lng === "number" ? location.lng : undefined,
+              address:
+                typeof location.address === "string"
+                  ? location.address
+                  : undefined,
+              nearbyLocations: Array.isArray(location.nearbyLocations)
+                ? location.nearbyLocations
+                : [],
+            }
+          : undefined,
       businessHours: normalizeBusinessHours(),
-    });
+    };
 
+    // Google Place (CREATE)
+    if (googlePlaceDetails && typeof googlePlaceDetails === "object") {
+      vendorPayload.googlePlace = {
+        placeId: googlePlaceDetails.placeId,
+        rating: googlePlaceDetails.rating ?? null,
+        userRatingsTotal: googlePlaceDetails.userRatingsTotal ?? 0,
+        mapsUrl: googlePlaceDetails.mapsUrl ?? "",
+        types: Array.isArray(googlePlaceDetails.types)
+          ? googlePlaceDetails.types
+          : [],
+        lastSyncedAt: new Date(),
+      };
+    }
+
+    const vendor = await DummyVendor.create(vendorPayload);
     return res.status(201).json(vendor);
+
   } catch (err) {
     console.error("POST /dummy-vendors error:", err);
     res.status(500).json({ message: "Server error" });

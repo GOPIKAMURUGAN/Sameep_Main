@@ -1,0 +1,171 @@
+/* ============================================================
+   FOOTER – BLACK GOLD LUXURY THEME
+============================================================ */
+.footer {
+  background: #0B0B0D; /* deep black */
+  color: #FFE9A9;      /* soft gold text */
+  padding: 70px 8% 25px;
+  font-family: "Poppins", sans-serif;
+}
+
+/* ============================================================
+   GRID LAYOUT
+============================================================ */
+.footer-container {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 40px;
+}
+
+/* ============================================================
+   TITLES – BRIGHT GOLD
+============================================================ */
+.footer-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 18px;
+
+  color: #FFD27D; /* Gold headline */
+  text-shadow: 0 0 12px rgba(255, 210, 120, 0.5);
+}
+
+/* ============================================================
+   DESCRIPTION TEXT
+============================================================ */
+.footer-text {
+  color: #D9C98A;
+  opacity: 1;
+  line-height: 1.65;
+  font-size: 15px;
+}
+
+/* ============================================================
+   LINKS – GOLD + HOVER GLOW
+============================================================ */
+.footer-links {
+  list-style: none;
+  padding: 0;
+}
+
+.footer-links li {
+  margin-bottom: 10px;
+}
+
+.footer-links a {
+  text-decoration: none;
+  color: #FFE9A9;
+  font-weight: 500;
+  transition: 0.25s ease;
+}
+
+.footer-links a:hover {
+  color: #FFD27D; /* bright gold */
+  padding-left: 6px;
+  text-shadow: 0 0 10px rgba(255, 215, 130, 0.6);
+}
+
+/* ============================================================
+   CONTACT INFO (ICON + TEXT)
+============================================================ */
+.footer-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.footer-icon {
+  font-size: 20px;
+  color: #FFD27D; /* gold icons */
+  text-shadow: 0 0 10px rgba(255, 200, 110, 0.55);
+}
+
+.footer-info span {
+  color: #FFE9A9; /* readable gold */
+  font-weight: 500;
+}
+
+/* ============================================================
+   CONTACT LINKS (PHONE) – REMOVE DEFAULT BLUE
+============================================================ */
+.footer-info a {
+  color: #FFE9A9;          /* same soft gold as text */
+  text-decoration: none;  /* remove underline */
+  font-weight: 500;
+  transition: 0.25s ease;
+}
+
+.footer-info a:hover {
+  color: #FFD27D; /* bright gold on hover */
+  text-shadow: 0 0 8px rgba(255, 215, 130, 0.6);
+}
+
+
+/* ============================================================
+   BOTTOM BAR
+============================================================ */
+.footer-bottom {
+  margin-top: 45px;
+  padding-top: 20px;
+  text-align: center;
+  border-top: 1px solid rgba(255, 215, 130, 0.25);
+
+  font-size: 14px;
+  color: #D9C98A;
+}
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+@media (max-width: 900px) {
+  .footer-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 550px) {
+  .footer-container {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .footer-info {
+    justify-content: center;
+  }
+}
+.footer-socials {
+  display: flex;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.footer-socials a {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(255, 215, 130, 0.15);
+  border: 1px solid rgba(255, 215, 130, 0.4);
+  transition: all 0.25s ease;
+}
+
+.footer-socials a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 12px rgba(255, 215, 130, 0.6);
+}
+
+.footer-socials .social-icon {
+  font-size: 18px;
+}
+
+/* Optional brand colors */
+.instagram { color: #e1306c; }
+.facebook { color: #1877f2; }
+.twitter { color: #1da1f2; }
+.youtube { color: #ff0000; }
+.linkedin { color: #0a66c2; }
+.whatsapp { color: #25d366; }
+

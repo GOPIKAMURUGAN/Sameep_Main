@@ -1,12 +1,73 @@
 const mongoose = require("mongoose");
 
+/**
+ * Google Place metadata (read-only)
+ * Populated from Google Places API
+ * Optional field – existing vendors remain valid
+ */
+const googlePlaceSchema = new mongoose.Schema(
+  {
+    placeId: { type: String, index: true },
+
+    rating: {
+      type: Number,
+      min: 0,
+      max: 5,
+      default: null,
+    },
+
+    userRatingsTotal: {
+      type: Number,
+      default: 0,
+    },
+
+    mapsUrl: {
+      type: String,
+      default: "",
+    },
+
+    types: {
+      type: [String],
+      default: [],
+    },
+
+    lastSyncedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  { _id: false } // embedded object, no separate _id
+);
+
 const dummyVendorSchema = new mongoose.Schema({
-  customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", required: true },
-  phone: { type: String, required: true },
-  businessName: { type: String, required: true },
-  contactName: { type: String, required: true },
+  customerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Customer",
+    required: true,
+  },
+
+  phone: {
+    type: String,
+    required: true,
+  },
+
+  businessName: {
+    type: String,
+    required: true,
+  },
+
+  contactName: {
+    type: String,
+    required: true,
+  },
+
   // Link to top-level DummyCategory
-  categoryId: { type: mongoose.Schema.Types.ObjectId, ref: "DummyCategory", required: true },
+  categoryId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "DummyCategory",
+    required: true,
+  },
+
   status: {
     type: String,
     enum: [
@@ -31,6 +92,15 @@ const dummyVendorSchema = new mongoose.Schema({
     nearbyLocations: { type: [String], default: [] },
   },
 
+  /**
+   * ✅ Google Place info
+   * Stored only if user connects Google Business
+   */
+  googlePlace: {
+    type: googlePlaceSchema,
+    default: null,
+  },
+
   businessHours: [
     {
       day: { type: String, required: true },
@@ -38,23 +108,44 @@ const dummyVendorSchema = new mongoose.Schema({
     },
   ],
 
-  profilePictures: { type: [String], default: [] },
-  rowImages: { type: Object, default: {} },
-  inventorySelections: { type: Object, default: {} },
-  // Per-vendor pricing visibility overrides for category / subcategory nodes
+  profilePictures: {
+    type: [String],
+    default: [],
+  },
+
+  rowImages: {
+    type: Object,
+    default: {},
+  },
+
+  inventorySelections: {
+    type: Object,
+    default: {},
+  },
+
+  // Per-vendor pricing visibility overrides
   // { [nodeId: string]: 'Active' | 'Inactive' }
-  nodePricingStatus: { type: Object, default: {} },
+  nodePricingStatus: {
+    type: Object,
+    default: {},
+  },
 
-  // Per-vendor social links keyed by handle name, e.g. { website, instagram, facebook, youtube, linkedin, twitter }
-  socialLinks: { type: Object, default: {} },
+  // Per-vendor social links
+  socialLinks: {
+    type: Object,
+    default: {},
+  },
 
-  // Custom fields for preview Home section (Add-On Text)
+  // Custom fields for preview Home section
   customFields: {
     freeText1: { type: String, default: "" }, // Heading
     freeText2: { type: String, default: "" }, // Description
   },
 
-  createdAt: { type: Date, default: Date.now },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
 module.exports = mongoose.model("DummyVendor", dummyVendorSchema);

@@ -81,6 +81,8 @@ router.post("/request-otp", async (req, res) => {
 /* ---------------- 1a) Bypass OTP (dev only) ---------------- */
 router.post("/bypass-otp", async (req, res) => {
   logApi(req, res, "bypass-otp");
+  
+
   try {
     // Safety: do not allow in production unless explicitly enabled
     const allow =

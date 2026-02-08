@@ -1,3 +1,17 @@
-backend/.env
-backend/.env
-backend/.env
+# Node
+node_modules/
+
+# Next.js build
+.next/
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Mac
+.DS_Store
+
+# Zips
+*.zip
+backend.zip

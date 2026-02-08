@@ -1,0 +1,234 @@
+/* FULL SCREEN OVERLAY */
+.login-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+}
+
+/* LOGIN BOX */
+.login-modal {
+  width: 420px;
+  background: rgba(15, 15, 20, 0.9);
+  padding: 35px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 215, 100, 0.35);
+
+  box-shadow:
+    0 0 30px rgba(255, 195, 70, 0.25),
+    0 0 60px rgba(255, 180, 50, 0.15);
+
+  color: white;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* HEADINGS */
+.login-sub {
+  color: #C9A44F;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.login-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #FFD575;
+}
+
+.login-desc {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #bfbfbf;
+}
+
+/* LABEL */
+.login-label {
+  margin-top: 18px;
+  display: block;
+  font-size: 14px;
+  color: #e3c886;
+}
+
+/* MOBILE INPUT */
+.mobile-input {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.country-code {
+  width: 90px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #c29e49;
+  background: rgba(30, 30, 30, 0.8);
+  color: #FFD575;
+}
+
+.mobile-input input {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #c29e49;
+  background: rgba(30, 30, 30, 0.8);
+  color: white;
+}
+
+.mobile-input input::placeholder {
+  color: #bfbfbf;
+}
+
+/* ADMIN CHECK */
+.admin-check {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  color: #e3c886;
+}
+
+/* CONTINUE BUTTON */
+.continue-btn {
+  margin-top: 20px;
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #FFD27D, #E5B759);
+  color: #0B0B0D;
+  border: none;
+  border-radius: 40px;
+  font-weight: 800;
+  font-size: 16px;
+  cursor: pointer;
+
+  box-shadow:
+    0 10px 25px rgba(255, 200, 110, 0.5),
+    0 0 25px rgba(255, 180, 90, 0.5);
+}
+
+.continue-btn:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 15px 35px rgba(255, 200, 110, 0.7),
+    0 0 40px rgba(255, 200, 120, 0.7);
+}
+
+/* OR DIVIDER */
+.divider {
+  margin: 20px 0;
+  text-align: center;
+  color: #c9c9c9;
+}
+
+.divider span {
+  padding: 0 10px;
+}
+
+/* GOOGLE BUTTON */
+.google-btn {
+  width: 100%;
+  padding: 14px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid #c29e49;
+  color: #f5d97a;
+  border-radius: 40px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.google-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* CANCEL */
+.cancel-btn {
+  margin-top: 18px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: #bfbfbf;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.cancel-btn:hover {
+  color: #FFD575;
+}
+.admin-pass-input {
+  width: 100%;
+  padding: 14px 18px;
+  margin-top: 10px;
+  border-radius: 16px;
+  border: none;
+  outline: none;
+  font-size: 18px;
+
+  background: rgba(255, 255, 255, 0.2);
+  color: gold;
+
+  backdrop-filter: blur(10px);
+}
+
+.admin-pass-input::placeholder {
+  color: rgba(255, 215, 100, 0.6);
+}
+/* OTP Screen Styling */
+
+.otp-message {
+  margin-top: 5px;
+  font-size: 15px;
+  color: #ccc;
+}
+
+.otp-number {
+  font-weight: 700;
+  color: #ffd76a;
+}
+
+.otp-input {
+  width: 100%;
+  padding: 15px;
+  margin-top: 20px;
+  font-size: 17px;
+  text-align: center;
+
+  border-radius: 30px;
+  border: 1px solid #444;
+  background: #222;
+
+  color: white;
+  outline: none;
+}
+.admin-btn {
+  margin-top: 12px;
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+
+  background: transparent;
+  border: 1.5px solid #F5D97A;
+  color: #F5D97A;
+
+  transition: 0.3s ease;
+}
+
+.admin-btn:hover {
+  background: #F5D97A;
+  color: #0B0B0D;
+}
+
+
+

@@ -28,6 +28,8 @@ router.get("/", async (req, res) => {
 // CREATE model
 // CREATE model
 router.post("/", async (req, res) => {
+console.log("🔥 HIT:", __filename);
+
   try {
     const { category, brand, bodyType, model, variant, seats, fuelType, transmission } = req.body;
 

@@ -12,7 +12,7 @@ export const API_BASE_URL = (() => {
   if (env && typeof env === "string" && env.trim()) {
     return env.trim().replace(/\/$/, "");
   }
-  return isDev ? "http://localhost:5000" : "https://newsameep-backend.go-kar.net";
+  return isDev ? "http://localhost:5001" : "https://newsameep-backend.go-kar.net";
 })();
 
 // For static assets (images) served directly by the backend (outside /api)
@@ -26,7 +26,7 @@ export const ASSET_BASE_URL = (() => {
   if (env && typeof env === "string" && env.trim()) {
     return env.trim().replace(/\/$/, "");
   }
-  return isDev ? "http://localhost:5000" : "https://newsameep-backend.go-kar.net";
+  return isDev ? "http://localhost:5001" : "https://newsameep-backend.go-kar.net";
 })();
 
 export default API_BASE_URL;

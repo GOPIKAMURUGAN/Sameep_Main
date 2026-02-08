@@ -1070,6 +1070,8 @@ router.get("/:vendorId/preview/:categoryId", async (req, res) => {
  * CREATE vendor
  */
 router.post("/", async (req, res) => {
+  console.log("🔥 HIT:", __filename);
+
   try {
     const { customerId, phone, businessName, contactName, categoryId } = req.body;
 
