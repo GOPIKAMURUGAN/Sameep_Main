@@ -1,60 +1,16 @@
 version: 1
 applications:
-  # ==============================
-  # 1️⃣ Admin Frontend (React)
-  # ==============================
   - appRoot: frontend
     frontend:
       phases:
         preBuild:
           commands:
-            - npm ci
+            - npm install
         build:
           commands:
             - npm run build
       artifacts:
         baseDirectory: build
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
-
-  # ==============================
-  # 2️⃣ Preview Site (Next.js)
-  # ==============================
-  - appRoot: preview-site
-    frontend:
-      phases:
-        preBuild:
-          commands:
-            - npm ci
-        build:
-          commands:
-            - npm run build
-      artifacts:
-        baseDirectory: .next
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
-
-  # ==============================
-  # 3️⃣ Salon Vendor Preview (Next.js)
-  # ⚠️ IMPORTANT: Updated path
-  # ==============================
-  - appRoot: nikspreview-site/salon
-    frontend:
-      phases:
-        preBuild:
-          commands:
-            - npm ci
-        build:
-          commands:
-            - npm run build
-      artifacts:
-        baseDirectory: .next
         files:
           - '**/*'
       cache:
