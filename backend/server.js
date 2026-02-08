@@ -5,7 +5,6 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 const mongoose = require("mongoose");
-const qs = require("querystring");
 const axios = require("axios");
 
 const connectDB = require("./config/db");
@@ -48,7 +47,7 @@ const vendorPriceNodeRoutes = require(
 const app = express();
 
 // --------------------
-// ✅ SINGLE, CORRECT CORS CONFIG
+// ✅ SAFE UNIVERSAL CORS CONFIG (LOCAL + AWS + OLD ADMIN)
 // --------------------
 const allowedHeaders = [
   "Content-Type",
@@ -66,21 +65,24 @@ const allowedOrigins = [
   "http://localhost:3001",
   "http://localhost:3002",
   "http://localhost:4000",
-
+  "https://newsameep.go-kar.net",
+  "https://main.d2vss5b9fy3xv.amplifyapp.com",
+  "https://main.d18xuzvz5wtiup.amplifyapp.com",
+  "https://main.d3t45ap4sbsqgp.amplifyapp.com",
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow requests with no origin (like Postman)
+      // allow Postman / mobile apps
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // IMPORTANT: do NOT throw error
-      return callback(null, false);
+      // 🚀 TEMP SAFE MODE — allow unknown origins
+      return callback(null, true);
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders,
@@ -88,8 +90,7 @@ app.use(
   })
 );
 
-
-// Trust proxy
+// Trust proxy (important behind Amplify / nginx)
 app.set("trust proxy", 1);
 
 // --------------------
@@ -155,10 +156,10 @@ app.use("/api/vendor-flow", vendorFlowRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
 
-// Vendor price nodes
+// ⭐ Vendor price nodes
 app.use("/api/vendor-price-nodes", vendorPriceNodeRoutes);
 
-// Auth (last)
+// Auth (keep last)
 app.use("/", authRoutes);
 
 // --------------------

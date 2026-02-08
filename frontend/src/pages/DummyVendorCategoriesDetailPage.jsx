@@ -1591,39 +1591,46 @@ export default function DummyVendorCategoriesDetailPage() {
               background: '#35d3df',
               color: '#fff'
             }}
-            onClick={async () => {
-              if (!vendorId || !previewCategoryId) return;
+           onClick={async () => {
+  if (!vendorId || !previewCategoryId) return;
 
-              const PREVIEW_4000 =
-                process.env.NEXT_PUBLIC_HARISH_PREVIEW_BASE_URL ||
-                "http://localhost:4000";
+  // ✅ Detect LOCAL vs CLOUD automatically
+  const isLocalhost =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
 
-              let finalVendorName = vendorName;
+  // ✅ Production preview URL comes from ENV
+  const PREVIEW_4000 = isLocalhost
+    ? "http://localhost:4000"
+    : process.env.NEXT_PUBLIC_HARISH_PREVIEW_BASE_URL;
 
-              // 🔥 GUARANTEED fetch (no race condition)
-              if (!finalVendorName) {
-                try {
-                  const res = await axios.get(
-                    `${API_BASE_URL}/api/dummy-vendors/${vendorId}`
-                  );
-                  finalVendorName = res.data?.name || "";
-                  setVendorName(finalVendorName);
-                } catch (e) {
-                  console.error("Vendor name fetch failed", e);
-                  finalVendorName = "";
-                }
-              }
+  let finalVendorName = vendorName;
 
-              const url =
-                `${PREVIEW_4000}/` +
-                `?vendorId=${vendorId}` +
-                `&rootCategoryId=${previewCategoryId}` +
-                `&vendorName=${encodeURIComponent(finalVendorName)}`;
+  // 🔥 Safe vendor fetch (no race condition)
+  if (!finalVendorName) {
+    try {
+      const res = await axios.get(
+        `${API_BASE_URL}/api/dummy-vendors/${vendorId}`
+      );
+      finalVendorName = res.data?.name || "";
+      setVendorName(finalVendorName);
+    } catch (e) {
+      console.error("Vendor name fetch failed", e);
+      finalVendorName = "";
+    }
+  }
 
-              console.log("Opening preview with vendorName:", finalVendorName);
+  const url =
+    `${PREVIEW_4000}/` +
+    `?vendorId=${vendorId}` +
+    `&rootCategoryId=${previewCategoryId}` +
+    `&vendorName=${encodeURIComponent(finalVendorName)}`;
 
-              window.open(url, "_blank", "noopener,noreferrer");
-            }}
+  console.log("Opening preview:", url);
+
+  window.open(url, "_blank", "noopener,noreferrer");
+}}
+
           >
             Harish Preview
           </button>
