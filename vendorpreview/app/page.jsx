@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import Explore from "./Explore/page";
+import Explore from "./_Explore/page";
 import Hero from "./Hero/Hero";
 import Header from "./Header/Header";
 import Root from "./Root/RootSection";
