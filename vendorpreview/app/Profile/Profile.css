@@ -1,0 +1,382 @@
+/* ============================================================
+   OVERLAY BACKDROP
+============================================================ */
+.profile-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  z-index: 3000;
+}
+
+/* ============================================================
+   PROFILE CARD – GOLD GLASS PANEL
+============================================================ */
+.profile-card {
+  width: 420px;
+  padding: 30px 32px;
+
+  background: rgba(15, 15, 20, 0.9);
+  border-radius: 22px;
+
+  border: 1.5px solid rgba(255, 215, 130, 0.4);
+
+  box-shadow:
+    0 0 25px rgba(255, 215, 130, 0.35),
+    0 0 60px rgba(255, 200, 100, 0.15),
+    inset 0 0 20px rgba(255, 215, 130, 0.1);
+
+  animation: fadeUp 0.35s ease-out;
+}
+
+@keyframes fadeUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ============================================================
+   USER NAME & PHONE
+============================================================ */
+.profile-name {
+  text-align: center;
+  font-size: 28px;              /* 🔥 MAIN HEADING SIZE */
+  font-weight: 900;
+
+  background: linear-gradient(135deg, #ffe9b6, #ffd27d);
+  -webkit-background-clip: text;
+  color: transparent;
+
+  text-shadow: 0 0 16px rgba(255, 215, 130, 0.4);
+}
+
+
+.profile-phone {
+  text-align: center;
+  margin-top: 4px;
+  font-size: 15px;
+
+  color: #ffe9a9;
+  opacity: 0.85;
+}
+
+/* ============================================================
+   BUTTON – MY ENQUIRIES
+============================================================ */
+.profile-btn {
+  width: 100%;
+  margin-top: 18px;
+  padding: 12px;
+
+  border-radius: 18px;
+  font-size: 15px;
+  font-weight: 700;
+
+  color: #0d0d0d;
+  background: linear-gradient(135deg, #ffd27d, #e5b759);
+
+  border: none;
+  cursor: pointer;
+
+  box-shadow: 
+    0 0 20px rgba(255, 215, 130, 0.35),
+    0 0 40px rgba(255, 200, 110, 0.2);
+
+  transition: 0.3s ease;
+}
+
+.profile-btn:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 30px rgba(255, 215, 130, 0.7),
+    0 0 50px rgba(255, 200, 110, 0.5);
+}
+
+/* ============================================================
+   SECTION TITLES
+============================================================ */
+.section-title {
+  margin-top: 20px;
+  margin-bottom: 8px;
+
+  font-size: 16px;              
+  font-weight: 700;
+
+  color: #ffd27d;
+  text-shadow: 0 0 10px rgba(255, 215, 130, 0.6);
+  letter-spacing: 0.4px;
+}
+
+
+/* ============================================================
+   ROWS – PRICES / SOCIAL / LINKS
+============================================================ */
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 0;
+
+  color: #ffe9a9;
+  font-weight: 600;
+
+  border-bottom: 1px dashed rgba(255, 215, 130, 0.3);
+}
+
+.active-badge {
+  padding: 4px 12px;
+
+  background: rgba(255, 215, 130, 0.15);
+  border-radius: 12px;
+
+  border: 1px solid rgba(255, 215, 130, 0.4);
+  color: #ffd27d;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  text-shadow: 0 0 8px rgba(255, 215, 130, 0.6);
+}
+
+/* ============================================================
+   SOCIAL & LOCATION LINKS
+============================================================ */
+.profile-link {
+  padding: 5px 0;
+ font-size: 16px;              
+  font-weight: 700;
+  color: #ffe9b0;
+
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+.profile-link:hover {
+  color: #ffd27d;
+  text-shadow: 0 0 10px rgba(255, 215, 130, 0.8);
+  transform: translateX(4px);
+}
+
+/* ============================================================
+   CLOSE BUTTON
+============================================================ */
+.close-profile {
+  margin-top: 22px;
+  width: 100%;
+  padding: 12px;
+
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 215, 130, 0.5);
+
+  background: transparent;
+
+  color: #ffd27d;
+  font-weight: 700;
+  font-size: 16px;
+
+  cursor: pointer;
+
+  transition: 0.3s ease;
+}
+
+.close-profile:hover {
+  background: rgba(255, 215, 130, 0.12);
+  box-shadow: 0 0 18px rgba(255, 215, 130, 0.4);
+}
+/* ===============================
+   CLICKABLE MY PRICES
+=============================== */
+.profile-row.clickable {
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+.profile-row.clickable:hover {
+  background: rgba(255, 215, 130, 0.12);
+  border-radius: 10px;
+  padding-left: 6px;
+}
+
+/* ===============================
+   SOCIAL ICONS
+=============================== */
+.profile-link.social {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.social-icon {
+  font-size: 18px;
+}
+
+/* Instagram gradient look */
+.social-icon.instagram {
+  color: #e1306c;
+}
+
+/* Facebook blue */
+.social-icon.facebook {
+  color: #1877f2;
+}
+
+.profile-link.social:hover .instagram {
+  filter: drop-shadow(0 0 6px rgba(225, 48, 108, 0.8));
+}
+
+.profile-link.social:hover .facebook {
+  filter: drop-shadow(0 0 6px rgba(24, 119, 242, 0.8));
+}
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.popup-card {
+  display: flex;
+  flex-direction: column;
+
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px;
+
+  max-width: 500px;
+  width: 100%;
+
+  max-height: 90vh;        /* ✅ contain content */
+  overflow-y: auto;        /* ✅ scroll instead of overflow */
+overflow: hidden; 
+  box-sizing: border-box;  /* ✅ padding included */
+}
+
+
+.popup-card h3 {
+  margin-bottom: 12px;
+}
+
+.popup-card input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.popup-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
+.btn-outline {
+  border: 1px solid #2aa7ff;
+  background: transparent;
+  color: #2aa7ff;
+  padding: 8px 16px;
+  border-radius: 20px;
+}
+
+.btn-primary {
+  background: #2aa7ff;
+  color: white;
+  padding: 8px 18px;
+  border-radius: 20px;
+}
+.nearby-theme {
+  width: 460px;
+  padding: 26px;
+}
+
+.popup-title {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 22px;
+}
+
+.nearby-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.nearby-input {
+  flex: 1;
+  height: 46px;
+  border-radius: 10px;
+  border: 1px solid #d1d1d1;
+  padding: 0 14px;
+  font-size: 15px;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+.nearby-input:focus {
+  outline: none;
+  border-color: #111;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
+}
+
+.nearby-input.filled {
+  border-color: #000;
+}
+
+.nearby-save {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 24px;
+  border: none;
+  background: linear-gradient(135deg, #e7c36f, #d7af5d);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(215, 175, 93, 0.45);
+}
+
+.nearby-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.nearby-delete {
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid #222;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.close-btn.soft {
+  margin-top: 28px;
+  align-self: center;         /* 👈 right aligned */
+  
+  padding: 3px 48px;
+  border-radius: 28px;
+
+  background: rgba(255, 210, 125, 0.08);
+  border: 5.5px solid rgba(255, 210, 125, 0.45);
+
+  color: #e5b759;
+  font-weight: 700;
+  font-size: 15px;
+
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.close-btn.soft:hover {
+  background: rgba(255, 210, 125, 0.18);
+  box-shadow: 0 0 14px rgba(255, 210, 125, 0.4);
+  transform: translateY(-1px);
+}

@@ -1,0 +1,197 @@
+/* ============================
+   HERO LAYOUT (Responsive Fix)
+============================ */
+.hero {
+  min-height: 100vh;   /* guarantees full viewport */
+}
+
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 110px 7%;
+  background: #0B0B0D;
+  gap: 40px;
+
+  flex-wrap: wrap; /* ❤️ allows responsive stacking */
+}
+
+.rating-clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.rating-clickable:hover {
+  transform: translateY(-2px);
+  opacity: 0.85;
+}
+
+.rating-clickable h2 {
+  color: #f4b400; /* Google yellow */
+}
+
+/* ============================
+   LEFT SECTION
+============================ */
+.hero-left {
+  flex: 1;
+  min-width: 300px; /* prevents shrinking too much */
+}
+
+.hero-left h1 {
+  font-size: clamp(32px, 6vw, 80px); /* responsive text */
+  line-height: 1.1;
+  font-weight: 900;
+  color: #F5D97A;
+}
+
+.hero-left h1 span {
+  color: #FFD27D;
+}
+
+.hero-text {
+  margin: 20px 0 30px;
+  font-size: clamp(16px, 2vw, 24px);
+  line-height: 1.6;
+  color: #D6C687;
+  max-width: 500px;
+}
+
+/* ============================
+   STATS
+============================ */
+.stats {
+  display: flex;
+  gap: 40px;
+  margin: 25px 0;
+
+  flex-wrap: wrap; /* ❤️ prevents overflow on mobile */
+}
+
+.stat-item h2 {
+  color: #FFEB9A;
+  font-size: clamp(28px, 5vw, 50px);
+  font-weight: 900;
+}
+
+.stat-item p {
+  font-size: clamp(14px, 2vw, 18px);
+  color: #C9B372;
+}
+
+/* ============================
+   BUTTONS
+============================ */
+.hero-buttons {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap; /* ❤️ stack on small screens */
+}
+
+.btn-primary,
+.btn-outline {
+  padding: 14px 26px;
+  font-size: clamp(14px, 1.8vw, 18px);
+  border-radius: 40px;
+  font-weight: 700;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #FFD27D, #E5B759);
+  color: #0B0B0D;
+  filter: brightness(0.9);
+}
+
+
+.btn-outline {
+  background: transparent;
+  border: 2px solid #FFD27D;
+  color: #FFD27D;
+}
+
+
+/* ============================
+   RIGHT IMAGE (Slider)
+============================ */
+.hero-right {
+  flex: 1.1;
+  display: flex;
+  justify-content: center;
+  min-width: 320px; /* ❤️ ensures responsive width */
+}
+
+.hero-img {
+  width: 100%;
+  max-width: 600px; /* smaller for responsiveness */
+  height: auto;
+  aspect-ratio: 16/10;
+  object-fit: cover;
+  border-radius: 28px;
+  border: 2px solid rgba(255, 215, 130, 0.4);
+
+  transition: transform 0.6s ease, opacity 0.6s ease;
+}
+
+/* Slide animation */
+.slide-transition {
+  opacity: 0;
+  transform: translateX(25px) scale(1.02);
+}
+
+
+/* ============================
+   RESPONSIVE BREAKPOINTS
+============================ */
+
+/* Tablets */
+@media (max-width: 992px) {
+  .hero {
+    padding: 80px 6%;
+    gap: 30px;
+  }
+
+  .hero-right {
+    order: -1; /* image comes first on tablets */
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .hero {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .hero-left,
+  .hero-right {
+    max-width: 100%;
+  }
+
+  .stats {
+    justify-content: center;
+  }
+
+  .hero-img {
+    max-width: 450px;
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+  .hero {
+    padding: 60px 5%;
+  }
+
+  .hero-img {
+    max-width: 350px;
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+  }
+}
+@media (max-width: 768px) {
+  .hero {
+    min-height: 90vh;
+  }
+}

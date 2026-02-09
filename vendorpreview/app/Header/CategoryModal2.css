@@ -1,0 +1,304 @@
+/* ================= SERVICES CONTAINER ================= */
+
+.services-select-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+
+
+/* ================= SCROLL AREA ================= */
+
+.services-scroll {
+ 
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+/* smooth scrollbar */
+.services-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.services-scroll::-webkit-scrollbar-thumb {
+   background: rgba(255, 215, 130, 0.45);
+  border-radius: 4px;
+}
+
+/* ================= SERVICE TREE ================= */
+
+.service-node {
+  position: relative;
+  height: auto;
+  margin-bottom: 8px;
+}
+
+/* ================= SERVICE CARD ================= */
+/* ===== COMPACT SERVICE CARD — FINAL ===== */
+
+.service-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  height: 44px;              /* 🔥 smaller */
+  min-height: 44px;
+
+  padding: 0 14px;           /* 🔥 no vertical padding */
+  border-radius: 14px;
+
+  background:
+    linear-gradient(180deg, rgba(26,28,24,0.96), rgba(14,16,12,0.98));
+
+  border: 1.5px solid rgba(255,210,130,0.45);
+
+  box-shadow:
+    inset 0 0 8px rgba(255,210,130,0.06),
+    0 3px 8px rgba(0,0,0,0.45);
+
+  transition: all .18s ease;
+}
+
+
+
+
+.service-card.active {
+  border-color: #6fca33;
+
+  background:
+    linear-gradient(180deg, rgba(26,32,20,0.95), rgba(12,18,10,0.98));
+
+  box-shadow:
+    inset 0 0 12px rgba(111,202,51,0.18),
+    0 6px 16px rgba(0,0,0,0.55);
+}
+
+
+/* ================= LEFT SIDE ================= */
+
+
+.service-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  
+}
+
+
+/* hide native checkbox */
+.service-left input {
+  display: none;
+}
+
+/* custom checkbox */
+.check-ui {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255, 215, 130, 0.5);
+  position: relative;
+}
+
+.service-card.active .check-ui {
+  background: linear-gradient(135deg, #9afc7a, #43c93b);
+  border-color: #43c93b;
+}
+
+
+.service-card.active .check-ui::after {
+  content: "✓";
+  position: absolute;
+  inset: 0;
+  color: #0B0B0D;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* ================= TEXT ================= */
+
+.service-name {
+    color: #FFDFA0;
+  font-size: 15px;
+  font-weight: 600;
+ display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+  align-items: center;
+}
+
+/* ================= CHILD COUNT BADGE ================= */
+
+.child-count-badge {
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+
+  background: linear-gradient(135deg, #ffe3a3, #e6b85c);
+  color: #1a1406;
+
+  box-shadow: none;
+}
+
+
+
+/* ================= EXPAND BUTTON ================= */
+
+.expand-btn {
+  width: 28px;
+  height: 28px;
+
+  background: rgba(255,210,130,0.10);
+  border: 1px solid rgba(255,210,130,0.35);
+
+  box-shadow: none;
+}
+
+.expand-btn:hover {
+  background: rgba(255,210,130,0.18);
+  transform: translateY(-1px);
+}
+
+
+.expand-btn {
+  flex-shrink: 0;
+
+}
+
+/* ================= CHILDREN ================= */
+
+.service-children {
+  margin-left: 18px;
+  padding-left: 12px;
+  margin-top: 6px;
+}
+
+/* dotted vertical connector */
+.vertical-line {
+  position: absolute;
+  left: 6px;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed rgba(255, 215, 130, 0.35);
+}
+
+/* ================= STICKY FOOTER ================= */
+
+.services-footer {
+  position: sticky;
+  bottom: 0;
+
+  background: linear-gradient(
+    to top,
+    rgba(25,25,28,0.95),
+    rgba(25,25,28,0.65),
+    transparent
+  );
+
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+
+  border-top: 1px solid rgba(255, 215, 130, 0.25);
+}
+
+/* ================= BUTTONS ================= */
+
+.btn.primary {
+  background: linear-gradient(135deg, #E6BF6A, #CFA94E);
+  color: #0B0B0D;
+
+  border-radius: 10px;
+  padding: 10px 16px;
+  border: none;
+
+  font-weight: 800;
+
+  box-shadow:
+    0 6px 14px rgba(255, 200, 110, 0.35),
+    0 0 16px rgba(255, 190, 120, 0.35);
+}
+
+.btn.secondary {
+  background: transparent;
+  color: #FFDFA0;
+
+  border: 1.5px solid rgba(255, 215, 130, 0.6);
+  border-radius: 10px;
+  padding: 10px 16px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
+
+
+.overlay-loader {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 99999;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 215, 130, 0.25);
+  border-top: 4px solid #FFD27D;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.preview-choice-card {
+  text-align: center;
+  padding: 24px;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 20px;
+}
+/* ===== FINAL CARD LAYOUT FIX ===== *
+/* ===== ARROW POSITION LOCK ===== */
+
+.service-card {
+  display: flex!important;
+  flex-direction: row!important;
+  align-items: center!important;
+}
+
+.service-left {
+  display: flex!important;
+  align-items: center!important;
+  gap: 10px!important;
+  flex: 1!important;
+  min-width: 0!important;
+}
+
+.expand-btn {
+  margin-left: auto;
+  flex: 0 0 28px;
+  align-self: center;
+}

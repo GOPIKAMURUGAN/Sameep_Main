@@ -1,0 +1,176 @@
+/* ====================================
+   COMBO SECTION – BLACK LUXURY THEME
+==================================== */
+.combo-section {
+  padding: 80px 8%;
+  background: #0B0B0D; /* deep black */
+}
+
+.combo-title {
+  text-align: center;
+  font-size: 40px;
+  font-weight: 900;
+  color: #F5D97A; /* Gold */
+  margin-bottom: 45px;
+  letter-spacing: 1px;
+  text-shadow: 0 0 18px rgba(245, 217, 122, 0.45);
+}
+
+/* ====================================
+   GRID – BIGGER CARDS, CENTERED
+==================================== */
+.combo-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+}
+
+@media (max-width: 992px) {
+  .combo-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .combo-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ====================================
+   CARD – BLACK GLASS + GOLD GLOW
+==================================== */
+.combo-card {
+  background: rgba(25, 25, 28, 0.65);
+  border-radius: 24px;
+  padding: 28px;
+  text-align: center;
+
+  border: 1.5px solid rgba(255, 215, 130, 0.32);
+  backdrop-filter: blur(12px);
+
+  box-shadow:
+    0 10px 25px rgba(0,0,0,0.45),
+    0 0 20px rgba(255, 200, 100, 0.18);
+
+  transition: 0.35s ease;
+  min-height: 520px;
+
+  /* ✅ NEW */
+  display: flex;
+  flex-direction: column;
+}
+
+
+.combo-card:hover {
+  transform: translateY(-10px);
+  box-shadow:
+    0 16px 40px rgba(0,0,0,0.7),
+    0 0 35px rgba(255, 215, 100, 0.6),
+    inset 0 0 14px rgba(255, 200, 100, 0.25);
+}
+
+/* ====================================
+   TITLE
+==================================== */
+.combo-card h3 {
+  font-size: 24px;
+  font-weight: 800;
+  color: #FFD976;
+  margin-bottom: 18px;
+  text-shadow: 0 0 10px rgba(255, 200, 110, 0.4);
+}
+
+/* ====================================
+   IMAGE – BIGGER, GOLD GLOW
+==================================== */
+.combo-card img {
+  width: 100%;
+  height: 540px;
+  border-radius: 18px;
+  object-fit: cover;
+
+  box-shadow:
+    0 10px 22px rgba(0,0,0,0.55),
+    0 0 22px rgba(255, 200, 100, 0.38);
+
+  transition: 0.35s ease;
+}
+
+.combo-card:hover img {
+  transform: scale(1.03);
+}
+
+/* ====================================
+   PRICE
+==================================== */
+.prices {
+  color: #FFEB9A;
+  font-size: 30px;
+  font-weight: 900;
+  margin-top: 18px;
+
+  text-shadow: 0 0 14px rgba(255, 220, 120, 0.6);
+}
+
+/* Description text */
+.desc {
+  margin-top: 12px;
+  color: #C9B372;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ====================================
+   BUTTON – GOLD NEON CTA
+==================================== */
+.enroll-btn {
+  margin-top: auto; /* ✅ Push to bottom */
+  width: 100%;
+  padding: 16px;
+  font-size: 17px;
+  font-weight: 900;
+  border: none;
+  border-radius: 40px;
+  cursor: pointer;
+
+ background: linear-gradient(135deg, #FFD27D, #E5B759);
+  color: #0B0B0D;
+  filter: brightness(0.9);
+
+  box-shadow:
+    0 10px 20px rgba(255, 200, 110, 0.55),
+    0 0 30px rgba(255, 180, 90, 0.6);
+
+  transition: 0.25s ease;
+}
+
+
+.enroll-btn:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 14px 28px rgba(255,180,90,0.65),
+    0 0 45px rgba(255,190,120,0.9);
+}
+
+/* ====================================
+   RESPONSIVE FONTS
+==================================== */
+@media (max-width: 550px) {
+  .combo-title {
+    font-size: 32px;
+  }
+
+  .combo-card {
+    min-height: 480px;
+    padding: 24px;
+  }
+
+  .combo-card img {
+    height: 200px;
+  }
+
+  .price {
+    font-size: 26px;
+  }
+}

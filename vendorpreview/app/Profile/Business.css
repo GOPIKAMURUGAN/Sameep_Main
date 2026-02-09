@@ -1,0 +1,106 @@
+/* ===============================
+   BUSINESS HOURS MODAL
+=============================== */
+
+.business-hours-theme {
+  width: 520px;
+  max-width: 92vw;
+}
+
+/* Title & subtitle */
+.popup-title {
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 4px;
+  color: #111;
+}
+
+.popup-subtitle {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 18px;
+}
+
+/* Grid layout */
+.hours-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Row */
+.hours-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Day label */
+.day-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+}
+
+/* Input */
+.hours-row input {
+  height: 42px;
+  border-radius: 8px;
+  border: 1px solid #d0d5dd;
+  padding: 0 12px;
+  font-size: 14px;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hours-row input:focus {
+  outline: none;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.15);
+}
+
+/* Footer */
+.popup-footer {
+  margin-top: 26px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Buttons */
+.btn-cancel {
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: none;
+  background: #f3f4f6;
+  color: #111;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-cancel:hover {
+  background: #e5e7eb;
+}
+
+.btn-save.primary {
+  padding: 10px 22px;
+  border-radius: 8px;
+  border: none;
+  background: #7c3aed;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-save.primary:hover {
+  background: #6d28d9;
+  box-shadow: 0 6px 16px rgba(124, 58, 237, 0.35);
+}
+
+.btn-save.primary:disabled,
+.btn-cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
