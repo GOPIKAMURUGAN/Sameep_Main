@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, use } from "react";
+import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 export default function VendorTitleUpdater() {
-  // ⭐ Make useSearchParams Suspense-safe
-  const searchParams = use(useSearchParams());
-
+  const searchParams = useSearchParams();
   const vendorName = searchParams.get("vendorName");
 
   useEffect(() => {
