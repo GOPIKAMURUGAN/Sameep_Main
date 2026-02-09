@@ -1,8 +1,0 @@
-body {
-  margin: 0 !important;
-  padding: 0 !important;
-}
-@import "bootstrap/dist/css/bootstrap.min.css";
-section[id] {
-  scroll-margin-top: 80px; /* match navbar height */
-}
