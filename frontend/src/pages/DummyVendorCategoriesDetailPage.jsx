@@ -1600,9 +1600,9 @@ export default function DummyVendorCategoriesDetailPage() {
     window.location.hostname === "127.0.0.1";
 
   // ✅ Production preview URL comes from ENV
-  const PREVIEW_4000 = isLocalhost
-    ? "http://localhost:4000"
-    : process.env.NEXT_PUBLIC_HARISH_PREVIEW_BASE_URL;
+const PREVIEW_4000 = isLocalhost
+  ? "http://localhost:4000"
+  : process.env.REACT_APP_HARISH_PREVIEW_BASE_URL;
 
   let finalVendorName = vendorName;
 
