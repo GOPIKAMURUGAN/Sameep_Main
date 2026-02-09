@@ -1,20 +1,42 @@
 version: 1
-frontend:
-  phases:
-    preBuild:
-      commands:
-        - cd vendorpreview
-        - npm ci
+applications:
 
-    build:
-      commands:
-        - NEXT_DISABLE_TURBOPACK=1 npx next build
+  # -----------------------------
+  # React Admin Console
+  # -----------------------------
+  - appRoot: frontend
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: build
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
 
-  artifacts:
-    baseDirectory: vendorpreview/.next/standalone
-    files:
-      - '**/*'
-
-  cache:
-    paths:
-      - vendorpreview/node_modules/**/*
+  # -----------------------------
+  # Vendor Preview (Next.js App Router)
+  # -----------------------------
+  - appRoot: vendorpreview
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - NEXT_DISABLE_TURBOPACK=1 npx next build
+      artifacts:
+        baseDirectory: .next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
