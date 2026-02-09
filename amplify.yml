@@ -5,10 +5,10 @@ frontend:
       commands:
         - cd vendorpreview
         - npm ci
-
     build:
       commands:
-        - npm run build
+        - cd vendorpreview
+        - NEXT_DISABLE_TURBOPACK=1 npx next build
 
   artifacts:
     baseDirectory: vendorpreview/.next/standalone
