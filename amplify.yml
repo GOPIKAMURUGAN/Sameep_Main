@@ -1,5 +1,9 @@
 version: 1
 applications:
+
+  # -----------------------------
+  # React Admin Console
+  # -----------------------------
   - appRoot: frontend
     frontend:
       phases:
@@ -11,6 +15,26 @@ applications:
             - npm run build
       artifacts:
         baseDirectory: build
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+
+  # -----------------------------
+  # Harish / Niks Preview (NextJS)
+  # -----------------------------
+  - appRoot: nikspreview-site/salon
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm install
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: .next
         files:
           - '**/*'
       cache:
