@@ -1,5 +1,6 @@
-export const dynamic = "force-dynamic";
 "use client";
+export const dynamic = "force-dynamic";
+
 
 import AdvantageSection from "../About/About";
 import RootsSection from "../Root/RootSection";
