@@ -5,9 +5,9 @@ frontend:
       commands:
         - cd vendorpreview
         - npm ci
+
     build:
       commands:
-        - cd vendorpreview
         - NEXT_DISABLE_TURBOPACK=1 npx next build
 
   artifacts:
