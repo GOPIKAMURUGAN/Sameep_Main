@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import AdvantageSection from "../About/About";
 import RootsSection from "../Root/RootSection";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useVendor } from "../Vendorcontext";
 import "./Explore.css";
 import HeroSection from "../Hero/Hero";
@@ -576,20 +576,12 @@ function convertFromTree(tree, imageMap) {
 
 
 // --------------------------------------------------
-// MAIN Explore Page
+// ✅ NEW: Component that uses useSearchParams
 // --------------------------------------------------
-export default function Page({ onReady }) {
+function ExploreContent({ onReady }) {
   const [vendorLoaded, setVendorLoaded] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [category, setCategory] = useState(null);
-
-
-const toAnchor = (label) =>
-  label
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-");
 
   const { vendorInfo, setVendorInfo } = useVendor();
 
@@ -627,37 +619,37 @@ const toAnchor = (label) =>
   }, [vendorId, setVendorInfo]);
 
 
-useEffect(() => {
-  if (!rootCategoryId) return;
+  useEffect(() => {
+    if (!rootCategoryId) return;
 
-  async function fetchCategory() {
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/dummy-categories/${rootCategoryId}`,
-        { cache: "no-store" }
-      );
+    async function fetchCategory() {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/dummy-categories/${rootCategoryId}`,
+          { cache: "no-store" }
+        );
 
-      if (!res.ok) throw new Error("Category API failed");
+        if (!res.ok) throw new Error("Category API failed");
 
-      const data = await res.json();
-      const categoryObj = Array.isArray(data) ? data[0] : data;
+        const data = await res.json();
+        const categoryObj = Array.isArray(data) ? data[0] : data;
 
-      // ✅ Local state (Explore page)
-      setCategory(categoryObj);
+        // ✅ Local state (Explore page)
+        setCategory(categoryObj);
 
-      // ✅ Global state (Header uses this)
-      setVendorInfo(prev => ({
-        ...prev,
-        categoryData: categoryObj
-      }));
+        // ✅ Global state (Header uses this)
+        setVendorInfo(prev => ({
+          ...prev,
+          categoryData: categoryObj
+        }));
 
-    } catch (err) {
-      console.error("Category fetch error", err);
+      } catch (err) {
+        console.error("Category fetch error", err);
+      }
     }
-  }
 
-  fetchCategory();
-}, [rootCategoryId, setVendorInfo]);
+    fetchCategory();
+  }, [rootCategoryId, setVendorInfo]);
 
 
   function extractHeroImages(categoryTree) {
@@ -698,12 +690,12 @@ useEffect(() => {
         const converted = convertFromTree(pricingData.tree, imageMap);
         setFinalCategories(converted);
         // ⭐ store first-level categories for Footer → Popular
-setVendorInfo(prev => ({
-  ...prev,
-  popularCategories: converted.map(section => ({
-    name: section.sectionName
-  }))
-}));
+        setVendorInfo(prev => ({
+          ...prev,
+          popularCategories: converted.map(section => ({
+            name: section.sectionName
+          }))
+        }));
 
         setDataLoaded(true); // ✅ MARK DONE
       } catch (e) {
@@ -713,7 +705,8 @@ setVendorInfo(prev => ({
     }
 
     load();
-  }, [vendorId, rootCategoryId]);
+  }, [vendorId, rootCategoryId, setVendorInfo]);
+  
   useEffect(() => {
     if (vendorLoaded && dataLoaded) {
       onReady?.();
@@ -761,31 +754,31 @@ setVendorInfo(prev => ({
 
 
       {/* ✅ EXISTING EXPLORE CONTENT */}
-      <section id="categories"  className="women-styling">
+      <section id="categories" className="women-styling">
 
         {/* 🔹 NORMAL SECTIONS */}
         {sectionsWithHeading.map(section => (
-  <div
-    key={section.sectionName}
-  id={`cat-${toAnchor(section.sectionName)}`}
-  // 🔥 THIS IS KEY
-  >
-    <h2
-  id={`cat-${toAnchor(section.sectionName)}`}
-  className="ws-heading"
->
-  {section.sectionName}
-</h2>
+          <div
+            key={section.sectionName}
+            id={`cat-${toAnchor(section.sectionName)}`}
+          // 🔥 THIS IS KEY
+          >
+            <h2
+              id={`cat-${toAnchor(section.sectionName)}`}
+              className="ws-heading"
+            >
+              {section.sectionName}
+            </h2>
 
 
 
-    <div className="ws-grid">
-      {section.cards.map(c => (
-        <ServiceCard key={c.title} data={c} sectionName={section.sectionName} />
-      ))}
-    </div>
-  </div>
-))}
+            <div className="ws-grid">
+              {section.cards.map(c => (
+                <ServiceCard key={c.title} data={c} sectionName={section.sectionName} />
+              ))}
+            </div>
+          </div>
+        ))}
 
 
         {/* 🔹 FLAT GRID (NO HEADINGS) */}
@@ -794,12 +787,12 @@ setVendorInfo(prev => ({
             {cardsWithoutHeading.map(c => (
               <div key={c.title} className="ws-card-wrapper">
                 {/* 🔹 SHOW HEADING INSTEAD OF CARD TITLE */}
-              <h2
-  id={`cat-${toAnchor(c.title)}`}
-  className="ws-heading small"
->
-  {c.title}
-</h2>
+                <h2
+                  id={`cat-${toAnchor(c.title)}`}
+                  className="ws-heading small"
+                >
+                  {c.title}
+                </h2>
 
 
                 <ServiceCard
@@ -822,5 +815,15 @@ setVendorInfo(prev => ({
 
     </>
   );
+}
 
+// --------------------------------------------------
+// ✅ MAIN Explore Page with Suspense wrapper
+// --------------------------------------------------
+export default function Page({ onReady }) {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ExploreContent onReady={onReady} />
+    </Suspense>
+  );
 }
