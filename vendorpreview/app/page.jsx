@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+
 import { useState } from "react";
 
 import Explore from "./Explore/page";
@@ -41,8 +43,9 @@ export default function Home() {
   });
 
   return (
+  <Suspense fallback={<Load />}>
+  <div>
 
-    <div>
       {/* Loader overlay */}
       {loading && <Load />}
 
@@ -64,6 +67,8 @@ export default function Home() {
         {/* GLOBAL PORTAL */}
         <Portal />
       </div>
-    </div>
-  );
+   </div>
+</Suspense>
+);
+
 }
