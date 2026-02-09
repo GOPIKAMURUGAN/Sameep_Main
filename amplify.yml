@@ -5,9 +5,9 @@ frontend:
       commands:
         - cd vendorpreview
         - npm ci
+
     build:
       commands:
-        - cd vendorpreview
         - npm run build
 
   artifacts:
