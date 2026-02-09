@@ -2,17 +2,21 @@
 
 export const dynamic = "force-dynamic";
 
+import dynamic from "next/dynamic";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+// ⭐ Dynamic imports to stop SSR during build
+const Header = dynamic(() => import("./Header/Header"), { ssr: false });
+const Portal = dynamic(() => import("./Portal/Portal"), { ssr: false });
+const Load = dynamic(() => import("./Load/Load"), { ssr: false });
+
+// ⭐ Normal imports (safe)
 import Explore from "./_Explore/Explore";
 import Hero from "./Hero/Hero";
-import Header from "./Header/Header";
 import Root from "./Root/RootSection";
 import About from "./About/About";
 import Contact from "./Contact/Contact";
-import Load from "./Load/Load";
-import Portal from "./Portal/Portal";
 import ScrollToTop from "./components/ScrollToTop";
 
 /**
