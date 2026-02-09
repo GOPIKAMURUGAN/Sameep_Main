@@ -1,0 +1,42 @@
+version: 1
+applications:
+
+  # -----------------------------
+  # React Admin Console
+  # -----------------------------
+  - appRoot: frontend
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: build
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+
+  # -----------------------------
+  # Harish Preview (NextJS)
+  # -----------------------------
+  - appRoot: vendorpreview
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        baseDirectory: .next/standalone
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
