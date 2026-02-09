@@ -21,22 +21,20 @@ applications:
         paths:
           - node_modules/**/*
 
-  # -----------------------------
   # Harish / Niks Preview (NextJS)
-  # -----------------------------
   - appRoot: nikspreview-site/salon
     frontend:
-      phases:
-        preBuild:
-          commands:
-            - npm install
-        build:
-          commands:
-            - npm run build
-      artifacts:
-        baseDirectory: .next
-        files:
-          - '**/*'
-      cache:
-        paths:
-          - node_modules/**/*
+    phases:
+      preBuild:
+        commands:
+          - npm ci
+      build:
+        commands:
+          - npm run build
+    artifacts:
+      baseDirectory: .next/standalone
+      files:
+        - '**/*'
+    cache:
+      paths:
+        - node_modules/**/*
