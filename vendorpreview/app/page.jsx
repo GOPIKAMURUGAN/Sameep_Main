@@ -49,7 +49,9 @@ function PageContent() {
       <div style={{ visibility: loading ? "hidden" : "visible" }}>
         <Header />
         <Hero />
-        <Explore onReady={() => setLoading(false)} />
+        <Suspense fallback={<Load />}>
+          <Explore onReady={() => setLoading(false)} />
+        </Suspense>
         <Root />
         <About />
         <Contact />
