@@ -1,4 +1,5 @@
 "use client";
+
 export const dynamic = "force-dynamic";
 
 import { Suspense, useState } from "react";
@@ -26,7 +27,7 @@ const toAnchor = (label) =>
     .replace(/\s+/g, "-");
 
 
-// ✅ THIS component uses useSearchParams
+// ⭐ Inner client component (uses useSearchParams)
 function PageContent() {
   const [loading, setLoading] = useState(true);
 
@@ -61,7 +62,7 @@ function PageContent() {
 }
 
 
-// ✅ Parent wrapper ONLY
+// ⭐ Route wrapper (required Suspense boundary for NextJS 16)
 export default function Home() {
   return (
     <Suspense fallback={<Load />}>
