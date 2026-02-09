@@ -1,6 +1,5 @@
 "use client";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 import AdvantageSection from "../About/About";
 import RootsSection from "../Root/RootSection";
