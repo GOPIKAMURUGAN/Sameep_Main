@@ -2,16 +2,16 @@
 
 export const dynamic = "force-dynamic";
 
-import dynamic from "next/dynamic";
+import dynamicImport from "next/dynamic";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-// ⭐ Dynamic imports to stop SSR during build
-const Header = dynamic(() => import("./Header/Header"), { ssr: false });
-const Portal = dynamic(() => import("./Portal/Portal"), { ssr: false });
-const Load = dynamic(() => import("./Load/Load"), { ssr: false });
+// ⭐ Dynamic imports (disable SSR)
+const Header = dynamicImport(() => import("./Header/Header"), { ssr: false });
+const Portal = dynamicImport(() => import("./Portal/Portal"), { ssr: false });
+const Load = dynamicImport(() => import("./Load/Load"), { ssr: false });
 
-// ⭐ Normal imports (safe)
+// ⭐ Normal imports
 import Explore from "./_Explore/Explore";
 import Hero from "./Hero/Hero";
 import Root from "./Root/RootSection";
@@ -21,7 +21,6 @@ import ScrollToTop from "./components/ScrollToTop";
 
 /**
  * Converts labels → valid HTML ids
- * MUST match Header/Footer anchor logic
  */
 const toAnchor = (label) =>
   label
@@ -31,7 +30,7 @@ const toAnchor = (label) =>
     .replace(/\s+/g, "-");
 
 
-// ⭐ Inner client component (uses useSearchParams)
+// ⭐ Inner client component
 function PageContent() {
   const [loading, setLoading] = useState(true);
 
@@ -66,7 +65,7 @@ function PageContent() {
 }
 
 
-// ⭐ Route wrapper (required Suspense boundary for NextJS 16)
+// ⭐ Route wrapper
 export default function Home() {
   return (
     <Suspense fallback={<Load />}>
