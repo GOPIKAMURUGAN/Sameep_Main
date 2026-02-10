@@ -36,6 +36,7 @@ const setupProgressRoutes = require("./routes/setupProgressRoutes");
 const vendorFlowRoutes = require("./routes/vendorFlowRoutes");
 const billingRoutes = require("./routes/billingRoutes");
 const loyaltyRoutes = require("./routes/loyaltyRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const vendorPriceNodeRoutes = require(
   path.resolve(__dirname, "routes", "vendorPriceNodeRoutes")
@@ -155,6 +156,7 @@ app.use("/api/setup-progress", setupProgressRoutes);
 app.use("/api/vendor-flow", vendorFlowRoutes);
 app.use("/api/billing", billingRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
+app.use("/api/admin", adminRoutes);
 
 // ⭐ Vendor price nodes
 app.use("/api/vendor-price-nodes", vendorPriceNodeRoutes);

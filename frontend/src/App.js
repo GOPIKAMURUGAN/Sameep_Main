@@ -1,6 +1,7 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import "leaflet/dist/leaflet.css";
+import { getToken } from "./utils/adminAuth";
 
 
 // Pages
@@ -49,97 +50,115 @@ import DummyVendorStatusListPage from "./pages/DummyVendorStatusListPage";
 import DummyVendorCategoriesDetailPage from "./pages/DummyVendorCategoriesDetailPage";
 import AppConfigurationsPage from "./pages/AppConfigurationsPage";
 import EnquiriesPage from "./pages/EnquiriesPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
 
 
 function App() {
   return (
     <Router>
-      <div style={{ display: "flex" }}>
-        <Sidebar />
-        <div style={{ flex: 1, padding: "20px" }}>
-          <Routes>
-            {/* Dashboard */}
-            <Route path="/dashboard" element={<Dashboard />} />
-
-            {/* Master Pages */}
-            <Route path="/master" element={<Master />} />
-            <Route path="/master/status" element={<StatusPage />} /> 
-            <Route path="/master/signup-levels" element={<SignupLevelPage />} />
-            <Route path="/master/display-types" element={<DisplayTypePage />} />
-            <Route path="/master/category-pricing" element={<CategoryPricingPage />} />
-            <Route path="/master/category-models" element={<CategoryModelsPage />} />
-            <Route path="/master/category-visibility" element={<CategoryVisibilityPage />} />
-            <Route path="/master/social-handles" element={<SocialHandlesPage />} />
-            <Route path="/master/business-fields" element={<BusinessFieldsPage />} />
-            <Route path="/master/cars" element={<CarsMainPage />} />          {/* Main dashboard */}
-<Route path="/master/cars/brands" element={<BrandPage />} />
-<Route path="/master/cars/fuel-types" element={<FuelTypePage />} />
-<Route path="/master/cars/transmission-types" element={<TransmissionTypePage />} />
-<Route path="/master/cars/body-types" element={<BodyTypePage />} />
-<Route path="/master/cars/models" element={<ModelPage />} />
-<Route path="/master/bikes" element={<BikesMainPage />} /> {/* Main dashboard */}
-<Route path="/master/bikes/brands" element={<BikeBrandPage />} />
-
-<Route path="/master/bikes/body-types" element={<BikeBodyTypePage />} />
-<Route path="/master/bikes/models" element={<BikeModelPage />} />
-<Route path="/master/bikes/transmission-types" element={<BikeTransmissionTypePage />} />
-
-{/* Tempo Mini Bus */}
-<Route path="/master/tempo-mini-bus" element={<TempoMiniBusMainPage />} />  {/* Main dashboard */}
-<Route path="/master/tempo-mini-bus/brands" element={<TempoBusBrandPage />} />
-<Route path="/master/tempo-mini-bus/body-types" element={<TempoBusBodyTypePage />} />
-<Route path="/master/tempo-mini-bus/models" element={<TempoBusModelsPage />} />
-
-            {/* Questions */}
-            <Route path="/questions" element={<Questions />} />
-
-            {/* Vendor Flow */}
-            <Route path="/vendors" element={<Vendors />} /> {/* Step 1 */}
-            <Route path="/vendors/status/:categoryId" element={<VendorStatusPage />} /> {/* Step 2 */}
-            <Route
-              path="/vendors/status/:categoryId/:status"
-              element={<VendorStatusListPage />}
-            /> {/* Step 2 detail */}
-            <Route path="/vendors/:vendorId" element={<VendorBusinessPage />} /> {/* Step 3 */}
-            <Route path="/vendors/:vendorId/categories/:categoryId" element={<VendorCategoriesDetailPage />} />
-
-            {/* Dummy Vendor Flow entry -> navigates to Dummy Categories */}
-            <Route path="/dummy-vendors" element={<DummyVendorPage />} />
-            <Route path="/dummy-vendors/status/:categoryId" element={<DummyVendorStatusPage />} />
-            <Route path="/dummy-vendors/status/:categoryId/:status" element={<DummyVendorStatusListPage />} />
-            <Route path="/dummy-vendors/:vendorId" element={<DummyVendorCategoriesDetailPage />} />
-            <Route path="/dummy-vendors/:vendorId/categories/:categoryId" element={<DummyVendorCategoriesDetailPage />} />
-
-            {/* Categories */}
-            <Route path="/categories" element={<CategoryPage />} />
-            
-            <Route path="/categories/:parentId" element={<CategoryPage />} />
-
-            {/* Combo Details */}
-            <Route path="/combos/:comboId" element={<ComboDetailPage />} />
-
-            {/* Customers */}
-            <Route path="/customers" element={<CustomersPage />} />
-
-            {/* Enquiries (all vendors/customers) */}
-            <Route path="/enquiries" element={<EnquiriesPage />} />
-
-            {/* App Configurations */}
-            <Route
-              path="/app-configurations"
-              element={<AppConfigurationsPage />}
-            />
-
-            {/* Dummy Categories */}
-            <Route path="/dummy-categories" element={<DummyCategoryPage />} />
-            <Route path="/dummy-categories/:parentId" element={<DummyCategoryPage />} />
-
-            {/* Fallback */}
-            <Route path="*" element={<Dashboard />} />
-          </Routes>
-        </div>
-      </div>
+      <AppContent />
     </Router>
+  );
+}
+
+function AppContent() {
+  const location = useLocation();
+  const token = getToken();
+  const isLogin = location.pathname === "/login";
+
+  if (!token && !isLogin) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return (
+    <div style={{ display: "flex" }}>
+      {!isLogin && <Sidebar />}
+      <div style={{ flex: 1, padding: "20px" }}>
+        <Routes>
+          {/* Login */}
+          <Route path="/login" element={<AdminLoginPage />} />
+
+          {/* Dashboard */}
+          <Route path="/dashboard" element={<Dashboard />} />
+
+          {/* Master Pages */}
+          <Route path="/master" element={<Master />} />
+          <Route path="/master/status" element={<StatusPage />} /> 
+          <Route path="/master/signup-levels" element={<SignupLevelPage />} />
+          <Route path="/master/display-types" element={<DisplayTypePage />} />
+          <Route path="/master/category-pricing" element={<CategoryPricingPage />} />
+          <Route path="/master/category-models" element={<CategoryModelsPage />} />
+          <Route path="/master/category-visibility" element={<CategoryVisibilityPage />} />
+          <Route path="/master/social-handles" element={<SocialHandlesPage />} />
+          <Route path="/master/business-fields" element={<BusinessFieldsPage />} />
+          <Route path="/master/cars" element={<CarsMainPage />} />          {/* Main dashboard */}
+          <Route path="/master/cars/brands" element={<BrandPage />} />
+          <Route path="/master/cars/fuel-types" element={<FuelTypePage />} />
+          <Route path="/master/cars/transmission-types" element={<TransmissionTypePage />} />
+          <Route path="/master/cars/body-types" element={<BodyTypePage />} />
+          <Route path="/master/cars/models" element={<ModelPage />} />
+          <Route path="/master/bikes" element={<BikesMainPage />} /> {/* Main dashboard */}
+          <Route path="/master/bikes/brands" element={<BikeBrandPage />} />
+
+          <Route path="/master/bikes/body-types" element={<BikeBodyTypePage />} />
+          <Route path="/master/bikes/models" element={<BikeModelPage />} />
+          <Route path="/master/bikes/transmission-types" element={<BikeTransmissionTypePage />} />
+
+          {/* Tempo Mini Bus */}
+          <Route path="/master/tempo-mini-bus" element={<TempoMiniBusMainPage />} />  {/* Main dashboard */}
+          <Route path="/master/tempo-mini-bus/brands" element={<TempoBusBrandPage />} />
+          <Route path="/master/tempo-mini-bus/body-types" element={<TempoBusBodyTypePage />} />
+          <Route path="/master/tempo-mini-bus/models" element={<TempoBusModelsPage />} />
+
+          {/* Questions */}
+          <Route path="/questions" element={<Questions />} />
+
+          {/* Vendor Flow */}
+          <Route path="/vendors" element={<Vendors />} /> {/* Step 1 */}
+          <Route path="/vendors/status/:categoryId" element={<VendorStatusPage />} /> {/* Step 2 */}
+          <Route
+            path="/vendors/status/:categoryId/:status"
+            element={<VendorStatusListPage />}
+          /> {/* Step 2 detail */}
+          <Route path="/vendors/:vendorId" element={<VendorBusinessPage />} /> {/* Step 3 */}
+          <Route path="/vendors/:vendorId/categories/:categoryId" element={<VendorCategoriesDetailPage />} />
+
+          {/* Dummy Vendor Flow entry -> navigates to Dummy Categories */}
+          <Route path="/dummy-vendors" element={<DummyVendorPage />} />
+          <Route path="/dummy-vendors/status/:categoryId" element={<DummyVendorStatusPage />} />
+          <Route path="/dummy-vendors/status/:categoryId/:status" element={<DummyVendorStatusListPage />} />
+          <Route path="/dummy-vendors/:vendorId" element={<DummyVendorCategoriesDetailPage />} />
+          <Route path="/dummy-vendors/:vendorId/categories/:categoryId" element={<DummyVendorCategoriesDetailPage />} />
+
+          {/* Categories */}
+          <Route path="/categories" element={<CategoryPage />} />
+          
+          <Route path="/categories/:parentId" element={<CategoryPage />} />
+
+          {/* Combo Details */}
+          <Route path="/combos/:comboId" element={<ComboDetailPage />} />
+
+          {/* Customers */}
+          <Route path="/customers" element={<CustomersPage />} />
+
+          {/* Enquiries (all vendors/customers) */}
+          <Route path="/enquiries" element={<EnquiriesPage />} />
+
+          {/* App Configurations */}
+          <Route
+            path="/app-configurations"
+            element={<AppConfigurationsPage />}
+          />
+
+          {/* Dummy Categories */}
+          <Route path="/dummy-categories" element={<DummyCategoryPage />} />
+          <Route path="/dummy-categories/:parentId" element={<DummyCategoryPage />} />
+
+          {/* Fallback */}
+          <Route path="*" element={<Dashboard />} />
+        </Routes>
+      </div>
+    </div>
   );
 }
 

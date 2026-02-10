@@ -1,6 +1,9 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import { logout } from "../utils/adminAuth";
 
 function Sidebar() {
+  const navigate = useNavigate();
+
   const linkStyle = ({ isActive }) => ({
     display: "block",
     padding: "10px 15px",
@@ -62,6 +65,28 @@ function Sidebar() {
       <NavLink to="/enquiries" style={linkStyle}>
         📩 Enquiries
       </NavLink>
+
+      <div style={{ flex: 1 }} />
+      <button
+        type="button"
+        onClick={() => {
+          logout();
+          navigate("/login");
+        }}
+        style={{
+          marginTop: "20px",
+          padding: "10px 15px",
+          borderRadius: "5px",
+          border: "1px solid #ddd",
+          background: "#ffffff",
+          color: "#333333",
+          cursor: "pointer",
+          width: "100%",
+          textAlign: "left",
+        }}
+      >
+        🚪 Logout
+      </button>
     </div>
   );
 }
