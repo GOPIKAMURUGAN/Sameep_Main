@@ -526,19 +526,21 @@ export default function PackagesPortal({ onClose, onLoaded }) {
     });
   }
 
-// ⭐ UI ONLY: make orphan leaves behave like parents
-// ⭐ UI ONLY: add orphan leaf services as virtual parents
-const displayCategories = [
-  ...categoryChildren,
-  ...(
-    path.length <= 1
-      ? serviceChildren.map(s => ({
+  const shouldUseVirtualParents =
+    categoryChildren.length > 0 && serviceChildren.length > 0;
+
+  const displayCategories = [
+    ...categoryChildren,
+    ...(
+      shouldUseVirtualParents && !currentNode?._isVirtualParent
+        ? serviceChildren.map(s => ({
           ...s,
           _isVirtualParent: true
         }))
-      : []
-  )
-];
+        : []
+    )
+  ];
+
 
 
 
@@ -569,28 +571,28 @@ const displayCategories = [
         {/* LIST */}
         {/* ================= CATEGORY LIST ================= */}
 
-        
-       {displayCategories.map(node => (
-  <div
-    key={node._id}
-    className="subcategory-title"
-    onClick={() => {
-      if (node._isVirtualParent) {
-        // ⭐ Wrap leaf as parent visually
-        setPath([...path, { ...node, children: [node] }]);
-      } else {
-        setPath([...path, node]);
-      }
-    }}
-  >
-    {node.name}
-  </div>
-))}
+
+        {displayCategories.map(node => (
+          <div
+            key={node._id}
+            className="subcategory-title"
+            onClick={() => {
+              if (node._isVirtualParent) {
+                // ⭐ Wrap leaf as parent visually
+                setPath([...path, { ...node, children: [node] }]);
+              } else {
+                setPath([...path, node]);
+              }
+            }}
+          >
+            {node.name}
+          </div>
+        ))}
 
 
 
         {/* ================= LEAF GRID ================= */}
-{displayCategories.length === 0 && serviceChildren.length > 0 && (() => {
+        {displayCategories.length === 0 && serviceChildren.length > 0 && (() => {
 
 
 
@@ -604,77 +606,66 @@ const displayCategories = [
           );
 
           return (
- <section className="services-section">
 
-  <div className="services-list">
+            <section className="services-section">
 
-    {/* ACTIVE BLOCK */}
-    {activeServices.length > 0 && (
-      <>
-        <div
-          style={{
-            gridColumn: "1 / -1",
-            fontWeight: 700
-          }}
-        >
-          Active Services
-        </div>
+              {/* ACTIVE SERVICES */}
+              {activeServices.length > 0 && (
+                <>
+                  <div className="section-title">Active Services</div>
 
-        {activeServices.map(service => (
-          <ServiceCard
-            key={service._id}
-            service={service}
-            isActive
-            toggleStatus={toggleStatus}
-            onEdit={() => {
-              setEditingService(service);
-              setModalPrice(service.price || "");
+                  <div className="services-list">
+                    {activeServices.map(service => (
+                      <ServiceCard
+                        key={service._id}
+                        service={service}
+                        isActive
+                        toggleStatus={toggleStatus}
+                        onEdit={() => {
+                          setEditingService(service);
+                          setModalPrice(service.price || "");
 
-              const masterTerms = findTermsInCategoryTree(
-                categoryTree,
-                service.categoryId
-              );
+                          const masterTerms = findTermsInCategoryTree(
+                            categoryTree,
+                            service.categoryId
+                          );
 
-              const selected = parseTerms(service.terms);
+                          const selected = parseTerms(service.terms);
 
-              setAllTerms(masterTerms);
-              setSelectedTerms(selected);
+                          setAllTerms(masterTerms);
+                          setSelectedTerms(selected);
 
-              setShowEditModal(true);
-            }}
-          />
-        ))}
-      </>
-    )}
+                          setShowEditModal(true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
 
-      {/* INACTIVE TITLE INSIDE SAME GRID */}
-      {inactiveServices.length > 0 && (
-        <div
-          style={{
-            gridColumn: "1 / -1",
-            marginTop: "20px",
-            opacity: 0.6,
-            fontWeight: 700
-          }}
-        >
-          Inactive Services
-        </div>
-      )}
+              {/* ⭐ INACTIVE BELOW ACTIVE — SAME LEVEL */}
+              {inactiveServices.length > 0 && (
+                <>
+                  <div className="section-title inactive">
+                    Inactive Services
+                  </div>
 
-      {/* INACTIVE CARDS */}
-      {inactiveServices.map(service => (
-        <ServiceCard
-          key={service._id}
-          service={service}
-          isActive={false}
-          toggleStatus={toggleStatus}
-        />
-      ))}
+                  <div className="services-list inactive-list">
+                    {inactiveServices.map(service => (
+                      <ServiceCard
+                        key={service._id}
+                        service={service}
+                        isActive={false}
+                        toggleStatus={toggleStatus}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
 
-    </div>
+            </section>
 
-  </section>
-);
+          );
         })()}
 
 
