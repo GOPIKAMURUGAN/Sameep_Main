@@ -8,6 +8,7 @@ const HeroSection = ({
   googleRating,
   googleReviews,
   googleMapsUrl,
+trustSummary = {},
 
   // ✅ FROM CATEGORY API
   tagline,
@@ -18,6 +19,18 @@ const HeroSection = ({
 
   const [index, setIndex] = useState(0);
   const [slide, setSlide] = useState(false);
+  const experience = trustSummary?.experienceYears;
+
+  const getStatLabel = (key) => {
+    const map = {
+      stylists: "Expert Stylists",
+      students_trained: "Students Trained",
+      vehicles_serviced: "Vehicles Serviced",
+      customers: "Happy Customers",
+    };
+    return map[key] || key;
+  };
+
 
   // reset index if images change
   useEffect(() => {
@@ -57,33 +70,42 @@ const HeroSection = ({
           </p>
         )}
 
-        <div className="stats">
-          <div className="stat-item">
-            <h2>15+</h2>
-            <p>Years Experience</p>
-          </div>
+          <div className="stats">
+          {experience && (
+            <div className="stat-item">
+              <h2>{experience}+</h2>
+              <p>Years Experience</p>
+            </div>
+          )}
+            {Object.entries(trustSummary || {}).map(([key, value]) => {
+            if (key === "experienceYears") return null;
+            if (value === null || value === undefined || value === "") return null;
 
-          <div className="stat-item">
-            <h2>1k+</h2>
-            <p>Happy Customers</p>
-          </div>
+            return (
+              <div className="stat-item" key={key}>
+                <h2>{value}+</h2>
+                <p>{getStatLabel(key)}</p>
+              </div>
+            );
+          })}
 
+       
           <div className="stat-item">
             {typeof googleRating === "number" ? (
-              <div
-                className="rating-clickable"
-                onClick={() => {
-                  if (googleMapsUrl) {
-                    window.open(googleMapsUrl, "_blank", "noopener,noreferrer");
-                  }
-                }}
-              >
+              <a
+  className="rating-clickable"
+  href={googleMapsUrl || "#"}
+  target="_blank"
+  rel="noopener noreferrer"
+  style={{ textDecoration: "none", color: "inherit" }}
+>
+
                 <h2>⭐ {googleRating}</h2>
                 <p>
                   Google Rating
                   {googleReviews ? ` (${googleReviews})` : ""}
                 </p>
-              </div>
+              </a>
             ) : (
               <>
                 <h2>Top-Rated</h2>
@@ -97,13 +119,13 @@ const HeroSection = ({
 
         <div className="hero-buttons">
           {button1Label && (
-            <button className="btn-primary">
+            <button className="btn">
               {button1Label}
             </button>
           )}
 
           {button2Label && (
-            <button className="btn-outline">
+            <button className="btn">
               {button2Label}
             </button>
           )}
@@ -124,3 +146,4 @@ const HeroSection = ({
 };
 
 export default HeroSection;
+

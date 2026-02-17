@@ -101,6 +101,14 @@ const dummyVendorSchema = new mongoose.Schema({
     default: null,
   },
 
+  /**
+   * ⭐ Vendor Trust Summary (Denormalized for fast reads)
+   */
+trustSummary: {
+  type: mongoose.Schema.Types.Mixed,
+  default: {},
+},
+
   businessHours: [
     {
       day: { type: String, required: true },

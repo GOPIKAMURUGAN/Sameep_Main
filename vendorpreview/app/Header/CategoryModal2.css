@@ -6,6 +6,18 @@
   height: 100%;
 }
 
+.preview-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+.preview-actions .btn {
+  width: auto;         
+  min-width: 140px;
+  padding: 12px 20px;
+  border-radius: 7px;
+}
 
 
 /* ================= SCROLL AREA ================= */
@@ -216,7 +228,7 @@
 .btn.primary {
   background: linear-gradient(135deg, #E6BF6A, #CFA94E);
   color: #0B0B0D;
-
+width: auto;          /* 🚨 stops full-width stretch */
   border-radius: 10px;
   padding: 10px 16px;
   border: none;
@@ -228,10 +240,26 @@
     0 0 16px rgba(255, 190, 120, 0.35);
 }
 
+.services-footer {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 16px;
+  border-top: 1px solid rgba(255, 215, 120, 0.15);
+}
+.services-footer .btn {
+  width: auto;          /* 🚫 stop 100% / 100vw */
+  min-width: 120px;
+  padding: 12px 20px;
+  border-radius: 10px;
+}
+
+
 .btn.secondary {
+  width: auto;          /* 🚨 stops full-width stretch */
   background: transparent;
   color: #FFDFA0;
-
+color: #0B0B0D;
   border: 1.5px solid rgba(255, 215, 130, 0.6);
   border-radius: 10px;
   padding: 10px 16px;

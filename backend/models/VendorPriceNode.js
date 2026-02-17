@@ -76,7 +76,7 @@ const VendorPriceNodeSchema = new mongoose.Schema(
 
     pricingStatus: {
       type: String,
-      enum: ["Active", "Inactive"],
+      enum: ["Active", "Inactive", "Archive"],
       default: "Inactive"
     },
 

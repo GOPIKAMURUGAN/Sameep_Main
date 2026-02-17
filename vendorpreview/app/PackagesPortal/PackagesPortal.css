@@ -1,42 +1,49 @@
 /* =========================================================
+   RESET
+========================================================= */
+* {
+  box-sizing: border-box;
+}
+
+/* =========================================================
    OVERLAY
 ========================================================= */
-
 .packages-overlay {
   position: fixed;
+  overflow: hidden;
   inset: 0;
   background: rgba(8, 8, 12, 0.88);
   backdrop-filter: blur(6px);
   z-index: 9999;
-
-  display: flex;
+ display: flex;
   justify-content: center;
-  align-items: center;
+
+  align-items: flex-start;   /* ⭐ FIX */
+  padding-top: 10px;  
 }
 
 /* =========================================================
-   MAIN CARD
+   MAIN CONTAINER
 ========================================================= */
-
 .packages-card {
-  width: 96vw;
+  width: 100%;
+  max-width: 1400px;
+   /* max-height: 92vh;   */
   height: 92vh;
-  overflow-y: auto;
+  padding: 30px;
+  overflow-y: auto !important;
+  overflow-x: hidden;
 
   background: rgba(15, 15, 20, 0.98);
   border-radius: 30px;
-  padding: 30px;
-
   border: 2px solid rgba(255,215,130,0.35);
   color: #FFD27D;
 }
 
 /* scrollbar */
-
 .packages-card::-webkit-scrollbar {
   width: 8px;
 }
-
 .packages-card::-webkit-scrollbar-thumb {
   background: rgba(255,215,130,0.35);
   border-radius: 8px;
@@ -45,7 +52,6 @@
 /* =========================================================
    HEADER
 ========================================================= */
-
 .services-header {
   margin-top: 40px;
   display: flex;
@@ -67,24 +73,19 @@
 /* =========================================================
    BACK BUTTON
 ========================================================= */
-
 .back-arrow {
   font-size: 26px;
   width: 44px;
   height: 44px;
-
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  border-radius: 50%;
   cursor: pointer;
-
   background: rgba(255,215,130,0.12);
   border: 1px solid rgba(255,215,130,0.45);
   transition: 0.25s;
 }
-
 .back-arrow:hover {
   background: #FFD27D;
   color: #000;
@@ -93,39 +94,58 @@
 /* =========================================================
    CATEGORY LIST
 ========================================================= */
-
 .subcategory-title {
+  margin-top: 14px;
   padding: 16px 22px;
   border-radius: 20px;
-  margin-top: 14px;
-
   background: rgba(255,215,130,0.12);
   border: 1px solid rgba(255,215,130,0.35);
   cursor: pointer;
   font-weight: 600;
   transition: 0.25s;
 }
-
 .subcategory-title:hover {
   background: rgba(255,215,130,0.25);
 }
 
 /* =========================================================
-   SERVICES GRID
+   SECTION HEADINGS
 ========================================================= */
+.services-section {
+  /* overflow: visible!important;
+  height: auto!important;  */
+  min-height: 0;
+  width: 100%;
+  margin-top: 26px;
+}
 
-.services-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 22px;
-  margin-top: 20px;
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.section-title.inactive {
+  opacity: 0.6;
 }
 
 /* =========================================================
-   SERVICE CARD
+   SERVICES GRID (USED TWICE)
 ========================================================= */
+.services-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  align-items: start;
+  /* padding-bottom: 10px;   ⭐ important */
+}
 
+/* =========================================================
+   SERVICE CARD (FIXED SIZE)
+========================================================= */
 .service-card {
+  position: relative;
+
   background: radial-gradient(
     circle at top left,
     rgba(255,215,130,0.06),
@@ -133,13 +153,19 @@
   );
 
   border-radius: 22px;
-  padding: 22px;
+  padding: 22px 24px;
+
   display: flex;
   flex-direction: column;
-  gap: 16px;
+
+  /* 🔑 THIS IS CRITICAL */
+  min-height: 260px;
+
   transition: 0.25s;
 }
 
+
+/* STATE STYLES (VISUAL ONLY) */
 .active-card {
   border: 2px solid rgba(50,215,75,0.7);
   box-shadow: 0 0 18px rgba(50,215,75,0.25);
@@ -151,14 +177,13 @@
 }
 
 /* =========================================================
-   SERVICE TOP
+   TOP ROW
 ========================================================= */
-
 .service-top {
   display: grid;
   grid-template-columns: 72px 1fr auto;
   gap: 16px;
-  align-items: center;
+  align-items: flex-start; /* 🔑 not center */
 }
 
 .service-top img {
@@ -169,19 +194,38 @@
   border: 2px solid rgba(255,215,130,0.35);
 }
 
+/* =========================================================
+   SERVICE INFO (TEXT + TERMS)
+========================================================= */
+.service-info {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 8px;
+
+}
+
 .service-info h4 {
   margin: 0;
   font-size: 18px;
-}
+  line-height: 1.3;
 
-/* terms list */
+  /* 🔑 THESE 3 LINES FIX EVERYTHING */
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
 
 .service-terms {
   list-style: none;
   margin: 6px 0 0;
   padding: 0;
+  color: white;
   font-size: 14px;
   opacity: 0.85;
+}
+.empty-terms{
+  color: #fff;
 }
 
 .service-terms li {
@@ -191,7 +235,6 @@
 /* =========================================================
    RIGHT SIDE
 ========================================================= */
-
 .service-right {
   display: flex;
   flex-direction: column;
@@ -214,38 +257,29 @@
   border: 1px solid rgba(255,215,130,0.5);
   cursor: pointer;
 }
-
 .edit:hover {
   background: #FFD27D;
   color: #000;
 }
 
 /* =========================================================
-   TOGGLE SWITCH
+   TOGGLE (ALWAYS AT BOTTOM)
 ========================================================= */
-
 .service-bottom {
-  position: absolute;
-  right: 22px;
-  bottom: 18px;
+  margin-top: auto; /* NOT auto */
   display: flex;
-  align-items: center;
   justify-content: flex-end;
 }
 
-
+/* SWITCH */
 .switch {
   position: relative;
   width: 56px;
   height: 32px;
 }
-
 .switch input {
   opacity: 0;
-  width: 0;
-  height: 0;
 }
-
 .switch-track {
   position: absolute;
   inset: 0;
@@ -254,7 +288,6 @@
   cursor: pointer;
   transition: 0.25s;
 }
-
 .switch-thumb {
   position: absolute;
   top: 4px;
@@ -265,11 +298,9 @@
   border-radius: 50%;
   transition: 0.25s;
 }
-
 .switch input:checked + .switch-track {
   background: #32d74b;
 }
-
 .switch input:checked + .switch-track .switch-thumb {
   transform: translateX(24px);
 }
@@ -277,53 +308,85 @@
 /* =========================================================
    MODAL
 ========================================================= */
-
 .activate-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.75);
   backdrop-filter: blur(4px);
-
+  z-index: 10000;
   display: flex;
   justify-content: center;
   align-items: center;
-
-  z-index: 10000;
+}
+.activate-overlay {
+  background: rgba(0, 0, 0, 0.6); /* was 0.75 */
+  backdrop-filter: blur(6px);
 }
 
 .activate-modal {
   width: min(520px, 92vw);
   max-height: 90vh;
-  overflow-y: auto;
 
-  background: #0b0b0d;
-  border-radius: 26px;
   padding: 26px;
-
+background: #0f0f12;  /* solid */
+  backdrop-filter: none;
+  border-radius: 26px;
   border: 2px solid rgba(255,215,130,0.4);
   box-shadow: 0 0 40px rgba(255,215,130,0.25);
 }
+/* ============================
+   MODAL TEXT CLARITY FIX
+============================ */
 
+/* Modal title */
 .activate-modal h3 {
-  margin-top: 0;
+  color: #FFD27D;
+  opacity: 1;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+/* Section labels like Price / Terms */
+.activate-modal .modal-label {
+  color: #FFD27D;
+  opacity: 1;
+  font-weight: 600;
+}
+
+/* Checkbox text */
+.activate-modal .term-text {
+  color: #FFD27D;
+  opacity: 1;
+}
+
+
+.activate-modal,
+.activate-modal * {
+  opacity: 1;
+}
+.price-input {
+  background: rgba(255,255,255,0.14);
+  color: #FFD27D;
+  font-weight: 500;
+}
+.term-text {
+  color: #FFD27D;
+  opacity: 1;
 }
 
 /* =========================================================
    INPUTS
 ========================================================= */
-
 .modal-label {
   font-size: 13px;
-  margin-top: 12px;
+  margin-top: 14px;
   display: block;
 }
 
 .price-input {
   width: 100%;
-  box-sizing: border-box;
   padding: 14px;
   border-radius: 14px;
-
   border: 1px solid rgba(255,215,130,0.4);
   background: rgba(255,255,255,0.08);
   color: #FFD27D;
@@ -332,12 +395,11 @@
 /* =========================================================
    TERMS CHECKBOXES
 ========================================================= */
-
 .terms-checkbox-list {
+  margin: 14px 0 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin: 14px 0 18px;
 }
 
 .term-checkbox {
@@ -345,7 +407,6 @@
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  font-size: 14px;
 }
 
 .term-checkbox input {
@@ -376,36 +437,32 @@
 /* =========================================================
    BUTTONS
 ========================================================= */
-
 .btn-primary {
   width: 100%;
+  margin-top: 10px;
   padding: 16px;
   border-radius: 999px;
   border: none;
-
   background: linear-gradient(135deg,#FFD27D,#E6BF6A);
   color: #000;
   font-weight: 700;
   cursor: pointer;
-  margin-top: 10px;
 }
 
 .btn-secondary {
   width: 100%;
+  margin-top: 10px;
   padding: 14px;
   border-radius: 999px;
-
   background: transparent;
   border: 1px solid rgba(255,215,130,0.5);
   color: #FFD27D;
   cursor: pointer;
-  margin-top: 10px;
 }
 
 /* =========================================================
    RESPONSIVE
 ========================================================= */
-
 @media (max-width: 768px) {
   .packages-card {
     width: 100vw;
@@ -413,74 +470,15 @@
     border-radius: 0;
     padding: 18px;
   }
+}
+@media (max-width: 1100px) {
+  .services-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 
+@media (max-width: 700px) {
   .services-list {
     grid-template-columns: 1fr;
   }
-}
-/* ============================
-   MODAL VISIBILITY FIX
-============================ */
-
-.activate-modal {
-  color: #FFD27D; /* force gold text */
-}
-
-/* modal title */
-.activate-modal h3 {
-  color: #FFD27D;
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 14px;
-}
-
-/* labels */
-.activate-modal .modal-label {
-  color: #FFD27D;
-  font-size: 13px;
-  opacity: 0.95;
-  margin-top: 14px;
-}
-
-/* inputs */
-.activate-modal input.price-input {
-  color: #FFD27D;
-  background: rgba(255,255,255,0.10);
-}
-
-/* terms text */
-.activate-modal .term-text {
-  color: #FFD27D;
-  opacity: 0.95;
-}
-
-/* unchecked checkbox border brighter */
-.activate-modal .checkmark {
-  border: 1.5px solid #FFD27D;
-  background: transparent;
-}
-
-/* unchecked term row visibility */
-.activate-modal .term-checkbox {
-  color: #FFD27D;
-  opacity: 0.9;
-}
-
-/* empty text */
-.empty-terms {
-  color: #FFD27D;
-  opacity: 0.7;
-}
-.service-card {
-  position: relative;   /* ⭐ important */
-  background: radial-gradient(
-    circle at top left,
-    rgba(255, 215, 130, 0.06),
-    rgba(0, 0, 0, 0.95)
-  );
-  border-radius: 22px;
-  padding: 22px 24px 70px; /* ⭐ add bottom padding for toggle space */
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
 }

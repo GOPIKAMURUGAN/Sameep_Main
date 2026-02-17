@@ -37,6 +37,9 @@ export default function ChooseCategoryModal({ onClose }) {
 
   const [syncing, setSyncing] = useState(false);
 
+  const [trustQuestions, setTrustQuestions] = useState([]);
+  const [trustAnswers, setTrustAnswers] = useState({});
+  const [loadingTrust, setLoadingTrust] = useState(false);
 
 
   const [captcha, setCaptcha] = useState("");
@@ -181,6 +184,49 @@ export default function ChooseCategoryModal({ onClose }) {
   const openingHoursText = Array.isArray(selectedBusiness?.openingHoursText)
     ? selectedBusiness.openingHoursText
     : [];
+
+  useEffect(() => {
+    if (step === "TRUST" && confirmedCategory?.name) {
+      setLoadingTrust(true);
+
+      fetch(
+        `${API_BASE_URL}/api/trust/questions?category=${encodeURIComponent(
+          confirmedCategory.name
+        )}`
+      )
+        .then((r) => r.json())
+        .then((data) => {
+          console.log("Trust questions:", data);
+          setTrustQuestions(data.questions || []);
+        })
+        .catch(console.error)
+        .finally(() => setLoadingTrust(false));
+    }
+  }, [step, confirmedCategory]);
+
+  const handleSaveTrust = async () => {
+    if (!vendorId) {
+      alert("Vendor missing");
+      return;
+    }
+
+    try {
+      await fetch(`${API_BASE_URL}/api/trust/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vendorId,
+          categoryId: confirmedCategory?._id,
+          answers: trustAnswers,
+        }),
+      });
+
+      setStep("SERVICES_SELECT");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save trust info");
+    }
+  };
 
   const handleContinueWithoutOtp = async () => {
     if (!selected?._id || !selectedBusiness?.name) {
@@ -334,6 +380,7 @@ export default function ChooseCategoryModal({ onClose }) {
     GOOGLE_RESULTS: 56,
     VERIFY_PHONE: 70,
     SUCCESS: 85,
+    TRUST_QUESTIONS: 92,
     SERVICES_SELECT: 100,
   }[step];
 
@@ -712,13 +759,111 @@ setSelectedBusiness({
 
               <button
                 className="success-next"
-                onClick={() => setStep("SERVICES_SELECT")}
+                onClick={() => setStep("TRUST")}
               >
                 Next
               </button>
 
             </div>
 
+          </div>
+        )}
+
+        {step === "TRUST" && (
+          <div className="trust-card">
+            <h2>Build customer trust</h2>
+            <p>Add a few highlights customers will love</p>
+
+            {trustQuestions.length === 0 ? (
+              <p style={{ opacity: 0.7 }}>Loading questions...</p>
+            ) : (
+              <div className="trust-questions">
+                {trustQuestions.map((q) => (
+                  <div key={q.id} className="trust-question">
+                    <label>{q.id.replace("_", " ")}</label>
+
+                    {q.type === "years" && (
+                      <input
+                        type="number"
+                        placeholder="Years of experience"
+                        value={trustAnswers[q.id] || ""}
+                        onChange={(e) =>
+                          setTrustAnswers({ ...trustAnswers, [q.id]: e.target.value })
+                        }
+                      />
+                    )}
+
+                    {q.type === "range" && (
+                      <input
+                        type="number"
+                        placeholder="Minimum count"
+                        value={trustAnswers[q.id] || ""}
+                        onChange={(e) =>
+                          setTrustAnswers({ ...trustAnswers, [q.id]: e.target.value })
+                        }
+                      />
+                    )}
+
+                    {q.type === "select" && (
+                      !q.options || q.options.length === 0 ? (
+                        <input
+                          type="text"
+                          placeholder="Enter value"
+                          value={trustAnswers[q.id] || ""}
+                          onChange={(e) =>
+                            setTrustAnswers({ ...trustAnswers, [q.id]: e.target.value })
+                          }
+                        />
+                      ) : (
+                        <select
+                          value={trustAnswers[q.id] || ""}
+                          onChange={(e) =>
+                            setTrustAnswers({ ...trustAnswers, [q.id]: e.target.value })
+                          }
+                        >
+                          <option value="">Select option</option>
+                          {q.options.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      )
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="trust-actions">
+              <button className="btn secondary" onClick={() => setStep("SUCCESS")}>
+                Back
+              </button>
+
+              <button
+                className="btn primary"
+                onClick={async () => {
+                  try {
+                    await fetch(`${API_BASE_URL}/api/trust/save`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        vendorId,
+                        category: confirmedCategory?.name,
+                        answers: trustAnswers,
+                      }),
+                    });
+
+                    setStep("SERVICES_SELECT");
+                  } catch (err) {
+                    console.error(err);
+                    alert("Failed to save trust info");
+                  }
+                }}
+              >
+                Continue
+              </button>
+            </div>
           </div>
         )}
 

@@ -380,3 +380,97 @@ overflow: hidden;
   box-shadow: 0 0 14px rgba(255, 210, 125, 0.4);
   transform: translateY(-1px);
 }
+
+/* ================= ENQUIRIES POPUP ================= */
+
+.enquiries-card {
+  width: 520px;
+  max-height: 80vh;
+  overflow-y: auto;
+
+  background: #0b0b0d;
+  border-radius: 20px;
+  padding: 26px;
+
+  border: 1px solid rgba(245, 217, 122, 0.25);
+  box-shadow:
+    0 0 40px rgba(245, 217, 122, 0.08),
+    0 10px 40px rgba(0,0,0,0.6);
+}
+
+.enquiries-card h3 {
+  color: #f5d97a;
+  font-size: 26px;
+  margin-bottom: 18px;
+}
+
+/* ================= LIST ================= */
+
+.enquiries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ================= ITEM ================= */
+
+.enquiry-item {
+  padding: 18px;
+  border-radius: 14px;
+
+  background: linear-gradient(
+    145deg,
+    rgba(18,18,22,0.9),
+    rgba(8,8,12,0.9)
+  );
+
+  border: 1px solid rgba(245, 217, 122, 0.18);
+
+  transition: 0.25s ease;
+}
+
+.enquiry-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 16px rgba(245,217,122,0.12);
+}
+
+/* ================= TOP ROW ================= */
+
+.enquiry-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.enquiry-price {
+  color: #f5d97a;
+  font-weight: 700;
+}
+
+/* ================= PATH ================= */
+
+.enquiry-path {
+  font-size: 13px;
+  color: rgba(255,255,255,0.6);
+  margin-top: 6px;
+}
+
+/* ================= ATTR ================= */
+
+.enquiry-attr {
+  font-size: 14px;
+  margin-top: 6px;
+  color: rgba(255,255,255,0.85);
+}
+
+/* ================= META ================= */
+
+.enquiry-meta {
+  font-size: 12px;
+  margin-top: 10px;
+  color: rgba(255,255,255,0.5);
+}

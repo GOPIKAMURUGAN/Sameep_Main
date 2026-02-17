@@ -5,6 +5,7 @@ import Footer from "./Footer/Footer";
 import { VendorProvider } from "./Vendorcontext";
 import VendorTitleUpdater from "./VendorTitleUpdater";
 
+
 export const metadata = {
   title: "", // ✅ prevents URL from appearing
 };
@@ -24,13 +25,13 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <BootstrapClient />
-
-        <VendorProvider>
-          <VendorTitleUpdater />
-          {children}
-          <Footer />
-        </VendorProvider>
+          <VendorProvider>
+            <VendorTitleUpdater />
+            {children}
+            <Footer />
+          </VendorProvider>
       </body>
     </html>
   );
 }
+

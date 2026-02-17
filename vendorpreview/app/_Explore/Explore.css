@@ -294,3 +294,113 @@
   margin-bottom: 12px;
   flex-shrink: 0;   /* ⭐ prevents collapsing */
 }
+
+
+/* ================================
+   OVERLAY
+================================ */
+.login-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(6px); /* smooth premium blur */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 9999;
+}
+
+
+/* ================================
+   MODAL
+================================ */
+.login-modal{
+  width: 100%;
+  max-width: 420px;
+  background: #06080f;
+  border-radius: 24px;
+  padding: 28px;
+  color: #fff;
+  border: 1px solid rgba(229,183,92,0.6);
+
+  /* ⭐ FIXED GLOW (no overflow) */
+  box-shadow:
+    0 0 0 1px rgba(229,183,92,0.15),
+    0 12px 40px rgba(0,0,0,0.6);
+
+  position: relative;
+}
+
+/* TEXT */
+.login-small{
+  color:#e5b75c;
+  font-size:14px;
+  margin-bottom:8px;
+}
+
+.login-title{
+  font-size:24px;
+  font-weight:700;
+  color:#f6d37a;
+  line-height:1.3;
+  margin-bottom:10px;
+}
+
+.login-desc{
+  color:#9aa0a6;
+  margin-bottom:22px;
+  font-size:14px;
+}
+
+/* INPUTS */
+.login-input-row{
+  display:flex;
+  gap:12px;
+  margin-bottom:22px;
+}
+
+.login-code{
+  width:110px;
+}
+
+.login-code,
+.login-input{
+  background:#0b0f17;
+  border:1px solid rgba(229,183,92,0.5);
+  border-radius:14px;
+  padding:12px 14px;
+  color:#fff;
+  outline:none;
+}
+
+/* BUTTONS */
+.login-btn-main{
+  width:100%;
+  padding:15px;
+  background:#e5b75c;
+  border:none;
+  border-radius:999px;
+  font-weight:600;
+  margin-bottom:14px;
+  cursor:pointer;
+}
+
+.login-btn-outline{
+  width:100%;
+  padding:14px;
+  border-radius:14px;
+  background:transparent;
+  border:1px solid rgba(229,183,92,0.6);
+  color:#e5b75c;
+  margin-bottom:14px;
+  cursor:pointer;
+}
+
+.login-cancel{
+  width:100%;
+  background:none;
+  border:none;
+  color:#aaa;
+  cursor:pointer;
+}

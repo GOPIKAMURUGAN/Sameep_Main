@@ -7,9 +7,17 @@ const BillingItemSchema = new mongoose.Schema(
     price: Number,
     qty: Number,
     total: Number,
+
+    // ⭐ NEW — hierarchy fields for analytics
+    categoryId: mongoose.Schema.Types.ObjectId,
+    parentCategoryId: mongoose.Schema.Types.ObjectId,
+    rootCategoryId: mongoose.Schema.Types.ObjectId,
+    nodePath: [String],
+    categoryPathIds: [mongoose.Schema.Types.ObjectId],
   },
   { _id: false }
 );
+
 
 const BillingSessionSchema = new mongoose.Schema(
   {

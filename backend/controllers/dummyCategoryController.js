@@ -97,6 +97,9 @@ exports.getCategories = async (req, res) => {
 // CREATE dummy category or subcategory depending on presence of parentId
 exports.createCategory = async (req, res) => {
   try {
+    console.log("REQ FILE:", req.file);
+console.log("REQ FILES:", req.files);
+
     const { name, parentId, price, terms, visibleToUser, visibleToVendor } = req.body;
     if (!name) return res.status(400).json({ message: "Name required" });
 

@@ -48,6 +48,9 @@ const vendorSchema = new mongoose.Schema({
     freeText2: { type: String, default: "" }, // Description
   },
 
+  // Trust answers from onboarding
+  trustAnswers: { type: Object, default: {} },
+
   createdAt: { type: Date, default: Date.now },
 });
 

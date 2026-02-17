@@ -1,7 +1,9 @@
+const axios = require("axios");
 const BillingSession = require("../models/BillingSession");
 const Transaction = require("../models/Transaction");
 const VendorLoyaltyRule = require("../models/VendorLoyaltyRule");
 const LoyaltyLedger = require("../models/LoyaltyLedger");
+const Customer = require("../models/Customer");
 
 
 // ✅ Create Billing Session
@@ -77,7 +79,7 @@ exports.getBillingSession = async (req, res) => {
 };
 
 
-// 🔐 Request OTP for Loyalty Redemption (DEMO VERSION)
+// 🔐 Request OTP for Loyalty Redemption (MSG91)
 exports.requestRedeemOTP = async (req, res) => {
   try {
     const { billingId, redeemPoints } = req.body;
@@ -91,7 +93,31 @@ exports.requestRedeemOTP = async (req, res) => {
       });
     }
 
-    const otp = "1234"; // demo otp
+    const customer = await Customer.findById(billing.customerId);
+    const mobile = customer?.fullNumber;
+
+    if (!mobile) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer mobile not found",
+      });
+    }
+
+    await axios.post(
+      "https://control.msg91.com/api/v5/otp",
+      {
+        mobile,
+        otp_length: 6,
+        sender: process.env.MSG91_SENDER,
+        template_id: "63e1e445d6fc0560d933a5e2",
+      },
+      {
+        headers: {
+          authkey: process.env.MSG91_AUTHKEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     billing.redeemRequested = redeemPoints;
     billing.otpVerified = false;
@@ -100,8 +126,7 @@ exports.requestRedeemOTP = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "OTP sent (demo mode)",
-      otp
+      message: "OTP sent via MSG91",
     });
 
   } catch (err) {
@@ -114,7 +139,7 @@ exports.requestRedeemOTP = async (req, res) => {
 };
 
 
-// 🔐 Verify OTP
+// 🔐 Verify OTP (MSG91)
 exports.verifyRedeemOTP = async (req, res) => {
   try {
     const { billingId, otp } = req.body;
@@ -128,7 +153,31 @@ exports.verifyRedeemOTP = async (req, res) => {
       });
     }
 
-    if (otp !== "1234") {
+    const customer = await Customer.findById(billing.customerId);
+    const mobile = customer?.fullNumber;
+
+    if (!mobile) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer mobile not found",
+      });
+    }
+
+    try {
+      await axios.post(
+        "https://control.msg91.com/api/v5/otp/verify",
+        {
+          mobile,
+          otp,
+        },
+        {
+          headers: {
+            authkey: process.env.MSG91_AUTHKEY,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    } catch (verifyErr) {
       return res.status(400).json({
         success: false,
         message: "Invalid OTP",

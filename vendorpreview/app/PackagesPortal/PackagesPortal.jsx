@@ -17,6 +17,112 @@ function parseTerms(terms) {
     .map(t => t.trim())
     .filter(Boolean);
 }
+function collectMasterIds(nodes, set = new Set()) {
+  nodes.forEach(n => {
+    if (n._id) set.add(n._id);
+    if (n.children) collectMasterIds(n.children, set);
+  });
+  return set;
+}
+
+function collectVendorIds(nodes, set = new Set()) {
+  nodes.forEach(n => {
+    if (n.categoryId) set.add(n.categoryId);
+    if (n.children) collectVendorIds(n.children, set);
+  });
+  return set;
+}
+
+
+function collectCategoryIds(nodes, set = new Set()) {
+  nodes.forEach(n => {
+    if (n.categoryId) set.add(n.categoryId);
+    if (n.children) collectCategoryIds(n.children, set);
+  });
+  return set;
+}
+
+
+function buildFullPayloads(nodes, parentVendorPriceNodeId = null, level = 0, arr = []) {
+
+  nodes.forEach((node, index) => {
+
+    const payload = {
+      vendorId: node.vendorId,
+      rootCategoryId: node.rootCategoryId,
+      categoryId: node.categoryId,
+      parentCategoryId: node.parentCategoryId || null,
+      name: node.name,
+      parentVendorPriceNodeId,
+      level,
+      isLeaf: node.isLeaf,
+      price: node.price || 0,
+      pricingStatus: "Inactive",
+      terms: node.terms || "",
+      visibleToUser: true,
+      visibleToVendor: true,
+      sequence: index,
+    };
+
+    arr.push(payload);
+
+    if (node.children?.length) {
+      buildFullPayloads(
+        node.children,
+        node._id?.startsWith("new-") ? null : node._id,
+        // parentVendorPriceNodeId
+        level + 1,
+        arr
+      );
+    }
+  });
+
+  return arr;
+}
+
+
+
+function syncVendorTree(masterTree, vendorTree) {
+
+  // 🔥 flatten vendor tree once
+  const vendorMap = new Map();
+
+  function flatten(nodes) {
+    nodes.forEach(n => {
+      vendorMap.set(n.categoryId, n);
+      if (n.children?.length) flatten(n.children);
+    });
+  }
+
+  flatten(vendorTree);
+
+  function walk(masterNodes) {
+    return masterNodes.map(master => {
+
+      const vendorMatch = vendorMap.get(master._id);
+
+      const baseNode = vendorMatch
+        ? vendorMatch
+        : {
+          _id: `new-${master._id}`,
+          categoryId: master._id,
+          name: master.name,
+          isLeaf: master.isLeaf,
+          price: 0,
+          pricingStatus: "Inactive",
+          terms: "",
+          children: []
+        };
+
+      return {
+        ...baseNode,
+        children: walk(master.children || [])
+      };
+    });
+  }
+
+  return walk(masterTree);
+}
 
 function stringifyTerms(termsArray) {
   return termsArray.join(", ");
@@ -128,7 +234,7 @@ export default function PackagesPortal({ onClose, onLoaded }) {
   const [modalPrice, setModalPrice] = useState("");
   const [selectedTerms, setSelectedTerms] = useState([]);
 
-const [pendingServiceId, setPendingServiceId] = useState(null);
+  const [pendingServiceId, setPendingServiceId] = useState(null);
 
 
   const [showActivateModal, setShowActivateModal] = useState(false);
@@ -138,7 +244,7 @@ const [pendingServiceId, setPendingServiceId] = useState(null);
   const [selectedTermsMap, setSelectedTermsMap] = useState({});
   const [allTerms, setAllTerms] = useState([]);
 
-const [categoryTree, setCategoryTree] = useState([]);
+  const [categoryTree, setCategoryTree] = useState([]);
 
   function toggleTerm(term) {
     setSelectedTerms(prev => {
@@ -183,6 +289,9 @@ const [categoryTree, setCategoryTree] = useState([]);
     if (!vendorId || !rootCategoryId) return;
 
     async function load() {
+
+
+
       setLoading(true);
 
       // 1️⃣ Pricing tree
@@ -192,26 +301,85 @@ const [categoryTree, setCategoryTree] = useState([]);
       const pricingData = await pricingRes.json();
 
       // 2️⃣ Category image tree
-     const catTree = await buildCategoryTree(rootCategoryId);
-setCategoryTree(catTree);
+      const catTree = await buildCategoryTree(rootCategoryId);
+      setCategoryTree(catTree);
+
+      // ================= SYNC BACKEND =================
 
 
-      // 3️⃣ Image map
+
+      const masterIds = collectMasterIds(catTree);
+      const vendorIds = collectVendorIds(pricingData.tree || []);
+
+      const missingIds = [...masterIds].filter(id => !vendorIds.has(id));
+      if (missingIds.length) {
+        await Promise.all(
+          missingIds.map(id =>
+            fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/sync`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                vendorId,
+                rootCategoryId,
+                categoryId: id,
+                price: 0,
+                pricingStatus: "Inactive",
+                terms: ""
+              })
+            })
+          )
+        );
+      }
+
+      const extraIds = [...vendorIds].filter(id => !masterIds.has(id));
+
+
+      // 🔄 REFRESH pricing tree AFTER sync
+      const refreshedRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/tree?vendorId=${vendorId}&rootCategoryId=${rootCategoryId}`
+      );
+      const refreshedPricing = await refreshedRes.json();
+
+      // ================= BUILD FINAL TREE =================
+
       const imageMap = buildImageMapFromTree(catTree);
 
+      const syncedTree = syncVendorTree(catTree, refreshedPricing.tree || []);
+      function collectActiveLeafIds(nodes, arr = []) {
+        nodes.forEach(n => {
+          if (n.isLeaf && n.pricingStatus === "Active") {
+            arr.push(n.categoryId);
+          }
+          if (n.children?.length) {
+            collectActiveLeafIds(n.children, arr);
+          }
+        });
+        return arr;
+      }
 
-      // 4️⃣ Inject images
+      const activeLeafCategoryIds = collectActiveLeafIds(syncedTree);
+
+      const payload = {
+        vendorId,
+        rootCategoryId,
+        activeLeafCategoryIds
+      };
+
+      console.log("SYNC PAYLOAD:", payload);
+
+      const fullPayload = buildFullPayloads(syncedTree);
+
+      console.log("FULL PAYLOAD:", fullPayload);
+
       const treeWithImages =
-        attachImagesToPricingTree(pricingData.tree || [], imageMap);
+        attachImagesToPricingTree(syncedTree, imageMap);
 
-      // ✅ SET ROOT NODES
       setRootNodes(treeWithImages);
 
-
-
       setLoading(false);
-       onLoaded?.(); 
+      onLoaded?.();
     }
+
 
     load();
   }, [vendorId, rootCategoryId]);
@@ -226,135 +394,153 @@ setCategoryTree(catTree);
   const currentNode = path[path.length - 1];
   const children = showingRoot ? rootNodes : currentNode.children || [];
 
-  const hasCategories = children.some(c => !c.isLeaf);
-  const onlyLeafNodes = children.length && children.every(c => c.isLeaf);
+  const categoryChildren = children.filter(c => !c.isLeaf);
+  const serviceChildren = children.filter(c => c.isLeaf);
+
+
 
   /* ================= TOGGLE ================= */
-function updatePathStatus(path, id, status) {
-  return path.map(node => ({
-    ...node,
-    children: updateNodeStatus(node.children || [], id, status)
-  }));
-}
+  function updatePathStatus(path, id, status) {
+    return path.map(node => ({
+      ...node,
+      children: updateNodeStatus(node.children || [], id, status)
+    }));
+  }
 
 
 
-function updateNodeStatus(nodes, id, status) {
-  return nodes.map(node => {
-    if (node._id === id) {
-      return {
-        ...node,
-        pricingStatus: status
-      };
-    }
+  function updateNodeStatus(nodes, id, status) {
+    return nodes.map(node => {
+      if (node._id === id) {
+        return {
+          ...node,
+          pricingStatus: status
+        };
+      }
 
-    if (node.children && node.children.length > 0) {
-      return {
-        ...node,
-        children: updateNodeStatus(
-          node.children,
-          id,
-          status
-        )
-      };
-    }
+      if (node.children && node.children.length > 0) {
+        return {
+          ...node,
+          children: updateNodeStatus(
+            node.children,
+            id,
+            status
+          )
+        };
+      }
 
-    return node;
-  });
-}
+      return node;
+    });
+  }
 
 
 
   const toggleStatus = async (service) => {
     const isActive = service.pricingStatus === "Active";
 
-if (isActive) {
-  if (!window.confirm("Deactivate this service?")) return;
+    if (isActive) {
+      if (!window.confirm("Deactivate this service?")) return;
 
-  // update full tree
-  setRootNodes(nodes =>
-    updateNodeStatus(nodes, service._id, "Inactive")
-  );
+      // update full tree
+      setRootNodes(nodes =>
+        updateNodeStatus(nodes, service._id, "Inactive")
+      );
 
-  // ⭐ update currently opened path level
-  setPath(p => updatePathStatus(p, service._id, "Inactive"));
+      // ⭐ update currently opened path level
+      setPath(p => updatePathStatus(p, service._id, "Inactive"));
 
-  await updateService(service, "Inactive");
+      await updateService(service, "Inactive");
 
-  return;
-}
+      return;
+    }
 
 
- // 👉 INACTIVE → ACTIVATE
-// 👉 INACTIVE → ACTIVATE
-setPendingService(service);
-setPendingServiceId(service._id);
-setActivationPrice(service.price || "");
+    // 👉 INACTIVE → ACTIVATE
+    // 👉 INACTIVE → ACTIVATE
+    setPendingService(service);
+    setPendingServiceId(service._id);
+    setActivationPrice(service.price || "");
 
-// ⭐ SAME SOURCE AS EDIT
-const masterTerms = findTermsInCategoryTree(
-  categoryTree,
-  service.categoryId
-);
+    // ⭐ SAME SOURCE AS EDIT
+    const masterTerms = findTermsInCategoryTree(
+      categoryTree,
+      service.categoryId
+    );
 
-// ⭐ SAME PRESELECT RULE AS EDIT
-const selected = parseTerms(service.terms);
+    // ⭐ SAME PRESELECT RULE AS EDIT
+    const selected = parseTerms(service.terms);
 
-setAllTerms(masterTerms);
-setSelectedTerms(selected);
+    setAllTerms(masterTerms);
+    setSelectedTerms(selected);
 
-setShowActivateModal(true);
+    setShowActivateModal(true);
   };
 
 
-const confirmActivateService = async () => {
-  if (!pendingServiceId) return;   // safety
+  const confirmActivateService = async () => {
+    if (!pendingServiceId) return;   // safety
 
-  await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      vendorPriceNodeId: pendingServiceId,
-      price: Number(activationPrice),
-      terms: selectedTerms.join(", "),
-      pricingStatus: "Active"
-    })
-  });
+    await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        vendorPriceNodeId: pendingServiceId,
+        price: Number(activationPrice),
+        terms: selectedTerms.join(", "),
+        pricingStatus: "Active"
+      })
+    });
 
-  // update local UI object if still present
-  if (pendingService) {
-    pendingService.price = Number(activationPrice);
-    pendingService.pricingStatus = "Active";
-    pendingService.terms = selectedTerms.join(", ");
-  }
+    // update local UI object if still present
+    if (pendingService) {
+      pendingService.price = Number(activationPrice);
+      pendingService.pricingStatus = "Active";
+      pendingService.terms = selectedTerms.join(", ");
+    }
 
-  setRootNodes([...rootNodes]);
-  setShowActivateModal(false);
-  setPendingService(null);
-  setPendingServiceId(null);
-};
+    setRootNodes([...rootNodes]);
+    setShowActivateModal(false);
+    setPendingService(null);
+    setPendingServiceId(null);
+  };
 
 
 
-  const sortedChildren = [...children].sort((a, b) => {
+  const sortedChildren = [...serviceChildren].sort((a, b) => {
     const aActive = a.pricingStatus === "Active";
     const bActive = b.pricingStatus === "Active";
-
-    if (aActive === bActive) return 0;   // keep original order
-    return aActive ? -1 : 1;             // Active first
+    if (aActive === bActive) return 0;
+    return aActive ? -1 : 1;
   });
 
-async function updateService(service, status) {
-  await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      vendorPriceNodeId: service._id,
-      price: Number(service.price),
-      pricingStatus: status   // ⭐ use param
-    })
-  });
-}
+
+  async function updateService(service, status) {
+    await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        vendorPriceNodeId: service._id,
+        price: Number(service.price),
+        pricingStatus: status   // ⭐ use param
+      })
+    });
+  }
+
+// ⭐ UI ONLY: make orphan leaves behave like parents
+// ⭐ UI ONLY: add orphan leaf services as virtual parents
+const displayCategories = [
+  ...categoryChildren,
+  ...(
+    path.length <= 1
+      ? serviceChildren.map(s => ({
+          ...s,
+          _isVirtualParent: true
+        }))
+      : []
+  )
+];
+
+
 
 
   return (
@@ -382,24 +568,33 @@ async function updateService(service, status) {
 
         {/* LIST */}
         {/* ================= CATEGORY LIST ================= */}
-        {children
-          .filter(n => !n.isLeaf || hasCategories)
-          .map(node => (
-            <div
-              key={node._id}
-              className="subcategory-title"
-              onClick={() =>
-                !node.isLeaf
-                  ? setPath([...path, node])
-                  : setPath([...path, { ...node, children: [node] }])
-              }
-            >
-              {node.name}
-            </div>
-          ))}
+
+        
+       {displayCategories.map(node => (
+  <div
+    key={node._id}
+    className="subcategory-title"
+    onClick={() => {
+      if (node._isVirtualParent) {
+        // ⭐ Wrap leaf as parent visually
+        setPath([...path, { ...node, children: [node] }]);
+      } else {
+        setPath([...path, node]);
+      }
+    }}
+  >
+    {node.name}
+  </div>
+))}
+
+
 
         {/* ================= LEAF GRID ================= */}
-        {onlyLeafNodes && (() => {
+{displayCategories.length === 0 && serviceChildren.length > 0 && (() => {
+
+
+
+
           const activeServices = sortedChildren.filter(
             s => s.pricingStatus === "Active"
           );
@@ -409,179 +604,192 @@ async function updateService(service, status) {
           );
 
           return (
-            <>
-              {/* ACTIVE SERVICES */}
-              {activeServices.length > 0 && (
-                <div className="services-list">
-                  {activeServices.map(service => (
-                    <ServiceCard
-                      key={service._id}
-                      service={service}
-                      isActive
-                      toggleStatus={toggleStatus}
-                      // selectedTerms={selectedTermsMap[service._id] || []}
-                     onEdit={() => {
-  setEditingService(service);
-  setModalPrice(service.price || "");
+ <section className="services-section">
 
-  // ⭐ master terms from dummy category tree
-  const masterTerms = findTermsInCategoryTree(
-    categoryTree,
-    service.categoryId
-  );
+  <div className="services-list">
 
-  // ⭐ vendor selected terms
-  const selected = parseTerms(service.terms);
+    {/* ACTIVE BLOCK */}
+    {activeServices.length > 0 && (
+      <>
+        <div
+          style={{
+            gridColumn: "1 / -1",
+            fontWeight: 700
+          }}
+        >
+          Active Services
+        </div>
 
-  setAllTerms(masterTerms);
-  setSelectedTerms(selected);
+        {activeServices.map(service => (
+          <ServiceCard
+            key={service._id}
+            service={service}
+            isActive
+            toggleStatus={toggleStatus}
+            onEdit={() => {
+              setEditingService(service);
+              setModalPrice(service.price || "");
 
-  setShowEditModal(true);
-}}
+              const masterTerms = findTermsInCategoryTree(
+                categoryTree,
+                service.categoryId
+              );
 
+              const selected = parseTerms(service.terms);
 
+              setAllTerms(masterTerms);
+              setSelectedTerms(selected);
 
+              setShowEditModal(true);
+            }}
+          />
+        ))}
+      </>
+    )}
 
-                    />
-                  ))}
-                </div>
-              )}
+      {/* INACTIVE TITLE INSIDE SAME GRID */}
+      {inactiveServices.length > 0 && (
+        <div
+          style={{
+            gridColumn: "1 / -1",
+            marginTop: "20px",
+            opacity: 0.6,
+            fontWeight: 700
+          }}
+        >
+          Inactive Services
+        </div>
+      )}
 
-              {/* INACTIVE DIVIDER */}
-              {inactiveServices.length > 0 && (
-                <div className="inactive-divider">
-                  Inactive Services
-                </div>
-              )}
+      {/* INACTIVE CARDS */}
+      {inactiveServices.map(service => (
+        <ServiceCard
+          key={service._id}
+          service={service}
+          isActive={false}
+          toggleStatus={toggleStatus}
+        />
+      ))}
 
-              {/* INACTIVE SERVICES */}
-              {inactiveServices.length > 0 && (
-                <div className="services-list">
-                  {inactiveServices.map(service => (
-                    <ServiceCard
-                      key={service._id}
-                      service={service}
-                      isActive={false}
-                      toggleStatus={toggleStatus}
-                    // selectedTerms={selectedTermsMap[service._id] || []}
-                    />
-                  ))}
+    </div>
 
-                </div>
-              )}
-            </>
-          );
+  </section>
+);
         })()}
 
 
-      </div>
+      </div >
 
       {/* MODALS */}
-      {showEditModal && editingService && (
-        <Modal title="Edit Service" onClose={() => setShowEditModal(false)}>
-          <label className="modal-label">Price</label>
-          <input
-            className="price-input"
-            value={modalPrice}
-            onChange={e => setModalPrice(e.target.value)}
-          />
-          <label className="modal-label">Terms</label>
+      {
+        showEditModal && editingService && (
+          <Modal title="Edit Service" onClose={() => setShowEditModal(false)}>
+            <label className="modal-label">Price</label>
+            <input
+              className="price-input"
+              value={modalPrice}
+              onChange={e => setModalPrice(e.target.value)}
+            />
+            <label className="modal-label">Terms</label>
 
-          {allTerms.length === 0 ? (
-            <p className="empty-terms">No terms available for this service</p>
-          ) : (
-            <div className="terms-checkbox-list">
-              {allTerms.map(term => (
-                <label key={term} className="term-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={selectedTerms.includes(term)}
-                    onChange={() => toggleTerm(term)}
-                  />
-                  <span className="checkmark" />
-                  <span className="term-text">{term}</span>
-                </label>
-              ))}
-            </div>
-          )}
-
-
-         <button
-  className="btn-primary"
-  onClick={async () => {
-    if (!editingService) return; // safety
-
-    editingService.price = Number(modalPrice);
-    editingService.pricingStatus = "Active";
-    editingService.terms = selectedTerms.join(", ");
-
-    await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        vendorPriceNodeId: editingService._id,   // ✅ FIX
-        price: Number(modalPrice),               // ✅ FIX
-        terms: selectedTerms.join(", "),
-        pricingStatus: "Active"
-      })
-    });
-
-    setRootNodes([...rootNodes]);
-    setShowEditModal(false);
-  }}
->
-  Save
-</button>
+            {allTerms.length === 0 ? (
+              <p className="empty-terms">No terms available for this service</p>
+            ) : (
+              <div className="terms-checkbox-list">
+                {allTerms.map(term => (
+                  <label key={term} className="term-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedTerms.includes(term)}
+                      onChange={() => toggleTerm(term)}
+                    />
+                    <span className="checkmark" />
+                    <span className="term-text">{term}</span>
+                  </label>
+                ))}
+              </div>
+            )}
 
 
+            <button
+              className="btn-primary"
+              onClick={async () => {
+                if (!editingService) return; // safety
+
+                editingService.price = Number(modalPrice);
+                editingService.pricingStatus = "Active";
+                editingService.terms = selectedTerms.join(", ");
+
+                await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    vendorPriceNodeId: editingService._id,   // ✅ FIX
+                    price: Number(modalPrice),               // ✅ FIX
+                    terms: selectedTerms.join(", "),
+                    pricingStatus: "Active"
+                  })
+                });
+
+                setRootNodes([...rootNodes]);
+                setShowEditModal(false);
+              }}
+            >
+              Save
+            </button>
 
 
 
-        </Modal>
-      )}
-
-      {showActivateModal && pendingService && (
-        <Modal title="Activate Service" onClose={() => setShowActivateModal(false)}>
-          <label className="modal-label">Price</label>
-          <input
-            className="price-input"
-            value={activationPrice}
-            onChange={e => setActivationPrice(e.target.value)}
-          />
-
-          <label className="modal-label">Terms</label>
-
-          {allTerms.length === 0 ? (
-
-            <p className="empty-terms">No terms available for this service</p>
-          ) : (
-            <div className="terms-checkbox-list">
-             {allTerms.map(term => (
 
 
-                <label key={term} className="term-checkbox">
-  <input
-    type="checkbox"
-    checked={selectedTerms.includes(term)}
-    onChange={() => toggleTerm(term)}
-  />
-  <span className="checkmark" />
-  <span className="term-text">{term}</span>
-</label>
+          </Modal>
+        )
+      }
 
-              ))}
-            </div>
-          )}
+      {
+        showActivateModal && pendingService && (
+          <Modal title="Activate Service" onClose={() => setShowActivateModal(false)}>
+            <label className="modal-label">Price</label>
+            <input
+              className="price-input"
+              value={activationPrice}
+              onChange={e => setActivationPrice(e.target.value)}
+            />
 
-        <button
-  className="btn-primary"
-  onClick={() => confirmActivateService(pendingService)}
->
+            <label className="modal-label">Terms</label>
 
-            Activate
-          </button>
-        </Modal>
-      )}
+            {allTerms.length === 0 ? (
+
+              <p className="empty-terms">No terms available for this service</p>
+            ) : (
+              <div className="terms-checkbox-list">
+                {allTerms.map(term => (
+
+
+                  <label key={term} className="term-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedTerms.includes(term)}
+                      onChange={() => toggleTerm(term)}
+                    />
+                    <span className="checkmark" />
+                    <span className="term-text">{term}</span>
+                  </label>
+
+                ))}
+              </div>
+            )}
+
+            <button
+              className="btn-primary"
+              onClick={() => confirmActivateService(pendingService)}
+            >
+
+              Activate
+            </button>
+          </Modal>
+        )
+      }
     </div>
   );
 }
@@ -589,6 +797,7 @@ async function updateService(service, status) {
 /* ================= SERVICE CARD ================= */
 function ServiceCard({ service, isActive, toggleStatus, onEdit }) {
   const terms = parseTerms(service.terms); // ✅ from tree API
+
 
   return (
     <div className={`service-card ${isActive ? "active-card" : "inactive-card"}`}>

@@ -29,9 +29,41 @@ export default function ProfileModal({ onClose, onOpenServices }) {
   const [socialType, setSocialType] = useState("");
   const [socialValue, setSocialValue] = useState("");
   const [saving, setSaving] = useState(false);
+const [enquiries, setEnquiries] = useState([]);
+const [loadingEnquiries, setLoadingEnquiries] = useState(false);
+const [showEnquiries, setShowEnquiries] = useState(false);
 
   // null = category not loaded yet
   const [categorySocials, setCategorySocials] = useState(null);
+
+const loadEnquiries = async () => {
+  if (!vendorId || !rootCategoryId) return;
+
+  try {
+    setLoadingEnquiries(true);
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/enquiries?vendorId=${vendorId}&categoryId=${rootCategoryId}`
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert("Failed to load enquiries");
+      return;
+    }
+
+    setEnquiries(Array.isArray(data) ? data : []);
+    setShowEnquiries(true);
+  } catch (err) {
+    console.error(err);
+    alert("Error loading enquiries");
+  } finally {
+    setLoadingEnquiries(false);
+  }
+};
+
+
 
   /* ================= USER (LOCAL STORAGE) ================= */
   const user =
@@ -144,6 +176,20 @@ useEffect(() => {
       setSaving(false);
     }
   };
+const statusCounts = enquiries.reduce(
+  (acc, e) => {
+    const status = e.status || "New";
+
+    if (status === "New") acc.new++;
+    else if (status === "Enquiry Viewed") acc.viewed++;
+    else if (status === "Contact Viewed") acc.contact++;
+    else if (status === "Cancelled") acc.cancel++;
+    else if (status === "Enrolled") acc.enrolled++;
+
+    return acc;
+  },
+  { new: 0, viewed: 0, contact: 0, cancel: 0, enrolled: 0 }
+);
 
   /* ================= UI ================= */
   return (
@@ -152,7 +198,59 @@ useEffect(() => {
         <h2 className="profile-name">{vendorName || user.name || "User"}</h2>
         <p className="profile-phone">📞 {user.phone || "-"}</p>
 
-        <button className="profile-btn">📩 My Enquiries</button>
+        <button className="profile-btn" onClick={loadEnquiries}>
+  {loadingEnquiries ? "Loading..." : "📩 My Enquiries"}
+</button>
+{showEnquiries && (
+  <div className="popup-overlay">
+    <div className="popup-card enquiries-card">
+
+      <h3>My Enquiries</h3>
+
+      {enquiries.length === 0 && (
+        <p style={{ opacity: 0.6 }}>No enquiries found</p>
+      )}
+
+     <div className="enquiry-summary">
+
+  <div className="summary-box">
+    <span>📄 New Enquiries</span>
+    <strong>{statusCounts.new}</strong>
+  </div>
+
+  <div className="summary-box">
+    <span>👁 Enquiries Viewed</span>
+    <strong>{statusCounts.viewed}</strong>
+  </div>
+
+  <div className="summary-box">
+    <span>📞 Contact Viewed</span>
+    <strong>{statusCounts.contact}</strong>
+  </div>
+
+  <div className="summary-box">
+    <span>❌ Cancel Enquiries</span>
+    <strong>{statusCounts.cancel}</strong>
+  </div>
+
+  <div className="summary-box">
+    <span>✅ Enrolled</span>
+    <strong>{statusCounts.enrolled}</strong>
+  </div>
+
+</div>
+
+
+      <button
+        className="btn-outline"
+        onClick={() => setShowEnquiries(false)}
+      >
+        Close
+      </button>
+    </div>
+  </div>
+)}
+
 
         <hr />
 

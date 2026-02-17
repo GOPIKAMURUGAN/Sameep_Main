@@ -1,9 +1,19 @@
 "use client";
 import { useState } from "react";
 import "./Login.css";
+ import { useSearchParams } from "next/navigation";
+
 
 export default function Login({ onClose }) {
-    console.log("LOGIN MODAL RENDERED");
+  console.log("LOGIN MODAL RENDERED");
+
+const searchParams = useSearchParams();
+
+const vendorName = searchParams.get("vendorName"); // 👈 ADD THIS
+
+const vendorId = searchParams.get("vendorId");
+const categoryId = searchParams.get("rootCategoryId");
+
 
   const [mobile, setMobile] = useState("");
   const [countryCode, setCountryCode] = useState("+91");
@@ -14,7 +24,7 @@ export default function Login({ onClose }) {
   const [adminPass, setAdminPass] = useState("");
 
   // -----------------------------
-  // SEND OTP
+  // SEND OTP (CUSTOMER)
   // -----------------------------
   const sendOtp = async () => {
     if (mobile.length !== 10) {
@@ -24,241 +34,247 @@ export default function Login({ onClose }) {
 
     try {
       const res = await fetch(
-        `api/${process.env.NEXT_PUBLIC_API_BASE_URL}/api/customers/request-otp`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/customers/request-otp`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            countryCode: countryCode,
+            countryCode,
             phone: mobile,
           }),
         }
       );
 
       const data = await res.json();
-      console.log("OTP RESPONSE:", data);
 
       if (data.message === "OTP sent") {
         setOtpSent(true);
       } else {
         alert(data.message || "OTP sending failed");
       }
-    } catch (err) {
+    } catch {
       alert("Network Error");
     }
   };
 
   // -----------------------------
-  // VERIFY OTP
+  // VERIFY OTP (CUSTOMER)
   // -----------------------------
- const verifyOtp = async () => {
-    console.log("CLOSING MODAL FROM CHILD");
-console.log("onClose exists:", typeof onClose);
+  const verifyOtp = async () => {
+    if (!otp) {
+      alert("Enter OTP");
+      return;
+    }
 
-  if (!otp) {
-    alert("Enter OTP");
-    return;
-  }
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/customers/verify-otp`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            countryCode,
+            phone: mobile,
+            otp,
+          }),
+        }
+      );
 
-  try {
-    const res = await fetch(
-      `api/${process.env.NEXT_PUBLIC_API_BASE_URL}/api/customers/verify-otp`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          countryCode,
-          phone: mobile,
-          otp,
-        }),
+      const data = await res.json();
+
+      if (data.message === "OTP verified") {
+        localStorage.setItem("authToken", data.token);
+
+        localStorage.setItem(
+          "userData",
+          JSON.stringify({
+            name: `${data.customer.firstName} ${data.customer.lastName}`,
+            phone: data.customer.phNo,
+          })
+        );
+
+        window.dispatchEvent(new Event("storage"));
+        onClose();
+      } else {
+        alert(data.message || "Invalid OTP");
       }
-    );
+    } catch {
+      alert("Network Error");
+    }
+  };
 
-    const data = await res.json();
-    console.log("VERIFY RESPONSE:", data);
+  // -----------------------------
+  // VERIFY ADMIN (IMPERSONATION)
+  // -----------------------------
+  const verifyAdmin = async () => {
+    if (!adminPass) {
+      alert("Enter admin passcode");
+      return;
+    }
 
-    if (data.message === "OTP verified") {
+    if (!vendorId || !categoryId) {
+      alert("Admin login requires vendor & category context");
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/customers/admin-impersonate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            passcode: adminPass,
+            vendorId,
+            categoryId,
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Admin login failed");
+        return;
+      }
+
+      // 🔐 REAL BACKEND SESSION TOKEN
+      localStorage.setItem("authToken", data.token);
+
       localStorage.setItem(
         "userData",
         JSON.stringify({
-          name: data.customer.firstName + " " + data.customer.lastName,
-          phone: data.customer.phNo,
+          name: "Admin User",
+          isAdmin: true,
         })
       );
 
-      alert("Login Successful!");
-      console.log("Closing modal...");
-
-      if (typeof onClose === "function") {
-        onClose();
-      }
-
-      setTimeout(() => {
-        window.dispatchEvent(new Event("storage"));
-      }, 50);
-
-    } else {
-      alert(data.message || "Invalid OTP");
+      window.dispatchEvent(new Event("storage"));
+      onClose();
+    } catch {
+      alert("Unable to login as admin");
     }
-  } catch (err) {
-    alert("Network Error");
-  }
-};
-
+  };
 
   // -----------------------------
-  // VERIFY ADMIN PASSCODE
+  // UI
   // -----------------------------
-  const verifyAdmin = () => {
-  if (adminPass === "1234") {
-
-    // Save admin user into localStorage
-    localStorage.setItem(
-      "userData",
-      JSON.stringify({
-        name: "Admin User",
-        phone: "N/A",
-        isAdmin: true
-      })
-    );
-
-    // Update Header immediately
-    window.dispatchEvent(new Event("storage"));
-
-    // Close login modal
-    onClose();
-
-  } else {
-    alert("Incorrect Admin Passcode");
-  }
-};
-
   return (
     <div className="login-overlay">
-      <div className="login-modal">
-        {/* =====================================================
-            SCREEN 1 → LOGIN WITH MOBILE
-        ====================================================== */}
-        {!otpSent && !adminMode && (
-          <>
-            <h4 className="login-sub">Log in</h4>
-            <h2 className="login-title">Welcome to Harish</h2>
-            <p className="login-desc">Explore our services with a quick login.</p>
+  <div className="login-modal">
 
-            <label className="login-label">Mobile number</label>
+    {/* ======================
+       CUSTOMER LOGIN
+    ====================== */}
+    {!adminMode && !otpSent && (
+      <>
+        <h4 className="login-sub">Log in</h4>
 
-            <div className="mobile-input">
-              <select
-                className="country-code"
-                value={countryCode}
-                onChange={(e) => setCountryCode(e.target.value)}
-              >
-                <option value="+91">🇮🇳 +91 India</option>
-                <option value="+1">🇺🇸 +1 USA</option>
-                <option value="+44">🇬🇧 +44 UK</option>
-                <option value="+61">🇦🇺 +61 Australia</option>
-                <option value="+971">🇦🇪 +971 UAE</option>
-                <option value="+974">🇶🇦 +974 Qatar</option>
-                <option value="+966">🇸🇦 +966 Saudi Arabia</option>
-                <option value="+92">🇵🇰 +92 Pakistan</option>
-                <option value="+880">🇧🇩 +880 Bangladesh</option>
-                <option value="+94">🇱🇰 +94 Sri Lanka</option>
-                <option value="+81">🇯🇵 +81 Japan</option>
-                <option value="+82">🇰🇷 +82 South Korea</option>
-                <option value="+86">🇨🇳 +86 China</option>
-                <option value="+49">🇩🇪 +49 Germany</option>
-                <option value="+33">🇫🇷 +33 France</option>
-                <option value="+39">🇮🇹 +39 Italy</option>
-                <option value="+34">🇪🇸 +34 Spain</option>
-              </select>
+        <h2 className="login-title">
+          Welcome to {vendorName || "Our Services"}
+        </h2>
 
-              <input
-                type="tel"
-                maxLength={10}
-                placeholder="Mobile number"
-                value={mobile}
-                onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
-              />
-            </div>
+        <p className="login-desc">
+          Explore our services with a quick login.
+        </p>
 
-            <button className="continue-btn" onClick={sendOtp}>
-              Continue
-            </button>
+        <label className="login-label">Mobile number</label>
 
-            <button className="admin-btn" onClick={() => setAdminMode(true)}>
-              Login as Admin
-            </button>
+        <div className="mobile-input">
+          <select
+            className="country-code"
+            value={countryCode}
+            onChange={(e) => setCountryCode(e.target.value)}
+          >
+            <option value="+91">🇮🇳 +91</option>
+          </select>
 
-            <div className="divider">
-              <span>or</span>
-            </div>
+          <input
+            type="tel"
+            maxLength={10}
+            value={mobile}
+            onChange={(e) =>
+              setMobile(e.target.value.replace(/\D/g, ""))
+            }
+            placeholder="Mobile number"
+          />
+        </div>
 
-            <button className="google-btn">Continue with Google</button>
+        <button className="continue-btn" onClick={sendOtp}>
+          Continue
+        </button>
 
-            <button className="cancel-btn" onClick={onClose}>
-              Cancel
-            </button>
-          </>
-        )}
+        <button
+          className="admin-btn"
+          onClick={() => setAdminMode(true)}
+        >
+          Login as Admin
+        </button>
 
-        {/* =====================================================
-            SCREEN 2 → OTP VERIFY
-        ====================================================== */}
-        {otpSent && !adminMode && (
-          <>
-            <h4 className="login-sub">Verify OTP</h4>
+        <button className="cancel-btn" onClick={onClose}>
+          Cancel
+        </button>
+      </>
+    )}
 
-            <p className="otp-message">
-              We sent a one-time password to
-              <span className="otp-number"> {countryCode}{mobile}</span>
-            </p>
+    {/* ======================
+       OTP SCREEN
+    ====================== */}
+    {otpSent && !adminMode && (
+      <>
+        <input
+          className="otp-input"
+          type="number"
+          placeholder="Enter OTP"
+          value={otp}
+          onChange={(e) => setOtp(e.target.value)}
+        />
 
-            <div className="otp-box">
-              <input
-                className="otp-input"
-                type="number"
-                placeholder="Enter OTP"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-              />
-            </div>
+        <button className="continue-btn" onClick={verifyOtp}>
+          Verify & Continue
+        </button>
+      </>
+    )}
 
-            <button className="continue-btn" onClick={verifyOtp}>
-              Verify & Continue
-            </button>
+    {/* ======================
+       ADMIN LOGIN
+    ====================== */}
+    {adminMode && (
+      <>
+        <h4 className="login-sub">Log in</h4>
 
-            <button className="cancel-btn" onClick={() => setOtpSent(false)}>
-              Back
-            </button>
-          </>
-        )}
+        <h2 className="login-title">
+          Welcome to {vendorName}
+        </h2>
 
-        {/* =====================================================
-            SCREEN 3 → ADMIN LOGIN
-        ====================================================== */}
-        {adminMode && (
-          <>
-            <h4 className="login-sub">Admin Login</h4>
-            <p className="login-desc">Enter the admin passcode to continue.</p>
+        <p className="login-desc">
+          Enter Admin Passcode
+        </p>
 
-            <input
-              className="otp-input"
-              type="password"
-              placeholder="Enter Admin Passcode"
-              value={adminPass}
-              onChange={(e) => setAdminPass(e.target.value)}
-            />
+        <input
+          className="otp-input"
+          type="password"
+          placeholder="4-digit code"
+          value={adminPass}
+          onChange={(e) => setAdminPass(e.target.value)}
+          maxLength={4}
+        />
 
-            <button className="continue-btn" onClick={verifyAdmin}>
-              Login as Admin
-            </button>
+        <button className="continue-btn" onClick={verifyAdmin}>
+          Login as Admin
+        </button>
 
-            <button className="cancel-btn" onClick={() => setAdminMode(false)}>
-              Back
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+        <button
+          className="cancel-btn"
+          onClick={() => setAdminMode(false)}
+        >
+          Cancel
+        </button>
+      </>
+    )}
+
+  </div>
+</div>
+
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-
+import { useSessionGuard } from '../Login/useSessionGuard'
 import "./Header.css";
 
 import { useVendor } from "../Vendorcontext";
@@ -11,7 +11,6 @@ import ProfileModal from "../Profile/Profile";
 import Portal from "../Portal/Portal";
 import CategoryModal from "./CategoryModal";
 import PackagesPortal from "../PackagesPortal/PackagesPortal";
-
 const PAGE_SECTIONS = {
   Home: "home",
   Categories: "categories",
@@ -20,15 +19,10 @@ const PAGE_SECTIONS = {
   Contact: "contact",
 };
 
-function HeaderLoading() {
-  return (
-    <nav className="navbar navbar-expand-lg bg-body-tertiary custom-navbar">
-      <div className="container-fluid">Loading...</div>
-    </nav>
-  );
-}
+export default function Header() {
 
-function HeaderContent() {
+   useSessionGuard();
+  // ✅ hooks MUST be inside component
   const searchParams = useSearchParams();
   const rootCategoryId = searchParams.get("rootCategoryId");
 
@@ -42,6 +36,9 @@ function HeaderContent() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
+  // --------------------------------------------------
+  // 🔹 Load category for Header (fallback-safe)
+  // --------------------------------------------------
   useEffect(() => {
     if (!rootCategoryId) return;
     if (vendorInfo?.categoryData) return;
@@ -68,6 +65,9 @@ function HeaderContent() {
     loadCategory();
   }, [rootCategoryId, vendorInfo?.categoryData, setVendorInfo]);
 
+  // --------------------------------------------------
+  // 🔹 User session
+  // --------------------------------------------------
   useEffect(() => {
     const updateUser = () => {
       const u = localStorage.getItem("userData");
@@ -79,27 +79,38 @@ function HeaderContent() {
     return () => window.removeEventListener("storage", updateUser);
   }, []);
 
-  const logout = () => {
-    localStorage.removeItem("userData");
-    window.dispatchEvent(new Event("storage"));
-  };
+const logout = () => {
+  localStorage.removeItem("authToken");
+  localStorage.removeItem("userData");
 
-  const toAnchor = (label) =>
-    label
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-");
+  window.dispatchEvent(new Event("storage"));
+};
+
+
+  // --------------------------------------------------
+  // 🔹 Menu helpers
+  // --------------------------------------------------
+const toAnchor = (label) =>
+  label
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-");
+
 
   const webMenu = vendorInfo?.categoryData?.webMenu || [];
 
+  // --------------------------------------------------
+  // 🔹 UI
+  // --------------------------------------------------
   return (
     <>
       <nav className="navbar navbar-expand-lg bg-body-tertiary custom-navbar">
         <div className="container-fluid">
           <a className="navbar-brand fw-bold" href="#home">
-            {vendorInfo?.businessName}
-          </a>
+  {vendorInfo?.businessName}
+</a>
+
 
           <button
             className="navbar-toggler"
@@ -112,13 +123,21 @@ function HeaderContent() {
 
           <div className="collapse navbar-collapse" id="navbarSupportedContent">
             <ul className="navbar-nav ms-auto mb-lg-0">
-              {webMenu.map((item) => (
-                <li key={item} className="nav-item">
-                  <a className="nav-link" href={`#${PAGE_SECTIONS[item]}`}>
-                    {item}
-                  </a>
-                </li>
-              ))}
+
+              {/* 🔹 Dynamic menu */}
+               {/* 🔹 Dynamic menu */}
+{webMenu.map((item) => (
+  <li key={item} className="nav-item">
+    <a
+      className="nav-link"
+      href={`#${PAGE_SECTIONS[item]}`}
+    >
+      {item}
+    </a>
+  </li>
+))}
+
+
 
               <li className="nav-item">
                 <button
@@ -148,7 +167,8 @@ function HeaderContent() {
                     onClick={() => setOpenProfile(true)}
                   >
                     <span className="profile-icon">
-                      {(user?.name || user?.phone || "U").charAt(0).toUpperCase()}
+                     {(user?.name || user?.phone || "U").charAt(0).toUpperCase()}
+
                     </span>
                     <span className="profile-text">My Profile</span>
                   </div>
@@ -209,13 +229,5 @@ function HeaderContent() {
         </Portal>
       )}
     </>
-  );
-}
-
-export default function Header() {
-  return (
-    <Suspense fallback={<HeaderLoading />}>
-      <HeaderContent />
-    </Suspense>
   );
 }
