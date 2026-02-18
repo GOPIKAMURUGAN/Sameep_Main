@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import "./Hero.css";
+import { useSearchParams } from "next/navigation";
+
 
 const HeroSection = ({
   images = [],
@@ -31,7 +33,8 @@ trustSummary = {},
     return map[key] || key;
   };
 
-
+const searchParams = useSearchParams();
+const vendorName = searchParams.get("vendorName");
   // reset index if images change
   useEffect(() => {
     setIndex(0);
@@ -55,6 +58,33 @@ trustSummary = {},
 
   // 🛑 safety guard
   if (!images.length) return null;
+// ✅ Build proper Google Maps deep link
+// ✅ NORMALIZE GOOGLE MAPS LINK
+const mapsLink = (() => {
+  if (!googleMapsUrl) return "#";
+
+  let placeId = "";
+
+  // CASE 1: place_id:XXXX
+  if (googleMapsUrl.startsWith("place_id:")) {
+    placeId = googleMapsUrl.replace("place_id:", "");
+  }
+
+  // CASE 2: https://www.google.com/maps/place/?q=place_id:XXXX
+  else if (googleMapsUrl.includes("place_id:")) {
+    placeId = googleMapsUrl.split("place_id:")[1];
+  }
+
+  // CASE 3: already correct maps link
+  if (!placeId) return googleMapsUrl;
+
+ const queryName = encodeURIComponent(vendorName);
+
+
+  return `https://www.google.com/maps/search/?api=1&query=${queryName}&query_place_id=${placeId}`;
+})();
+
+
 
   return (
     <section id="home" className="hero">
@@ -94,7 +124,7 @@ trustSummary = {},
             {typeof googleRating === "number" ? (
               <a
   className="rating-clickable"
-  href={googleMapsUrl || "#"}
+href={mapsLink || "#"}
   target="_blank"
   rel="noopener noreferrer"
   style={{ textDecoration: "none", color: "inherit" }}
@@ -146,4 +176,3 @@ trustSummary = {},
 };
 
 export default HeroSection;
-
