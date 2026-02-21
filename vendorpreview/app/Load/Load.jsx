@@ -1,18 +1,20 @@
 "use client";
+
 import "./Load.css";
-import { useSearchParams } from "next/navigation";
-import { useVendor } from "../Vendorcontext";
+import { useVendor } from "../VendorContext";
 
 const Loader = () => {
-  const searchParams = useSearchParams();
-  const vendorName = searchParams.get("vendorName");
+  const { vendorInfo } = useVendor();
+
+  const name =
+    vendorInfo?.businessName ||
+    vendorInfo?.name ||
+    "Loading...";
 
   return (
     <div className="loader-wrapper">
       <div className="spinner"></div>
-      <h2 className="loader-text">
-        {vendorName || "Loading..."}
-      </h2>
+      <h2 className="loader-text">{name}</h2>
     </div>
   );
 };

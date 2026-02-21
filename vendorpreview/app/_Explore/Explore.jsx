@@ -4,7 +4,8 @@ export const dynamic = "force-dynamic";
 import AdvantageSection from "../About/About";
 import RootsSection from "../Root/RootSection";
 import { useEffect, useState, useMemo } from "react";
-import { useVendor } from "../Vendorcontext";
+import { useVendor } from "../VendorContext";
+
 import "./Explore.css";
 import HeroSection from "../Hero/Hero";
 import { API_BASE_URL } from "../../config";
@@ -628,7 +629,6 @@ function ExploreContent({ onReady }) {
   const [processingBill, setProcessingBill] = useState(false);
 
 
-  const [vendorLoaded, setVendorLoaded] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [category, setCategory] = useState(null);
   const [mobile, setMobile] = useState("");
@@ -684,16 +684,25 @@ function ExploreContent({ onReady }) {
       .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-");
 
-  const { vendorInfo, setVendorInfo } = useVendor();
+  //const { vendorInfo } = useVendor() || {};
+  const { vendorInfo, setVendorInfo } = useVendor() || {};
 
+    
   const googleRating = vendorInfo?.googlePlace?.rating;
   const googleReviews = vendorInfo?.googlePlace?.userRatingsTotal;
   const googleMapsUrl = vendorInfo?.googlePlace?.mapsUrl;
   const [countryCode, setCountryCode] = useState("91");
+  const [categoryData, setCategoryData] = useState(null);
+
 
   const searchParams = useSearchParams();
-  const rootCategoryId = searchParams.get("rootCategoryId");
-  const vendorId = searchParams.get("vendorId");
+  
+const rootCategoryId =
+  vendorInfo?.categoryId || searchParams.get("rootCategoryId");
+
+const vendorId =
+  vendorInfo?.vendorId || searchParams.get("vendorId");
+
   const verifyOtp = async () => {
     if (!otp || otp.length < 4) {
       alert("Enter valid OTP");
@@ -841,27 +850,35 @@ function ExploreContent({ onReady }) {
   useEffect(() => {
     if (!vendorId) return;
 
-    async function fetchVendor() {
-      try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/dummy-vendors/${vendorId}`,
-          { cache: "no-store" }
-        );
+   async function fetchVendor() {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/dummy-vendors/${vendorId}`,
+      { cache: "no-store" }
+    );
 
-        if (!res.ok) throw new Error("Vendor API failed");
+    if (!res.ok) throw new Error("Vendor API failed");
 
-        const data = await res.json();
-        setVendorInfo(data);
+    // ⚠️ SSR now handles vendor data
+    // We keep this only to unblock preview loading state
+    //await res.json();
+    const data = await res.json();
 
-        setVendorLoaded(true); // ✅ MARK DONE
-      } catch (err) {
-        console.error("Vendor fetch error", err);
-        setVendorLoaded(true); // still unblock UI
-      }
-    }
+// Inject preview vendor into context
+if (setVendorInfo) {
+  console.log("🟢 Injecting preview vendor into context");
+  setVendorInfo(data);
+}
 
-    fetchVendor();
-  }, [vendorId, setVendorInfo]);
+    } catch (err) {
+    console.error("Vendor fetch error", err);
+    
+  }
+}
+
+fetchVendor();
+
+  }, [vendorId]);
 
 
   useEffect(() => {
@@ -882,11 +899,9 @@ function ExploreContent({ onReady }) {
         // ✅ Local state (Explore page)
         setCategory(categoryObj);
 
-        // ✅ Global state (Header uses this)
-        setVendorInfo(prev => ({
-          ...prev,
-          categoryData: categoryObj
-        }));
+        // Keep category data locally (SSR vendor remains untouched)
+setCategoryData(categoryObj);
+
 
       } catch (err) {
         console.error("Category fetch error", err);
@@ -894,7 +909,7 @@ function ExploreContent({ onReady }) {
     }
 
     fetchCategory();
-  }, [rootCategoryId, setVendorInfo]);
+  }, [rootCategoryId]);
 
 
   const handleVerifyOtp = async () => {
@@ -1035,19 +1050,21 @@ setMenuTree(pricingData?.tree || []);
 
         setFinalCategories(converted);
         setDataLoaded(true);
+        console.log("✅ DATA LOADED TRIGGERED");
 
       } catch (e) {
         console.error("API Error:", e);
         setDataLoaded(true);
+        console.log("✅ DATA LOADED TRIGGERED");
       }
     }
     load();
   }, [vendorId, rootCategoryId]);
-  useEffect(() => {
-    if (vendorLoaded && dataLoaded) {
-      onReady?.();
-    }
-  }, [vendorLoaded, dataLoaded, onReady]);
+useEffect(() => {
+  if (vendorInfo && dataLoaded) {
+    onReady?.();
+  }
+}, [vendorInfo, dataLoaded, onReady]);
 
 
   const cardsWithoutHeading = [];
@@ -1611,11 +1628,13 @@ categoryId: node.categoryId || node._id,
         googleMapsUrl={vendorInfo?.googlePlace?.mapsUrl}
 
         // ⭐ TRUST (NEW)
-        trustSummary={vendorInfo?.trustSummary}
+        //trustSummary={vendorInfo?.trustSummary}
+        trustSummary={vendorInfo?.trust || vendorInfo?.trustSummary}
+
 
         // 🟢 CATEGORY (category API)
-        tagline={category?.homePopup?.tagline}
-        description={category?.homePopup?.description}
+        tagline={vendorInfo?.customFields?.freeText1 ||category?.homePopup?.tagline}
+        description={vendorInfo?.customFields?.freeText2 ||category?.homePopup?.description}
         button1Label={category?.homePopup?.button1Label}
         button2Label={category?.homePopup?.button2Label}
       />

@@ -1,18 +1,19 @@
 "use client";
 import { useState } from "react";
 import "./Login.css";
- import { useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useVendor } from "../VendorContext";
 
 
 export default function Login({ onClose }) {
   console.log("LOGIN MODAL RENDERED");
 
 const searchParams = useSearchParams();
+const vendorContext = useVendor();
 
-const vendorName = searchParams.get("vendorName"); // 👈 ADD THIS
-
-const vendorId = searchParams.get("vendorId");
-const categoryId = searchParams.get("rootCategoryId");
+const vendorName = vendorContext?.businessName || searchParams.get("vendorName");
+const vendorId = vendorContext?.vendorId || searchParams.get("vendorId");
+const categoryId = vendorContext?.categoryId || searchParams.get("rootCategoryId");
 
 
   const [mobile, setMobile] = useState("");

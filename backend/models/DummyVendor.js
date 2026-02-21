@@ -56,6 +56,14 @@ const dummyVendorSchema = new mongoose.Schema({
     required: true,
   },
 
+  subdomain: {
+    type: String,
+    lowercase: true,
+    trim: true,
+    unique: true,
+    sparse: true,
+  },
+
   contactName: {
     type: String,
     required: true,
@@ -90,6 +98,13 @@ const dummyVendorSchema = new mongoose.Schema({
     lng: { type: Number },
     address: { type: String },
     nearbyLocations: { type: [String], default: [] },
+  },
+
+  serviceAreas: {
+    primaryLocality: { type: String }, // Yapral
+    city: { type: String }, // Secunderabad
+    targetAreas: [{ type: String }], // vendor chosen areas
+    autoSuggested: { type: Boolean, default: false },
   },
 
   /**
@@ -155,5 +170,7 @@ trustSummary: {
     default: Date.now,
   },
 });
+
+dummyVendorSchema.index({ subdomain: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model("DummyVendor", dummyVendorSchema);

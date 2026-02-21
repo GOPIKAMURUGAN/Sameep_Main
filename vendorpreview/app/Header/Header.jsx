@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { useSessionGuard } from '../Login/useSessionGuard'
+import { useSessionGuard } from "../Login/useSessionGuard";
 import "./Header.css";
 
-import { useVendor } from "../Vendorcontext";
+import { useVendor } from "../VendorContext";
 import Login from "../Login/Login";
 import ProfileModal from "../Profile/Profile";
 import Portal from "../Portal/Portal";
 import CategoryModal from "./CategoryModal";
 import PackagesPortal from "../PackagesPortal/PackagesPortal";
+
 const PAGE_SECTIONS = {
   Home: "home",
   Categories: "categories",
@@ -20,14 +21,15 @@ const PAGE_SECTIONS = {
 };
 
 export default function Header() {
+  useSessionGuard();
 
-   useSessionGuard();
-  // ✅ hooks MUST be inside component
   const searchParams = useSearchParams();
-  const rootCategoryId = searchParams.get("rootCategoryId");
+  const { vendorInfo } = useVendor();
 
-  const { vendorInfo, setVendorInfo } = useVendor();
+  const rootCategoryId =
+    vendorInfo?.categoryId || searchParams.get("rootCategoryId");
 
+  const [categoryData, setCategoryData] = useState(null);
   const [openLogin, setOpenLogin] = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
   const [openServices, setOpenServices] = useState(false);
@@ -41,7 +43,7 @@ export default function Header() {
   // --------------------------------------------------
   useEffect(() => {
     if (!rootCategoryId) return;
-    if (vendorInfo?.categoryData) return;
+    if (categoryData) return;
 
     async function loadCategory() {
       try {
@@ -52,18 +54,14 @@ export default function Header() {
 
         const data = await res.json();
         const categoryObj = Array.isArray(data) ? data[0] : data;
-
-        setVendorInfo(prev => ({
-          ...prev,
-          categoryData: categoryObj
-        }));
+        setCategoryData(categoryObj || null);
       } catch (e) {
         console.error("Header category fetch failed", e);
       }
     }
 
     loadCategory();
-  }, [rootCategoryId, vendorInfo?.categoryData, setVendorInfo]);
+  }, [rootCategoryId, categoryData]);
 
   // --------------------------------------------------
   // 🔹 User session
@@ -79,38 +77,33 @@ export default function Header() {
     return () => window.removeEventListener("storage", updateUser);
   }, []);
 
-const logout = () => {
-  localStorage.removeItem("authToken");
-  localStorage.removeItem("userData");
+  const logout = () => {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("userData");
 
-  window.dispatchEvent(new Event("storage"));
-};
-
+    window.dispatchEvent(new Event("storage"));
+  };
 
   // --------------------------------------------------
   // 🔹 Menu helpers
   // --------------------------------------------------
-const toAnchor = (label) =>
-  label
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-");
-
-
-  const webMenu = vendorInfo?.categoryData?.webMenu || [];
+  const webMenu = categoryData?.webMenu || [];
 
   // --------------------------------------------------
   // 🔹 UI
   // --------------------------------------------------
+  const title =
+  vendorInfo?.businessName ||
+  searchParams.get("vendorName") ||
+  "";
+
   return (
     <>
       <nav className="navbar navbar-expand-lg bg-body-tertiary custom-navbar">
         <div className="container-fluid">
           <a className="navbar-brand fw-bold" href="#home">
-  {vendorInfo?.businessName}
-</a>
-
+            {title}
+          </a>
 
           <button
             className="navbar-toggler"
@@ -123,21 +116,14 @@ const toAnchor = (label) =>
 
           <div className="collapse navbar-collapse" id="navbarSupportedContent">
             <ul className="navbar-nav ms-auto mb-lg-0">
-
               {/* 🔹 Dynamic menu */}
-               {/* 🔹 Dynamic menu */}
-{webMenu.map((item) => (
-  <li key={item} className="nav-item">
-    <a
-      className="nav-link"
-      href={`#${PAGE_SECTIONS[item]}`}
-    >
-      {item}
-    </a>
-  </li>
-))}
-
-
+              {webMenu.map((item) => (
+                <li key={item} className="nav-item">
+                  <a className="nav-link" href={`#${PAGE_SECTIONS[item]}`}>
+                    {item}
+                  </a>
+                </li>
+              ))}
 
               <li className="nav-item">
                 <button
@@ -167,8 +153,9 @@ const toAnchor = (label) =>
                     onClick={() => setOpenProfile(true)}
                   >
                     <span className="profile-icon">
-                     {(user?.name || user?.phone || "U").charAt(0).toUpperCase()}
-
+                      {(user?.name || user?.phone || "U")
+                        .charAt(0)
+                        .toUpperCase()}
                     </span>
                     <span className="profile-text">My Profile</span>
                   </div>

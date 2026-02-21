@@ -5,6 +5,7 @@ import { FcGoogle } from "react-icons/fc";
 import { useCategoryTree } from "./CategoryModal2";
 import './CategoryModal2.css';
 import  { API_BASE_URL } from "../../config"; 
+import ServiceAreasStep from "../components/ServiceAreasStep";
 // adjust path if needed: ../config or ../../config
 
 const CATEGORY_API =
@@ -23,6 +24,8 @@ export default function ChooseCategoryModal({ onClose }) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
   const [step, setStep] = useState("CATEGORY");
+  const [subdomainSuggestions, setSubdomainSuggestions] = useState([]);
+  const [selectedSubdomain, setSelectedSubdomain] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const [elapsed, setElapsed] = useState(0);
@@ -854,7 +857,7 @@ setSelectedBusiness({
                       }),
                     });
 
-                    setStep("SERVICES_SELECT");
+                    setStep("SERVICE_AREAS");
                   } catch (err) {
                     console.error(err);
                     alert("Failed to save trust info");
@@ -865,6 +868,46 @@ setSelectedBusiness({
               </button>
             </div>
           </div>
+        )}
+
+        {step === "SERVICE_AREAS" && (
+          <ServiceAreasStep
+            vendor={{
+  location: {
+    lat: selectedBusiness?.location?.lat,
+    lng: selectedBusiness?.location?.lng,
+  },
+  _id: vendorId, // optional but useful
+}}
+
+            onBack={() => setStep("TRUST")}
+            onNext={async (data) => {
+              try {
+                if (!vendorId) {
+                  alert("Vendor not found");
+                  return;
+                }
+
+                await fetch(`${API_BASE_URL}/api/vendor/service-areas`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    vendorId,
+                    primaryLocality: data.primaryLocality,
+                    city: data.city,
+                    targetAreas: data.targetAreas,
+                    autoSuggested: data.autoSuggested ?? true,
+                  }),
+                });
+
+                // ✅ Move to services selection
+                setStep("SERVICES_SELECT");
+              } catch (err) {
+                console.error(err);
+                alert("Failed to save service areas");
+              }
+            }}
+          />
         )}
 
         {/* ================= SERVICES SELECT ================= */}
@@ -929,7 +972,17 @@ setSelectedBusiness({
                       }
                     );
 
-                    setStep("PREVIEW_CHOICE");
+                    const businessName = selectedBusiness?.name;
+                    const categoryName = confirmedCategory?.name;
+
+                    const res = await fetch(
+                      `${API_BASE_URL}/api/vendor/subdomain-check?businessName=${encodeURIComponent(businessName)}&categoryName=${encodeURIComponent(categoryName)}`
+                    );
+
+                    const data = await res.json();
+                    setSubdomainSuggestions(data.suggestions || []);
+
+                    setStep("CHOOSE_DOMAIN");
                   } catch (err) {
                     alert("Something went wrong");
                     console.error(err);
@@ -949,6 +1002,56 @@ setSelectedBusiness({
             <p>Saving services…</p>
           </div>
         )}
+        {step === "CHOOSE_DOMAIN" && (
+          <div className="domain-card">
+            <h2>Choose your website name</h2>
+            <p>Your business will be available at:</p>
+
+            <div className="domain-list">
+              {subdomainSuggestions.map((s) => (
+                <div
+                  key={s}
+                  className={`domain-option ${selectedSubdomain === s ? "active" : ""}`}
+                  onClick={() => setSelectedSubdomain(s)}
+                >
+                  {s}.ynot.com
+                </div>
+              ))}
+            </div>
+
+            <div className="domain-actions">
+              <button
+                className="btn secondary"
+                onClick={() => setStep("SERVICES_SELECT")}
+              >
+                Back
+              </button>
+
+              <button
+                className="btn primary"
+                disabled={!selectedSubdomain}
+                onClick={async () => {
+                  try {
+                    await fetch(
+                      `${API_BASE_URL}/api/vendor/${vendorId}/set-subdomain`,
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ subdomain: selectedSubdomain }),
+                      }
+                    );
+
+                    setStep("PREVIEW_CHOICE");
+                  } catch (e) {
+                    alert("Failed to save website name");
+                  }
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
         {step === "PREVIEW_CHOICE" && (
   <div className="preview-choice-card">
     <h2>Do you want to preview your profile?</h2>
@@ -964,11 +1067,10 @@ setSelectedBusiness({
  <button
   className="btn primary"
   onClick={async () => {
-    const rootCategoryId = confirmedCategory?._id;
-    const vendorName = selectedBusiness?.name; // ✅ ADD THIS
+    const subdomain = selectedSubdomain;
 
-    if (!vendorId || !rootCategoryId || !vendorName) {
-      alert("Missing vendor, category, or vendor name");
+    if (!vendorId || !subdomain) {
+      alert("Missing vendor or subdomain");
       return;
     }
 
@@ -976,11 +1078,10 @@ setSelectedBusiness({
       process.env.NEXT_PUBLIC_HARISH_PREVIEW_BASE_URL ||
       "http://localhost:4000";
 
-    const url =
-      `${PREVIEW_BASE}/` +
-      `?vendorId=${vendorId}` +
-      `&rootCategoryId=${rootCategoryId}` +
-      `&vendorName=${encodeURIComponent(vendorName)}`; // ✅ ADD THIS
+    const previewUrl = PREVIEW_BASE.replace(
+      "://",
+      `://${subdomain}.`
+    );
 
     const win = window.open("about:blank", "_blank");
 
@@ -994,7 +1095,7 @@ setSelectedBusiness({
         }
       );
 
-      win.location.href = url;
+      win.location.href = previewUrl;
     } catch (e) {
       win.close();
       alert("Failed to open preview");

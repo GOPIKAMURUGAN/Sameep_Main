@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import "../PackagesPortal/PackagesPortal.css";
+import { useVendor } from "../VendorContext";
 
 
 /* ================= IMAGE TREE HELPERS ================= */
@@ -222,8 +223,9 @@ function buildImageMapFromTree(nodes) {
 /* ================= MAIN ================= */
 export default function PackagesPortal({ onClose, onLoaded }) {
   const searchParams = useSearchParams();
-  const vendorId = searchParams.get("vendorId");
-  const rootCategoryId = searchParams.get("rootCategoryId");
+  const vendor = useVendor();
+  const vendorId = vendor?.vendorId || searchParams.get("vendorId");
+  const rootCategoryId = vendor?.categoryId || searchParams.get("rootCategoryId");
 
   const [rootNodes, setRootNodes] = useState([]);
   const [path, setPath] = useState([]);

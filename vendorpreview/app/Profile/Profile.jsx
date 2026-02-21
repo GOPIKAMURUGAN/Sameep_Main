@@ -7,13 +7,15 @@ import HomeLocationModal from "./HomeLocationModal";
 import BusinessLocationsModal from "./BusinessLocationsModal";
 import BusinessHoursModal from "./BusinessHoursModal";
 import { SOCIAL_ICONS } from "../Icons/SocialIcons";
+import { useVendor } from "../VendorContext";
 
 export default function ProfileModal({ onClose, onOpenServices }) {
   /* ================= URL PARAMS ================= */
   const searchParams = useSearchParams();
-  const vendorId = searchParams.get("vendorId");
-  const rootCategoryId = searchParams.get("rootCategoryId");
-  const vendorName = searchParams.get("vendorName");
+  const vendorContext = useVendor();
+  const vendorId = vendorContext?.vendorId || searchParams.get("vendorId");
+  const rootCategoryId = vendorContext?.categoryId || searchParams.get("rootCategoryId");
+  const vendorName = vendorContext?.businessName || searchParams.get("vendorName");
 
   /* ================= STATE ================= */
   const [opening, setOpening] = useState(false);

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import "./About.css";
-import { useVendor } from "../Vendorcontext";
+import { useVendor } from "../VendorContext";
 import {
   FaLeaf,
   FaUserTie,
@@ -21,7 +21,8 @@ const FALLBACK_ICONS = [
 ];
 
 export default function AdvantageSection({ whyUs }) {
-  const { vendorInfo } = useVendor();
+  const { vendorInfo } = useVendor() || {};
+
   const businessName = vendorInfo?.businessName || "Us";
 const cards = (whyUs?.cards || []).filter(
   c => c.title?.trim() || c.description?.trim() || c.iconUrl?.trim()

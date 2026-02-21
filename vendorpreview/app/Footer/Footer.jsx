@@ -3,7 +3,7 @@
 import "./Footer.css";
 import { useEffect, useState } from "react";
 import { FaPhoneAlt, FaMapMarkerAlt } from "react-icons/fa";
-import { useVendor } from "../Vendorcontext";
+import { useVendor } from "../VendorContext";
 import { SOCIAL_ICONS } from "../Icons/SocialIcons";
 
 const PAGE_SECTIONS = {
@@ -15,66 +15,63 @@ const PAGE_SECTIONS = {
 };
 
 export default function Footer() {
-  const { vendorInfo } = useVendor();
+  const { vendorInfo } = useVendor() || {};
 
   const popular = vendorInfo?.popularCategories || [];
-  const webMenu = vendorInfo?.categoryData?.webMenu || [];
   const socialLinks = vendorInfo?.socialLinks || {};
   const categoryId = vendorInfo?.categoryId;
 
-  const [categorySocials, setCategorySocials] = useState(null);
+  const [categoryData, setCategoryData] = useState(null);
+  const [categorySocials, setCategorySocials] = useState([]);
 
   // ---------- HELPERS ----------
   const toAnchor = (label) =>
-    label
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-");
+    label.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-");
 
   const normalize = (label) =>
     label.toLowerCase().replace(/\s+/g, "");
 
-  // ---------- FETCH CATEGORY SOCIAL HANDLES ----------
+  // ==============================
+  // ✅ LOAD CATEGORY DATA (MENU + SOCIALS)
+  // ==============================
   useEffect(() => {
     if (!categoryId) return;
 
     fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dummy-categories/${categoryId}`
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dummy-categories/${categoryId}`,
+      { cache: "no-store" }
     )
       .then((res) => res.json())
       .then((data) => {
+        setCategoryData(data);
         setCategorySocials(data.socialHandle || []);
       })
-      .catch((err) => {
-        console.error("Failed to load category socials", err);
+      .catch(() => {
+        setCategoryData(null);
         setCategorySocials([]);
       });
   }, [categoryId]);
 
-  // ---------- FINAL SOCIALS (CATEGORY ∩ VENDOR) ----------
-  const socialsToRender =
-    categorySocials === null
-      ? []
-      : categorySocials
-          .map((label) => {
-            const key = normalize(label);
-            const value = socialLinks[key];
+  const webMenu = categoryData?.webMenu || [];
 
-            if (!value || !SOCIAL_ICONS[key]) return null;
-
-            return { key, value };
-          })
-          .filter(Boolean);
+  // ---------- FINAL SOCIALS ----------
+  const socialsToRender = categorySocials
+    .map((label) => {
+      const key = normalize(label);
+      const value = socialLinks[key];
+      if (!value || !SOCIAL_ICONS[key]) return null;
+      return { key, value };
+    })
+    .filter(Boolean);
 
   return (
     <footer className="footer">
       <div className="footer-container">
 
-        {/* Brand */}
+        {/* BRAND */}
         <div className="footer-col">
           <h3 className="footer-title">
-            {vendorInfo?.businessName || "Harish"}
+            {vendorInfo?.businessName || "Business"}
           </h3>
           <p className="footer-text">
             Where beauty meets perfection. Experience luxury grooming and
@@ -82,7 +79,7 @@ export default function Footer() {
           </p>
         </div>
 
-        {/* Quick Links */}
+        {/* ✅ QUICK LINKS (NOW WORKS EVERYWHERE) */}
         <div className="footer-col">
           <h3 className="footer-title">Quick Links</h3>
           <ul className="footer-links">
@@ -96,31 +93,27 @@ export default function Footer() {
           </ul>
         </div>
 
-        {/* Popular */}
+        {/* POPULAR */}
         {popular.length > 0 && (
           <div className="footer-col">
             <h3 className="footer-title">Popular</h3>
             <ul className="footer-links">
               {popular.map((cat) => (
                 <li key={cat.name}>
-                  <a href={`#cat-${toAnchor(cat.name)}`}>
-                    {cat.name}
-                  </a>
+                  <a href={`#cat-${toAnchor(cat.name)}`}>{cat.name}</a>
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        {/* ✅ SOCIAL HANDLES (CATEGORY + VENDOR RULE) */}
+        {/* SOCIALS */}
         {socialsToRender.length > 0 && (
           <div className="footer-col">
             <h3 className="footer-title">Follow Us</h3>
-
             <div className="footer-socials">
               {socialsToRender.map(({ key, value }) => {
                 const Icon = SOCIAL_ICONS[key];
-
                 const href =
                   value.startsWith("http")
                     ? value
@@ -131,13 +124,7 @@ export default function Footer() {
                     : `https://${key}.com/${value}`;
 
                 return (
-                  <a
-                    key={key}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={key}
-                  >
+                  <a key={key} href={href} target="_blank" rel="noopener noreferrer">
                     <Icon className={`social-icon ${key}`} />
                   </a>
                 );
@@ -146,16 +133,14 @@ export default function Footer() {
           </div>
         )}
 
-        {/* Contact */}
+        {/* CONTACT */}
         <div className="footer-col">
           <h3 className="footer-title">Reach Us</h3>
 
           {vendorInfo?.phone && (
             <p className="footer-info">
               <FaPhoneAlt className="footer-icon" />
-              <a href={`tel:${vendorInfo.phone}`}>
-                {vendorInfo.phone}
-              </a>
+              <a href={`tel:${vendorInfo.phone}`}>{vendorInfo.phone}</a>
             </p>
           )}
 
@@ -170,7 +155,7 @@ export default function Footer() {
       </div>
 
       <div className="footer-bottom">
-        © 2026 {vendorInfo?.businessName || "Harish"} All Rights Reserved.
+        © {new Date().getFullYear()} {vendorInfo?.businessName || "Business"} All Rights Reserved.
       </div>
     </footer>
   );

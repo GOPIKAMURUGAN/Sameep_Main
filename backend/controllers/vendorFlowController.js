@@ -1,6 +1,8 @@
 const VendorFlow = require("../models/VendorFlow");
 const Vendor = require("../models/Vendor");
 const Category = require("../models/Category");
+const DummyVendor = require("../models/DummyVendor");
+const { generateSubdomain } = require("../utils/subdomain.util");
 
 // GET all services for a specific vendor (flattened, frontend-ready)
 exports.getVendorFlows = async (req, res) => {
@@ -238,6 +240,179 @@ exports.updatePricingStatus = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.checkSubdomainAvailability = async (req, res) => {
+  try {
+    const { businessName, categoryName } = req.query;
+
+    const suggestions = generateSubdomain({ businessName, categoryName });
+    const available = [];
+
+    for (const s of suggestions || []) {
+      const exists = await DummyVendor.findOne({ subdomain: s });
+      if (!exists) available.push(s);
+    }
+
+    res.json({
+      available: available.length > 0,
+      suggestions,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.setSubdomain = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { subdomain } = req.body;
+
+    const vendor = await DummyVendor.findById(id);
+    if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
+
+    if (vendor.subdomain)
+      return res.status(400).json({ error: 'Subdomain already set' });
+
+    const exists = await DummyVendor.findOne({ subdomain });
+    if (exists)
+      return res.status(400).json({ error: 'Subdomain taken' });
+
+    vendor.subdomain = subdomain.toLowerCase();
+    await vendor.save();
+
+    res.json({ subdomain: vendor.subdomain });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getVendorBySubdomain = async (req, res) => {
+  try {
+    const sub = req.params.subdomain.toLowerCase();
+
+    // ✅ Convert to plain object
+    const vendor = await DummyVendor.findOne({ subdomain: sub }).lean();
+
+    if (!vendor) {
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    // ✅ Clean JSON response
+    res.json({
+      vendorId: vendor._id,
+      ...vendor,
+    });
+
+  } catch (err) {
+    console.error("Subdomain fetch error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+// ============================================
+// SAVE SERVICE AREAS
+// ============================================
+const mongoose = require("mongoose");
+//const DummyVendor = require("../models/DummyVendor");
+
+/**
+ * ============================================
+ * SAVE SERVICE AREAS
+ * POST /api/vendor/service-areas
+ * ============================================
+ */
+exports.saveServiceAreas = async (req, res) => {
+  try {
+    const {
+      vendorId,
+      primaryLocality,
+      city,
+      targetAreas,
+      autoSuggested,
+    } = req.body;
+
+    if (!vendorId) {
+      return res.status(400).json({
+        success: false,
+        message: "vendorId is required",
+      });
+    }
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(vendorId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid vendorId",
+      });
+    }
+
+    const updatePayload = {
+      serviceAreas: {
+        primaryLocality: primaryLocality || "",
+        city: city || "",
+        targetAreas: Array.isArray(targetAreas) ? targetAreas : [],
+        autoSuggested: autoSuggested ?? true,
+      },
+
+      // Backward compatibility (optional)
+      ...(Array.isArray(targetAreas) && targetAreas.length
+        ? { "location.nearbyLocations": targetAreas }
+        : {}),
+    };
+
+    const updated = await DummyVendor.findByIdAndUpdate(
+      vendorId,
+      { $set: updatePayload },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor not found",
+      });
+    }
+
+    const existingHeading = String(updated.customFields?.freeText1 || "").trim();
+    if (!existingHeading) {
+      let categoryName = "";
+      if (updated.categoryId) {
+        try {
+          const DummyCategory = require("../models/dummyCategory");
+          const cat = await DummyCategory.findById(updated.categoryId).lean();
+          categoryName = cat?.name || "";
+        } catch (_) {}
+      }
+
+      const years = updated.trustSummary?.experienceYears || "";
+      const customers = updated.trustSummary?.customers || updated.trustSummary?.customersServedMin || "";
+      const rating = updated.googlePlace?.rating || "";
+      const areas = (updated.serviceAreas?.targetAreas || []).slice(0, 3).join(", ");
+      const cityLabel = city || updated.serviceAreas?.city || "";
+
+     const heading = `${categoryName || "Professional Services"} in ${cityLabel || "your area"}`;
+     const description = `Trusted by ${customers || "many"} clients${years ? ` with ${years}+ years of experience` : ""}, ${updated.businessName} offers premium services in ${cityLabel || "your area"}${areas ? ` including ${areas}` : ""}. ${rating ? `Rated ${rating}★ on Google,` : ""} we deliver personalised experiences tailored for every customer.`
+     .replace(/\s+/g, " ")
+      .trim();
+
+      updated.customFields = updated.customFields || {};
+      updated.customFields.freeText1 = heading;
+      updated.customFields.freeText2 = description;
+      await updated.save();
+     
+
+    }
+
+    return res.json({
+      success: true,
+      serviceAreas: updated.serviceAreas,
+    });
+  } catch (err) {
+    console.error("saveServiceAreas error:", err);
+    return res.status(500).json({ success: false });
+  }
+};
+
 
 // ADD log entry to vendor flow
 exports.addLogEntry = async (req, res) => {

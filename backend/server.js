@@ -38,6 +38,7 @@ const billingRoutes = require("./routes/billingRoutes");
 const loyaltyRoutes = require("./routes/loyaltyRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const trustProfileRoutes = require("./routes/trustProfileRoutes");
+const locationRoutes = require("./routes/locationRoutes");
 
 const vendorPriceNodeRoutes = require(
   path.resolve(__dirname, "routes", "vendorPriceNodeRoutes")
@@ -155,9 +156,11 @@ app.use("/api/audit-logs", auditLogRoutes);
 app.use("/api/google/places", googlePlacesRoutes);
 app.use("/api/setup-progress", setupProgressRoutes);
 app.use("/api/vendor-flow", vendorFlowRoutes);
+app.use("/api", require("./routes/vendorFlowRoutes"));
 app.use("/api/billing", billingRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
 app.use("/api/trust", trustProfileRoutes);
+app.use("/api/location", require("./routes/locationRoutes"));
 app.use("/api/admin", adminRoutes);
 
 // ⭐ Vendor price nodes
