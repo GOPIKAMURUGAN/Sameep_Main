@@ -39,6 +39,7 @@ const loyaltyRoutes = require("./routes/loyaltyRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const trustProfileRoutes = require("./routes/trustProfileRoutes");
 const locationRoutes = require("./routes/locationRoutes");
+const categoryTreeRoutes = require("./routes/categoryTreeRoutes");
 
 const vendorPriceNodeRoutes = require(
   path.resolve(__dirname, "routes", "vendorPriceNodeRoutes")
@@ -138,6 +139,8 @@ app.get("/api/health", (req, res) =>
 // --------------------
 // API ROUTES
 // --------------------
+// Static routes must come before dynamic routes in Express to avoid route shadowing.
+app.use("/api", categoryTreeRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/vendors", vendorRoutes);
 app.use("/api/masters", masterRoutes);
@@ -161,6 +164,7 @@ app.use("/api/billing", billingRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
 app.use("/api/trust", trustProfileRoutes);
 app.use("/api/location", require("./routes/locationRoutes"));
+app.use("/api/vendor/dashboard", require("./routes/vendorDashboardRoutes"));
 app.use("/api/admin", adminRoutes);
 
 // ⭐ Vendor price nodes

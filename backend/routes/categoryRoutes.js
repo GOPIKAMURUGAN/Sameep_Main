@@ -491,6 +491,22 @@ router.put("/:id", uploadFields, async (req, res) => {
   }
 });
 
+/* ---------------- GET all color schemes from parent categories only ---------------- */
+router.get("/colors/parents", async (req, res) => {
+  logApi(req, res, "get-parent-colors");
+  try {
+    // Only fetch parent categories
+    const categories = await Category.find(
+      { parent: null },      // only parents
+      "name colorSchemes"    // only return name & colorSchemes
+    );
+    res.json(categories);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch color schemes", error: err.message });
+  }
+});
+
 /* ---------------- DELETE CATEGORY ---------------- */
 router.delete("/:id", async (req, res) => {
   logApi(req, res, "delete-category");
@@ -517,22 +533,6 @@ router.get("/:id", async (req, res) => {
     res.json(category);
   } catch (err) {
     res.status(500).json({ message: err.message || "Server error" });
-  }
-});
-
-/* ---------------- GET all color schemes from parent categories only ---------------- */
-router.get("/colors/parents", async (req, res) => {
-  logApi(req, res, "get-parent-colors");
-  try {
-    // Only fetch parent categories
-    const categories = await Category.find(
-      { parent: null },      // only parents
-      "name colorSchemes"    // only return name & colorSchemes
-    );
-    res.json(categories);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to fetch color schemes", error: err.message });
   }
 });
 

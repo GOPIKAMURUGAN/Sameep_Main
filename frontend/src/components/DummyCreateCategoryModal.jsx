@@ -141,6 +141,8 @@ function DummyCreateCategoryModal({
   const [image, setImage] = useState(null);
   const [price, setPrice] = useState("");
   const [terms, setTerms] = useState("");
+  const [offerText, setOfferText] = useState("");
+const [packagesIncludes, setPackagesIncludes] = useState("");
   const [visibleToUser, setVisibleToUser] = useState(false);
   const [visibleToVendor, setVisibleToVendor] = useState(false);
   const [sequence, setSequence] = useState(0);
@@ -264,6 +266,8 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
       setIcon(null);
       setPrice(initialData.price ?? "");
       setTerms(initialData.terms ?? "");
+      setOfferText(initialData.offerText ?? "");
+      setPackagesIncludes(initialData.packagesIncludes || "");
       setVisibleToUser(Boolean(initialData.visibleToUser));
       setVisibleToVendor(Boolean(initialData.visibleToVendor));
       setSequence(Number(initialData.sequence ?? 0));
@@ -421,6 +425,7 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
       setSequence(0);
       setFreeText("");
       setEnableFreeText(parentEnableFreeText);
+      setPackagesIncludes("");
       setCategoryType(parentCategoryType || "Services");
       setAvailableForCart(false);
       setSeoKeywords("");
@@ -467,7 +472,8 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
       setContactFooterHeading4("");
       setProfilePictureFiles([]);
     }
-  }, [show, initialData, parentId, parentCategoryType, parentEnableFreeText]);
+}, [show]);
+
 
   // Whenever the modal is open and Web Menu contains Home, ensure Home popup is visible
   // Do not auto-open the Home popup when the modal is shown.
@@ -696,6 +702,8 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
       formData.append("price", price === "" ? "" : price);
       formData.append("sequence", sequence);
       formData.append("terms", terms);
+      formData.append("offerText", offerText || "");
+      formData.append("packagesIncludes", packagesIncludes || "");
       formData.append("visibleToUser", visibleToUser);
       formData.append("visibleToVendor", visibleToVendor);
       formData.append("freeText", freeText);
@@ -709,7 +717,7 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
         formData.append(`freeText${index + 1}`, txt || "");
       });
       if (icon) formData.append("icon", icon);
-      formData.append("enableFreeText", parentId ? parentEnableFreeText : enableFreeText);
+      formData.append("enableFreeText", enableFreeText);
       formData.append("inventoryLabelName", inventoryLabelName || "");
       if (!parentId) {
         formData.append("colorSchemes", JSON.stringify(colorSchemes));
@@ -865,6 +873,15 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
             onChange={(e) => setName(e.target.value)}
             style={{ ...inputStyle, fontWeight: "600", color: "#0078d7" }}
           />
+          {parentId && (
+  <input
+    type="text"
+    placeholder="Packages Includes "
+    value={packagesIncludes}
+    onChange={(e) => setPackagesIncludes(e.target.value)}
+    style={inputStyle}
+  />
+)}
           <h4 style={labelStyle}>Upload Category Image</h4>
           {initialData?.imageUrl && !image && (
             <div style={{ textAlign: "center", marginBottom: "10px" }}>
@@ -1230,7 +1247,7 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
             <>
               <input
                 type="number"
-                placeholder="Price (Optional)"
+                placeholder="Price-(Optional)"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 style={inputStyle}
@@ -1241,8 +1258,20 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
                 onChange={(e) => setTerms(e.target.value)}
                 style={textareaStyle}
               />
+
+                 {enableFreeText && (
+      <input
+        type="text"
+        placeholder="Offer Text"
+        value={offerText}
+        onChange={(e) => setOfferText(e.target.value)}
+        style={inputStyle}
+      />
+    )}
+
             </>
           )}
+              
           {!parentId &&
             freeTexts.map((txt, i) => (
               <input
@@ -1379,7 +1408,7 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
             <input
               type="checkbox"
               checked={enableFreeText}
-              disabled={parentId ? !parentEnableFreeText : false}
+              //  disabled={parentId ? !parentEnableFreeText : false}
               onChange={(e) => setEnableFreeText(e.target.checked)}
             />
             Enable Full Free Text / Discount

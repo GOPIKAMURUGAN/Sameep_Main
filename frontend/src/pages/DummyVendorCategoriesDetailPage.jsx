@@ -19,6 +19,8 @@ function LatestPricingTable({
   setLatestEditPrice,
   latestEditTerms,
   setLatestEditTerms,
+    latestEditOfferText,        
+  setLatestEditOfferText, 
   latestSaving,
   saveLatestRow,
   updateLatestPricingStatus, // ✅ ADD THIS
@@ -40,6 +42,7 @@ function LatestPricingTable({
           <th>Images</th>
           <th>Price</th>
           <th>Terms</th>
+          <th>Offer</th>
           <th>Pricing Status</th>
           <th>Action</th>
           <th>Logs</th>
@@ -89,6 +92,18 @@ function LatestPricingTable({
                 row.terms || "—"
               )}
             </td>
+            <td>
+  {editingLatestRowId === row.vendorPriceNodeId ? (
+    <textarea
+      value={latestEditOfferText}
+      onChange={(e) => setLatestEditOfferText(e.target.value)}
+      rows={2}
+      style={{ width: "100%", padding: 6 }}
+    />
+  ) : (
+    row.offerText || "—"
+  )}
+</td>
 
 
         <td>
@@ -150,6 +165,7 @@ function LatestPricingTable({
                       setEditingLatestRowId(row.vendorPriceNodeId);
                       setLatestEditPrice(row.price ?? "");
                       setLatestEditTerms(row.terms ?? "");
+                      setLatestEditOfferText(row.offerText ?? "");
                     }}
                     style={{
                       padding: "6px 12px",
@@ -190,6 +206,7 @@ function flattenPricingTree(node, rows = [], parents = [], rootCategoryId) {
       levels: path,
       price: node.price,
       terms: node.terms,
+       offerText: node.offerText || "",
       pricingStatus: node.pricingStatus,
     });
   }
@@ -402,7 +419,7 @@ export default function DummyVendorCategoriesDetailPage() {
   const [activeView, setActiveView] = useState('old'); // 'old' or 'new'
   const [vendorFlows, setVendorFlows] = useState([]); // VendorFlow data for new view
   const [editingNewFlow, setEditingNewFlow] = useState(null); // { id, price }
-
+const [latestEditOfferText, setLatestEditOfferText] = useState("");
   const [latestPricingStatusMap, setLatestPricingStatusMap] = useState({});
   const [latestLoading, setLatestLoading] = useState(false);
   const [vendorName, setVendorName] = useState("");
@@ -424,6 +441,7 @@ export default function DummyVendorCategoriesDetailPage() {
           vendorPriceNodeId: row.vendorPriceNodeId, // ✅ _id from tree
           price: latestEditPrice === "" ? null : Number(latestEditPrice),
           terms: latestEditTerms,
+           offerText: latestEditOfferText,
         }
       );
 
@@ -431,7 +449,7 @@ export default function DummyVendorCategoriesDetailPage() {
       setLatestRows((prev) =>
         prev.map((r) =>
           r.vendorPriceNodeId === row.vendorPriceNodeId
-            ? { ...r, price: latestEditPrice, terms: latestEditTerms }
+            ? { ...r, price: latestEditPrice, terms: latestEditTerms, offerText: latestEditOfferText }
             : r
         )
       );
@@ -1916,6 +1934,8 @@ const PREVIEW_4000 = isLocalhost
   setLatestEditPrice={setLatestEditPrice}
   latestEditTerms={latestEditTerms}
   setLatestEditTerms={setLatestEditTerms}
+  latestEditOfferText={latestEditOfferText}
+setLatestEditOfferText={setLatestEditOfferText}
   latestSaving={latestSaving}
   saveLatestRow={saveLatestRow}
   updateLatestPricingStatus={updateLatestPricingStatus} // ✅ ADD THIS

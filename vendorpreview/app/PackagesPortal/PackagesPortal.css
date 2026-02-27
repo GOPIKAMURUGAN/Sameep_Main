@@ -482,3 +482,41 @@ background: #0f0f12;  /* solid */
     grid-template-columns: 1fr;
   }
 }
+
+.service-packages {
+  margin-top: 6px;
+  padding-left: 0;
+  list-style: none;
+}
+
+.service-packages li {
+  font-size: 13px;
+  color: #f5d97a;
+  margin-bottom: 4px;
+}
+/* ⭐ Includes Heading */
+.service-includes {
+  margin-top: 6px;
+}
+
+.includes-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f5d97a;
+  margin-bottom: 4px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+/* list style */
+.service-packages {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.service-packages li {
+  font-size: 13px;
+  color: #e8e8e8;
+  margin-bottom: 3px;
+}

@@ -5,7 +5,6 @@ import AdvantageSection from "../About/About";
 import RootsSection from "../Root/RootSection";
 import { useEffect, useState, useMemo } from "react";
 import { useVendor } from "../VendorContext";
-
 import "./Explore.css";
 import HeroSection from "../Hero/Hero";
 import { API_BASE_URL } from "../../config";
@@ -23,12 +22,39 @@ const toAnchor = (label) =>
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-");
 
-
-
-
-
 const categoryCache = new Map();
+function buildFreeTextMapFromTree(nodes) {
+  const map = {};
 
+  function walk(node) {
+    if (node._id) {
+      const raw = node.enableFreeText;
+      map[node._id] =
+        raw === true ||
+        raw === "true" ||
+        raw === 1 ||
+        raw === "1";
+    }
+    node.children?.forEach(walk);
+  }
+
+  nodes.forEach(walk);
+  return map;
+}
+
+function buildPackagesMapFromTree(nodes) {
+  const map = {};
+
+  function walk(node) {
+    if (node._id && node.packagesIncludes) {
+      map[node._id] = node.packagesIncludes;
+    }
+    node.children?.forEach(walk);
+  }
+
+  nodes.forEach(walk);
+  return map;
+}
 async function buildCategoryTree(parentId) {
   if (categoryCache.has(parentId)) {
     return categoryCache.get(parentId);
@@ -137,12 +163,21 @@ function ServiceCard({ data, sectionName, openLogin }) {
   const [expiryDays, setExpiryDays] = useState(0);
 
 
+const [viewMode, setViewMode] = useState("preview");
+const [cartItems, setCartItems] = useState([]);
+const [cartOpen, setCartOpen] = useState(false);
 
+const [mobile, setMobile] = useState("");
+const [otp, setOtp] = useState("");
+const [otpSent, setOtpSent] = useState(false);
+const [loadingOtp, setLoadingOtp] = useState(false);
 
+const [isMobile, setIsMobile] = useState(false);
 
   const showTitle =
     !!data.title &&
     (
+
       !sectionName ||
       data.title.trim().toLowerCase() !==
       sectionName.trim().toLowerCase()
@@ -156,22 +191,50 @@ function ServiceCard({ data, sectionName, openLogin }) {
   };
 
 
-  // ✅ SIMPLE CARD (single leaf, no chips)
   if (data.simple) {
     return (
       <div className="ws-card">
         {showTitle && <h3 className="ws-title">{data.title}</h3>}
-
-        <div className="ws-media">
-          {data.img && <img src={data.img} alt={data.title} />}
-        </div>
+<div
+  className="ws-media"
+ 
+>
+  {data.offerText ? (
+    <div className="offer-banner offer-blast">
+      {data.offerText}
+    </div>
+  ) : (
+    data.img && <img src={data.img} alt={data.title} />
+  )}
+</div>
 
         {/* ✅ PRICE FIRST */}
-        <div className="ws-price">{formatPrice(data.base)}</div>
+        <div className="ws-price">
+          {!data.offerText && formatPrice(data.base)}
+        </div>
+
+
 
 
         {/* ✅ TERMS AFTER PRICE */}
         <TermsList terms={data.terms} />
+        {data.packagesIncludes && (
+  <div className="ws-package-box">
+    <div className="ws-package-title">Package Includes</div>
+
+    <ul className="ws-package-list">
+      {String(data.packagesIncludes || "")
+  .split(",")
+  .filter(Boolean)
+  .map((pkg, i) => (
+          <li key={i}>
+            <span className="ws-check">✓</span>
+            {pkg.trim()}
+          </li>
+        ))}
+    </ul>
+  </div>
+)}
 
         <div className="ws-actions">
           <button
@@ -179,22 +242,11 @@ function ServiceCard({ data, sectionName, openLogin }) {
             onClick={() =>
               openLogin({
                 serviceName: data.title,
-                price: total ,
-                terms: selectedTerms?.join(", ") || "",
-
-                attributes: {
-                  mainOption: selectedMain,
-                  subOption: selectedSub,
-                },
-
-                // ⭐ FIXED CATEGORY PATH
-                categoryPath: [
-                  sectionName,          // Hair
-                  selectedMain,         // Hair Spa
-                  selectedSub,          // Relaxing
-                ].filter(Boolean),
-
-                categoryIds: [], // keep empty if you don’t map ids yet
+                price: data.base,
+                terms: data.terms?.join(", ") || "",
+                attributes: {},
+                categoryPath: [sectionName].filter(Boolean),
+                categoryIds: [],
               })
             }
           >
@@ -217,7 +269,7 @@ function ServiceCard({ data, sectionName, openLogin }) {
   const [selectedSub, setSelectedSub] = useState(null);
 
   useEffect(() => {
-    setSelectedMain(data.defaultMain || null);
+    setSelectedMain(data.defaultMain || data.options?.[0]?.label || null);
     setSelectedSub(data.defaultSub || null);
   }, [data.defaultMain, data.defaultSub]);
 
@@ -250,6 +302,22 @@ function ServiceCard({ data, sectionName, openLogin }) {
     return sum || data.base;
   }, [data, selectedMain, selectedSub]);
 
+  const selectedPackagesIncludes = useMemo(() => {
+  if (!selectedMain) return "";
+
+  const main = data.options?.find(o => o.label === selectedMain);
+  if (!main) return "";
+
+  // ⭐ if subOption selected
+  if (selectedSub && main.subOptions?.length) {
+    const sub = main.subOptions.find(s => s.label === selectedSub);
+    return sub?.packagesIncludes || "";
+  }
+
+  // ⭐ otherwise main option
+  return main.packagesIncludes || "";
+}, [data.options, selectedMain, selectedSub]);
+
   const dynamicImg = useMemo(() => {
     if (!selectedMain) return data.img || null;
     const main = data.options?.find(o => o.label === selectedMain);
@@ -260,6 +328,19 @@ function ServiceCard({ data, sectionName, openLogin }) {
     }
 
     return main?.imageUrl || data.img || null;
+  }, [data, selectedMain, selectedSub]);
+  const selectedOfferText = useMemo(() => {
+    if (!selectedMain) return data.offerText || "";
+
+    const main = data.options?.find(o => o.label === selectedMain);
+    if (!main) return data.offerText || "";
+
+    if (selectedSub && main.subOptions?.length) {
+      const sub = main.subOptions.find(s => s.label === selectedSub);
+      return sub?.offerText || main.offerText || data.offerText || "";
+    }
+
+    return main.offerText || data.offerText || "";
   }, [data, selectedMain, selectedSub]);
   const selectedTerms = useMemo(() => {
     if (!selectedMain) return [];
@@ -291,11 +372,24 @@ function ServiceCard({ data, sectionName, openLogin }) {
 
 
 
-      <div className="ws-media">
-        {dynamicImg && <img src={dynamicImg} alt={data.title} />}
-      </div>
+   <div
+  className="ws-media"
+  key={selectedOfferText || dynamicImg}
+>
+  {selectedOfferText ? (
+    <div className="offer-banner offer-confetti">
+      {selectedOfferText}
+    </div>
+  ) : (
+    dynamicImg && <img src={dynamicImg} alt={data.title} />
+  )}
+</div>
+      {!selectedOfferText && (
+        <div className="ws-price">
+          {formatPrice(total)}
+        </div>
+      )}
 
-      <div className="ws-price">{formatPrice(total)}</div>
 
       <div className="ws-subhead">Select Service</div>
 
@@ -346,6 +440,23 @@ function ServiceCard({ data, sectionName, openLogin }) {
         )}
       {/* ✅ TERMS MOVED BELOW SELECT SERVICE */}
       <TermsList terms={selectedTerms} />
+      {selectedPackagesIncludes && (
+  <div className="ws-package-box">
+    <div className="ws-package-title">Package Includes</div>
+
+    <ul className="ws-package-list">
+      {String(selectedPackagesIncludes || "")
+  .split(",")
+  .filter(Boolean)
+  .map((pkg, i) => (
+          <li key={i}>
+            <span className="ws-check">✓</span>
+            {pkg.trim()}
+          </li>
+        ))}
+    </ul>
+  </div>
+)}
 
 
       <div className="ws-actions">
@@ -376,10 +487,7 @@ function ServiceCard({ data, sectionName, openLogin }) {
           Enroll Now
         </button>
 
-
-
       </div>
-
 
     </div>
   );
@@ -421,17 +529,24 @@ function collectLeafTerms(node) {
   return [...new Set(terms)].slice(0, 3);
 }
 
-function convertFromTree(tree, imageMap, nameMap) {
-
+function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
   const getName = (node) =>
     nameMap?.[node?.categoryId] || node?.name || "";
 
-  return tree.map(level0 => {
+  const result = tree.map(level0 => {
+
 
     /* =====================================================
-       ✅ CASE 0 — LEVEL0 ITSELF IS A LEAF
-       ===================================================== */
-    if (level0.isLeaf && level0.pricingStatus === "Active") {
+   ✅ CASE — LEVEL0 ITSELF IS A LEAF (ROOT SIMPLE CARD)
+===================================================== */
+    if (
+      level0.isLeaf &&
+      level0.pricingStatus === "Active" &&
+      (
+        !level0.offerText ||
+        freeTextMap?.[level0.categoryId] === true
+      )
+    ) {
       return {
         sectionName: getName(level0),
         cards: [{
@@ -440,8 +555,51 @@ function convertFromTree(tree, imageMap, nameMap) {
           img: imageMap[level0.categoryId] || null,
           base: Number(level0.price) || 0,
           options: [],
-          simple: true
+          simple: true,
+          terms: normalizeTerms(level0.terms || ""),
+          offerText: level0.offerText || "",
+          packagesIncludes:packagesMap[level0.categoryId] || ""
         }]
+      };
+    }
+
+    /* =====================================================
+       ✅ CASE 0 — LEVEL0 ITSELF IS A LEAF
+       ===================================================== */
+    /* =====================================================
+   🔥 OFFER SECTION SUPPORT
+   If this level0 is "Offers", create cards directly
+===================================================== */
+    if (getName(level0).toLowerCase() === "offers") {
+
+      const offerCards = (level0.children || [])
+        .filter(c =>
+          freeTextMap?.[c.categoryId] === true &&                 // ✅ NEW CHECK
+          typeof c.offerText === "string" &&
+          c.offerText.trim() !== ""
+        )
+        .map(c => ({
+          id: c.categoryId,
+          title: getName(c),
+          img: imageMap[c.categoryId] || null,
+
+          // ⭐ IMPORTANT FIX
+          simple: true,
+
+          // offer cards don't use pricing logic
+          base: 0,
+          options: [],
+          terms: [],
+
+          // ⭐ THIS IS WHAT UI WILL DISPLAY
+          offerText: c.offerText || ""
+        }));
+
+      if (!offerCards.length) return null;
+
+      return {
+        sectionName: getName(level0),
+        cards: offerCards
       };
     }
 
@@ -451,10 +609,14 @@ function convertFromTree(tree, imageMap, nameMap) {
        🟡 LOGIC 1 — GROUP ONLY IF ALL CHILDREN ARE LEAVES
        (Salon / Zero Trim / Size Based)
        ===================================================== */
-    const activeLeaves = children.filter(
-      c => c.isLeaf && c.pricingStatus === "Active"
+    const activeLeaves = children.filter(c =>
+      c.isLeaf &&
+      c.pricingStatus === "Active" &&
+      (
+        !c.offerText ||                       // normal service
+        freeTextMap?.[c.categoryId] === true // allow offer only when enabled
+      )
     );
-
     const allChildrenAreLeaves =
       children.length &&
       children.every(c => c.isLeaf);
@@ -472,6 +634,8 @@ function convertFromTree(tree, imageMap, nameMap) {
           price,
           imageUrl: imageMap[c.categoryId] || null,
           terms: normalizeTerms(c.terms || ""),
+          offerText: c.offerText || "",
+            packagesIncludes: packagesMap?.[c.categoryId] || "", 
           subOptions: []
         };
       });
@@ -497,7 +661,14 @@ function convertFromTree(tree, imageMap, nameMap) {
     const cards = children.map(level1 => {
 
       /* ---------- LEVEL1 IS DIRECT LEAF ---------- */
-      if (level1.isLeaf && level1.pricingStatus === "Active") {
+      if (
+        level1.isLeaf &&
+        level1.pricingStatus === "Active" &&
+        (
+          !level1.offerText ||                 // normal services
+          freeTextMap?.[level1.categoryId] === true   // offer only when allowed
+        )
+      ) {
         return {
           id: level1.categoryId,
           title: getName(level1),
@@ -505,7 +676,8 @@ function convertFromTree(tree, imageMap, nameMap) {
           base: Number(level1.price) || 0,
           options: [],
           simple: true,
-          terms: normalizeTerms(level1.terms || "")
+          terms: normalizeTerms(level1.terms || ""),
+          offerText: level1.offerText || ""
         };
       }
 
@@ -513,18 +685,38 @@ function convertFromTree(tree, imageMap, nameMap) {
       let defaultMain = null;
       let defaultSub = null;
       const options = [];
-
+      let cardOfferText = "";
       (level1.children || []).forEach(level2 => {
 
         /* ---------- LEVEL2 IS LEAF ---------- */
         if (level2.isLeaf && level2.pricingStatus === "Active") {
           const price = Number(level2.price) || 0;
+          // ⭐ IF THIS NODE IS OFFER ONLY (NO PRICE)
+          // ⭐ OFFER ONLY NODE → still create an option
+          if (
+            level2.offerText &&
+            !level2.price &&
+            freeTextMap?.[level2.categoryId] === true   // ✅ ADD THIS
+          ) {
+            options.push({
+              label: getName(level2).trim(),
+              price: 0,
+              imageUrl: imageMap[level2.categoryId] || null,
+              terms: normalizeTerms(level2.terms || ""),
+              offerText: level2.offerText || "",
+               packagesIncludes: packagesMap?.[level2.categoryId] || "",
+              subOptions: []
+            });
 
+            return;
+          }
           options.push({
             label: getName(level2).trim(),
             price,
             imageUrl: imageMap[level2.categoryId] || null,
             terms: normalizeTerms(level2.terms || ""),
+            offerText: level2.offerText || "",
+             packagesIncludes: packagesMap?.[level2.categoryId] || "",
             subOptions: []
           });
 
@@ -538,7 +730,14 @@ function convertFromTree(tree, imageMap, nameMap) {
         else if (level2.children?.length) {
 
           const subOptions = level2.children
-            .filter(c => c.isLeaf && c.pricingStatus === "Active")
+            .filter(c =>
+              c.isLeaf &&
+              c.pricingStatus === "Active" &&
+              (
+                !c.offerText ||                          // normal service
+                freeTextMap?.[c.categoryId] === true    // allow offer only when enabled
+              )
+            )
             .map(c => {
               const price = Number(c.price) || 0;
 
@@ -552,7 +751,9 @@ function convertFromTree(tree, imageMap, nameMap) {
                 label: getName(c).trim(),
                 price,
                 imageUrl: imageMap[c.categoryId] || null,
-                terms: normalizeTerms(c.terms || "")
+                terms: normalizeTerms(c.terms || ""),
+                offerText: c.offerText || "",
+                  packagesIncludes: packagesMap[c.categoryId] || ""
               };
             });
 
@@ -568,7 +769,10 @@ function convertFromTree(tree, imageMap, nameMap) {
 
       });
 
-      if (!options.length) return null;
+      if (!options.length && !cardOfferText) return null;
+      if (!defaultMain && options.length) {
+        defaultMain = options[0].label;
+      }
 
       return {
         id: level1.categoryId,
@@ -579,7 +783,8 @@ function convertFromTree(tree, imageMap, nameMap) {
         defaultMain,
         defaultSub,
         simple: false,
-        terms: collectLeafTerms(level1)
+        terms: collectLeafTerms(level1),
+        offerText: cardOfferText || ""
       };
 
     }).filter(Boolean);
@@ -589,10 +794,11 @@ function convertFromTree(tree, imageMap, nameMap) {
       cards
     };
 
-  }).filter(section => section.cards?.length);
+  }).filter(section => section?.cards?.length);
+
+  // ✅ NOW reorder properly
+  return result;
 }
-
-
 
 // --------------------------------------------------
 // MAIN Explore Page
@@ -629,6 +835,7 @@ function ExploreContent({ onReady }) {
   const [processingBill, setProcessingBill] = useState(false);
 
 
+  const [vendorLoaded, setVendorLoaded] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [category, setCategory] = useState(null);
   const [mobile, setMobile] = useState("");
@@ -684,25 +891,27 @@ function ExploreContent({ onReady }) {
       .replace(/[^a-z0-9\s-]/g, "")
       .replace(/\s+/g, "-");
 
-  //const { vendorInfo } = useVendor() || {};
-  const { vendorInfo, setVendorInfo } = useVendor() || {};
+  const { vendorInfo, setVendorInfo } = useVendor();
 
-    
   const googleRating = vendorInfo?.googlePlace?.rating;
   const googleReviews = vendorInfo?.googlePlace?.userRatingsTotal;
   const googleMapsUrl = vendorInfo?.googlePlace?.mapsUrl;
   const [countryCode, setCountryCode] = useState("91");
-  const [categoryData, setCategoryData] = useState(null);
-
 
   const searchParams = useSearchParams();
-  
-const rootCategoryId =
-  vendorInfo?.categoryId || searchParams.get("rootCategoryId");
-
-const vendorId =
-  vendorInfo?.vendorId || searchParams.get("vendorId");
-
+  const queryRootCategoryId = searchParams.get("rootCategoryId");
+  const queryVendorId = searchParams.get("vendorId");
+  const vendorId =
+    queryVendorId ||
+    vendorInfo?._id ||
+    vendorInfo?.vendor?._id ||
+    null;
+  const rootCategoryId =
+    queryRootCategoryId ||
+    vendorInfo?.categoryId ||
+    vendorInfo?.category?._id ||
+    vendorInfo?.rootCategoryId ||
+    null;
   const verifyOtp = async () => {
     if (!otp || otp.length < 4) {
       alert("Enter valid OTP");
@@ -838,7 +1047,7 @@ const vendorId =
         return;
       }
 
-      setOtpSent(true); 
+      setOtpSent(true);
     } catch (err) {
       console.error(err);
       alert("Server error");
@@ -848,37 +1057,32 @@ const vendorId =
   };
 
   useEffect(() => {
-    if (!vendorId) return;
+    if (!queryVendorId) {
+      setVendorLoaded(true);
+      return;
+    }
 
-   async function fetchVendor() {
-  try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/dummy-vendors/${vendorId}`,
-      { cache: "no-store" }
-    );
+    async function fetchVendor() {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/dummy-vendors/${queryVendorId}`,
+          { cache: "no-store" }
+        );
 
-    if (!res.ok) throw new Error("Vendor API failed");
+        if (!res.ok) throw new Error("Vendor API failed");
 
-    // ⚠️ SSR now handles vendor data
-    // We keep this only to unblock preview loading state
-    //await res.json();
-    const data = await res.json();
+        const data = await res.json();
+        setVendorInfo(data);
 
-// Inject preview vendor into context
-if (setVendorInfo) {
-  console.log("🟢 Injecting preview vendor into context");
-  setVendorInfo(data);
-}
+        setVendorLoaded(true); // ✅ MARK DONE
+      } catch (err) {
+        console.error("Vendor fetch error", err);
+        setVendorLoaded(true); // still unblock UI
+      }
+    }
 
-    } catch (err) {
-    console.error("Vendor fetch error", err);
-    
-  }
-}
-
-fetchVendor();
-
-  }, [vendorId]);
+    fetchVendor();
+  }, [queryVendorId, setVendorInfo]);
 
 
   useEffect(() => {
@@ -899,9 +1103,11 @@ fetchVendor();
         // ✅ Local state (Explore page)
         setCategory(categoryObj);
 
-        // Keep category data locally (SSR vendor remains untouched)
-setCategoryData(categoryObj);
-
+        // ✅ Global state (Header uses this)
+        setVendorInfo(prev => ({
+          ...prev,
+          categoryData: categoryObj
+        }));
 
       } catch (err) {
         console.error("Category fetch error", err);
@@ -909,7 +1115,7 @@ setCategoryData(categoryObj);
     }
 
     fetchCategory();
-  }, [rootCategoryId]);
+  }, [rootCategoryId, setVendorInfo]);
 
 
   const handleVerifyOtp = async () => {
@@ -958,31 +1164,72 @@ setCategoryData(categoryObj);
 
 
 
-  function extractHeroImages(categoryTree) {
+  function extractHeroImages(categoryTree, pricingTree) {
     const images = [];
 
-    categoryTree.forEach(node => {
-      if (node.imageUrl) {
-        images.push(node.imageUrl);
-      }
-    });
+    // 👉 Build set of ACTIVE categoryIds
+    const activeIds = new Set();
 
-    return images.slice(0, 5); // limit slides
+    function collectActive(nodes) {
+      nodes.forEach(n => {
+        if (n.pricingStatus === "Active") {
+          activeIds.add(n.categoryId);
+        }
+        if (n.children?.length) collectActive(n.children);
+      });
+    }
+
+    collectActive(pricingTree || []);
+
+    // 👉 Walk category tree & pick only active images
+    function walk(nodes) {
+      nodes.forEach(n => {
+        if (activeIds.has(n._id) && n.imageUrl) {
+          images.push(n.imageUrl);
+        }
+        if (n.children?.length) walk(n.children);
+      });
+    }
+
+    walk(categoryTree || []);
+
+    return images.slice(0, 5);
   }
   const [heroImages, setHeroImages] = useState([]);
 
 
 
   const [finalCategories, setFinalCategories] = useState([]);
+  const orderedCategories = useMemo(() => {
+    const offers = [];
+    const normal = [];
+
+    finalCategories.forEach(sec => {
+      const isOffer =
+        sec.sectionName?.toLowerCase() === "offers";
+
+      if (isOffer) {
+        offers.push(sec);
+      } else {
+        normal.push(sec);
+      }
+    });
+
+    return [...normal, ...offers]; // ✅ Offers always last
+  }, [finalCategories]);
 
   useEffect(() => {
 
 
 
-    if (!vendorId || !rootCategoryId) return;
+    if (!vendorId || !rootCategoryId) {
+      setDataLoaded(true);
+      return;
+    }
 
     async function load() {
       try {
+        categoryCache.clear();
         const PRICING_API =
           `${API_BASE_URL}/api/vendor-price-nodes/tree` +
           `?vendorId=${vendorId}` +
@@ -990,21 +1237,22 @@ setCategoryData(categoryObj);
 
         const pricingRes = await fetch(PRICING_API, { cache: "no-store" });
 
-if (!pricingRes.ok) {
-  const text = await pricingRes.text();
-  console.error("Pricing API returned non-JSON:", text);
-  throw new Error("Pricing API failed");
-}
+        if (!pricingRes.ok) {
+          const text = await pricingRes.text();
+          console.error("Pricing API returned non-JSON:", text);
+          throw new Error("Pricing API failed");
+        }
 
-const pricingData = await pricingRes.json();
+        const pricingData = await pricingRes.json();
 
-setMenuTree(pricingData?.tree || []);
+        setMenuTree(pricingData?.tree || []);
 
         // ✅ build master category tree
         const categoryTree = await buildCategoryTree(rootCategoryId);
         const imageMap = buildImageMapFromTree(categoryTree);
         const nameMap = buildNameMapFromTree(categoryTree);
-
+        const packagesMap = buildPackagesMapFromTree(categoryTree);
+        const freeTextMap = buildFreeTextMapFromTree(categoryTree);
         const masterIdSet = new Set(Object.keys(nameMap));
 
         // ⭐ FIND INVALID NODES
@@ -1024,7 +1272,7 @@ setMenuTree(pricingData?.tree || []);
 
         const invalidNodes = collectInvalidNodes(pricingData.tree);
 
-       
+
         if (invalidNodes.length) {
           await Promise.all(
             invalidNodes.map(node =>
@@ -1032,7 +1280,7 @@ setMenuTree(pricingData?.tree || []);
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  vendorPriceNodeId: node._id,   
+                  vendorPriceNodeId: node._id,
                   pricingStatus: "Archive"
                 })
               })
@@ -1040,43 +1288,55 @@ setMenuTree(pricingData?.tree || []);
           );
         }
 
-        setHeroImages(extractHeroImages(categoryTree));
+        setHeroImages(
+          extractHeroImages(categoryTree, pricingData.tree)
+        );
 
         const converted = convertFromTree(
           pricingData.tree,
           imageMap,
-          nameMap
-        );
-
+          nameMap,
+          freeTextMap,
+          packagesMap
+        ).filter(Boolean);
+        // ✅ Always push "Offers" section to bottom
         setFinalCategories(converted);
         setDataLoaded(true);
-        console.log("✅ DATA LOADED TRIGGERED");
 
       } catch (e) {
         console.error("API Error:", e);
         setDataLoaded(true);
-        console.log("✅ DATA LOADED TRIGGERED");
       }
     }
     load();
   }, [vendorId, rootCategoryId]);
-useEffect(() => {
-  if (vendorInfo && dataLoaded) {
-    onReady?.();
-  }
-}, [vendorInfo, dataLoaded, onReady]);
+  useEffect(() => {
+    if (vendorLoaded && dataLoaded) {
+      onReady?.();
+    }
+  }, [vendorLoaded, dataLoaded, onReady]);
 
 
   const cardsWithoutHeading = [];
   const sectionsWithHeading = [];
 
+  orderedCategories.forEach(section => {
 
-  finalCategories.forEach(section => {
+    // ✅ FORCE OFFERS ALWAYS WITH HEADING
+    const isOfferSection =
+      section.sectionName?.toLowerCase() === "offers";
+
+    if (isOfferSection) {
+      sectionsWithHeading.push(section);
+      return;
+    }
     const hasSingleCard = section.cards.length === 1;
     const singleCard = section.cards[0];
 
     const hideHeading =
       hasSingleCard &&
+      section.sectionName.toLowerCase() !== "offers" &&
+      !singleCard.offerText?.trim() &&
       singleCard.title?.trim().toLowerCase() ===
       section.sectionName.trim().toLowerCase();
 
@@ -1104,17 +1364,17 @@ useEffect(() => {
     const fetchVendorRule = async () => {
       try {
         const res = await fetch(
-  `${API_BASE_URL}/api/loyalty/vendor-rule/${encodeURIComponent(vendorId)}`
-);
+          `${API_BASE_URL}/api/loyalty/vendor-rule/${encodeURIComponent(vendorId)}`
+        );
 
-if (!res.ok) {
-  console.warn("No loyalty rule found for vendor yet");
-  setIsEnabled(false);
-  setExpiryDays(0);
-  return;
-}
+        if (!res.ok) {
+          console.warn("No loyalty rule found for vendor yet");
+          setIsEnabled(false);
+          setExpiryDays(0);
+          return;
+        }
 
-const data = await res.json();
+        const data = await res.json();
 
 
         if (data?.success && data?.data) {
@@ -1177,7 +1437,7 @@ const data = await res.json();
           const rule = data.data;
           if (typeof rule.isEnabled === "boolean") setIsEnabled(rule.isEnabled);
           if (typeof rule.expiryDays === "number") setExpiryDays(rule.expiryDays);
-      
+
         }
       } catch (err) {
         if (!cancelled) {
@@ -1200,27 +1460,27 @@ const data = await res.json();
     try {
       setSavingRule(true);
       setSaveMessage("");
-     const payload = {
-  vendorId,
-  categoryId: rootCategoryId,
-  percentPer100,
-  expiryDays,
-  isEnabled,
-};
+      const payload = {
+        vendorId,
+        categoryId: rootCategoryId,
+        percentPer100,
+        expiryDays,
+        isEnabled,
+      };
 
 
-  const res = await fetch(
-  `${API_BASE_URL}/api/loyalty/vendor-rule`, {
+      const res = await fetch(
+        `${API_BASE_URL}/api/loyalty/vendor-rule`, {
 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-   if (!res.ok) {
-  const text = await res.text();
-  console.error("🔥 Loyalty save API error:", text);
-  throw new Error("Failed to save loyalty rule");
-}
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("🔥 Loyalty save API error:", text);
+        throw new Error("Failed to save loyalty rule");
+      }
 
       setSaveMessage("Saved ✓");
     } catch (err) {
@@ -1304,13 +1564,13 @@ const data = await res.json();
         ...prev,
         {
           itemId: node.categoryId || node._id,
-categoryId: node.categoryId || node._id,
+          categoryId: node.categoryId || node._id,
 
           name: node.name,
           price: node.price,
           qty: 1,
           total: node.price,
-         
+
           parentId: node.parentId || null,
           rootCategoryId: rootCategoryId || node.rootCategoryId || null,
           nodePath,
@@ -1470,7 +1730,7 @@ categoryId: node.categoryId || node._id,
 
       const name = node.name || node.title || "Untitled";
       const newPath = [...path, name];
-    const newPathIds = [...pathIds, node.categoryId || node._id];
+      const newPathIds = [...pathIds, node.categoryId || node._id];
 
       const hasChildren = Array.isArray(node.children) && node.children.length > 0;
       const hasPrice = node.price !== undefined && node.price !== null;
@@ -1619,7 +1879,7 @@ categoryId: node.categoryId || node._id,
 
       }
       {/* ✅ HERO SECTION */}
-      <HeroSection
+       <HeroSection
         images={heroImages}
 
         // ⭐ GOOGLE (vendor API)
@@ -2548,6 +2808,32 @@ categoryId: node.categoryId || node._id,
 
       <button
         type="button"
+        onClick={() => {
+          if (vendorId) {
+            window.location.href = `/dashboard?vendorId=${vendorId}`;
+          }
+        }}
+        style={{
+          position: "fixed",
+          right: 20,
+          bottom: 210,
+          padding: "12px 18px",
+          borderRadius: 999,
+          border: "1px solid #e6c37a",
+          cursor: "pointer",
+          background: "#111",
+          color: "#e6c37a",
+          fontWeight: 900,
+          boxShadow:
+            "0 6px 14px rgba(255, 200, 110, 0.15), 0 0 18px rgba(255, 190, 120, 0.2)",
+          zIndex: 1000,
+        }}
+      >
+        Dashboard 📊
+      </button>
+
+      <button
+        type="button"
         onClick={() => setViewMode("loyalty")}
         style={{
           position: "fixed",
@@ -2572,15 +2858,14 @@ categoryId: node.categoryId || node._id,
   );
 
 }
-  // --------------------------------------------------
-  // ✅ MAIN Explore Page with Suspense wrapper
-  // --------------------------------------------------
-  export default function Explore({ onReady }) {
-    return (
+// --------------------------------------------------
+// ✅ MAIN Explore Page with Suspense wrapper
+// --------------------------------------------------
+export default function Explore({ onReady }) {
+  return (
 
-      <Suspense fallback={<div>Loading...</div>}>
-        <ExploreContent onReady={onReady} />
-      </Suspense>
-    );
-  }
-
+    <Suspense fallback={<div>Loading...</div>}>
+      <ExploreContent onReady={onReady} />
+    </Suspense>
+  );
+}

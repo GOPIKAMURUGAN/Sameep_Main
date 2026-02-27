@@ -225,7 +225,7 @@
 
 /* ================= BUTTONS ================= */
 
-.btn.primary {
+.services-footer .btn.primary {
   background: linear-gradient(135deg, #E6BF6A, #CFA94E);
   color: #0B0B0D;
 width: auto;          /* 🚨 stops full-width stretch */
@@ -255,11 +255,11 @@ width: auto;          /* 🚨 stops full-width stretch */
 }
 
 
-.btn.secondary {
+.services-footer .btn.secondary {
   width: auto;          /* 🚨 stops full-width stretch */
   background: transparent;
-  color: #FFDFA0;
-color: #0B0B0D;
+  color: #020202;
+
   border: 1.5px solid rgba(255, 215, 130, 0.6);
   border-radius: 10px;
   padding: 10px 16px;

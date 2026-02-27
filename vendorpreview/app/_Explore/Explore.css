@@ -404,3 +404,204 @@
   color:#aaa;
   cursor:pointer;
 }
+.ws-offer-badge{
+  background: linear-gradient(135deg,#ff7a18,#ffb347);
+  color:#000;
+  font-weight:700;
+  padding:6px 10px;
+  border-radius:8px;
+  margin-top:6px;
+  display:inline-block;
+  font-size:13px;
+  box-shadow:0 2px 8px rgba(255,140,0,0.3);
+}
+/* 🔥 OFFER BANNER INSIDE IMAGE AREA */
+.offer-banner {
+  width: 100%;
+  height: 180px;
+  border-radius: 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+  padding: 20px;
+
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.4;
+
+  color: #f6d98f;
+
+  background: radial-gradient(
+    circle at center,
+    rgba(246, 217, 143, 0.18),
+    rgba(0,0,0,0.9)
+  );
+
+  box-shadow:
+    0 0 25px rgba(246,217,143,0.35),
+    inset 0 0 40px rgba(246,217,143,0.15);
+}
+/* 🔥 OFFER BLAST ENTRY */
+.offer-blast {
+  position: relative;
+  animation: offerBlastIn 0.6s cubic-bezier(.2,.8,.2,1);
+  overflow: hidden;
+}
+
+/* main zoom + glow */
+@keyframes offerBlastIn {
+  0% {
+    transform: scale(0.75);
+    opacity: 0;
+    filter: blur(12px);
+  }
+
+  45% {
+    transform: scale(1.08);
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  70% {
+    transform: scale(0.96);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ✨ GOLD RADIANT BURST */
+.offer-blast::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  pointer-events: none;
+
+  background: radial-gradient(
+    circle,
+    rgba(255,215,120,0.35) 0%,
+    rgba(255,215,120,0.15) 30%,
+    transparent 70%
+  );
+
+  animation: offerGlow 0.7s ease-out;
+}
+
+@keyframes offerGlow {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+/* 🎉 OFFER CONFETTI BLAST */
+.offer-confetti {
+  position: relative;
+  overflow: hidden;
+  animation: offerZoomIn .5s ease-out;
+}
+
+/* main reveal */
+@keyframes offerZoomIn {
+  0% {
+    transform: scale(.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 🎊 COLOR PAPER PARTICLES */
+.offer-confetti::before,
+.offer-confetti::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle,#FFD700 3px,transparent 4px),
+    radial-gradient(circle,#FF6B6B 3px,transparent 4px),
+    radial-gradient(circle,#4D96FF 3px,transparent 4px),
+    radial-gradient(circle,#6BCB77 3px,transparent 4px),
+    radial-gradient(circle,#FFB347 3px,transparent 4px);
+
+  background-size: 80px 80px;
+  animation: confettiBlast .9s ease-out forwards;
+  opacity: 0;
+}
+
+.offer-confetti::after {
+  animation-delay: .1s;
+}
+
+/* explosion movement */
+@keyframes confettiBlast {
+  0% {
+    transform: scale(.3) rotate(0deg);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1.6) rotate(35deg);
+    opacity: 0;
+  }
+}
+/* ===== PACKAGE BOX (MODERN) ===== */
+.ws-package-box {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 14px;
+
+  background: linear-gradient(
+    135deg,
+    rgba(230, 195, 122, 0.12),
+    rgba(230, 195, 122, 0.04)
+  );
+
+  border: 1px solid rgba(230, 195, 122, 0.25);
+  backdrop-filter: blur(6px);
+}
+
+.ws-package-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e6c37a;
+  margin-bottom: 8px;
+  letter-spacing: 0.4px;
+}
+
+.ws-package-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ws-package-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: #f3f3f3;
+}

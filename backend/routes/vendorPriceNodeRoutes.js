@@ -43,7 +43,9 @@ async function fetchCategoryTree(categoryId, baseUrl) {
       categoryId: child._id,
       name: child.name,
       price: child.price,
+      offerText: child.offerText || "",
       terms: child.terms,
+      
       children: [],
     };
 
@@ -82,6 +84,8 @@ function flattenCategoryTree(
       isLeaf,
       price: node.price || null,
       terms: node.terms || "",
+       offerText: node.offerText || "",
+      
     });
 
     if (!isLeaf) {
@@ -146,26 +150,32 @@ router.post("/sync", async (req, res) => {
       });
 
       if (!record) {
-        record = await VendorPriceNode.create({
-          vendorId,
-          rootCategoryId,
-          categoryId: node.categoryId,
-          parentCategoryId: node.parentCategoryId,
-          name: node.name,
-          parentVendorPriceNodeId: null,
-          level: node.level,
-          isLeaf: node.isLeaf,
-          price: node.isLeaf ? node.price : null,
-          terms: node.terms,
-          pricingStatus: getPricingStatus(
-            node,
-            activeLeafCategoryIds
-          ),
-          source: "MASTER_SYNC",
-        });
+  record = await VendorPriceNode.create({
+    vendorId,
+    rootCategoryId,
+    categoryId: node.categoryId,
+    parentCategoryId: node.parentCategoryId,
+    name: node.name,
+    parentVendorPriceNodeId: null,
+    level: node.level,
+    isLeaf: node.isLeaf,
+    price: node.isLeaf ? node.price : null,
+    terms: node.terms,
+    offerText: node.offerText || "",
+ 
+    pricingStatus: getPricingStatus(node, activeLeafCategoryIds),
+    source: "MASTER_SYNC",
+  });
 
-        created++;
-      }
+  created++;
+} else {
+  // ⭐⭐⭐ ADD THIS BLOCK ⭐⭐⭐
+  record.offerText = node.offerText || "";
+  record.terms = node.terms || "";
+  if (record.isLeaf) record.price = node.price || null;
+
+  await record.save();
+}
 
       nodeMap[node.categoryId] = record;
     }
@@ -339,6 +349,7 @@ router.put("/update", async (req, res) => {
       vendorPriceNodeId,
       price,
       terms,
+      offerText,        
       pricingStatus,
       visibleToUser,
       visibleToVendor,
@@ -367,6 +378,7 @@ router.put("/update", async (req, res) => {
 
     if (price !== undefined) record.price = price;
     if (terms !== undefined) record.terms = terms;
+    if (offerText !== undefined) record.offerText = offerText;
     if (pricingStatus !== undefined)
       record.pricingStatus = pricingStatus;
     if (visibleToUser !== undefined)

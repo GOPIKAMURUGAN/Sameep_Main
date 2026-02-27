@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-
+import "./serviceAreaStep.css";
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5001";
 
@@ -97,74 +97,79 @@ function ServiceAreasStep({ vendor, onNext, onBack }) {
     onNext?.(payload);
   };
 
-  return (
-    <div className="trust-card">
-      <h2>Where do you want customers from?</h2>
-      <p>Select nearby areas or add your own</p>
+ return (
+  <div className="trust-card">
+    <h2 className="service-title">Where do you want customers from?</h2>
+    <p className="service-subtitle">
+      Select nearby areas or add your own
+    </p>
 
-      {loading && <p>Loading suggestions...</p>}
+    {loading && <p>Loading suggestions...</p>}
 
-      {/* Primary badge */}
-      {(primaryLocality || city) && (
-        <div style={{ marginBottom: 10 }}>
-          {primaryLocality && (
-            <span className="badge">{primaryLocality}</span>
-          )}
-          {city && <span style={{ marginLeft: 8 }}>{city}</span>}
-        </div>
-      )}
-
-      {/* Suggestions */}
-      {suggestions.length === 0 ? (
-        <p>Add areas manually — suggestions unavailable</p>
-      ) : (
-        <div className="chip-wrap">
-          {suggestions.map((area) => (
-            <button
-              key={area}
-              className={`chip ${
-                selectedAreas.includes(area) ? "active" : ""
-              }`}
-              onClick={() => toggleArea(area)}
-            >
-              {area}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Manual entry */}
-      <div className="input-row">
-        <input
-          type="text"
-          placeholder="Add custom area"
-          value={customArea}
-          onChange={(e) => setCustomArea(e.target.value)}
-        />
-        <button onClick={addCustomArea}>Add</button>
+    {/* 🔥 Location header */}
+    {(primaryLocality || city) && (
+      <div className="location-header">
+        {primaryLocality && (
+          <span className="primary-locality">{primaryLocality}</span>
+        )}
+        {city && <span className="city-name">{city}</span>}
       </div>
+    )}
 
-      {/* Selected areas */}
-      <div className="chip-wrap">
-        {selectedAreas.map((area) => (
-          <span key={area} className="chip selected">
+    {/* 🔥 Suggestions */}
+    {suggestions.length === 0 ? (
+      <p>Add areas manually — suggestions unavailable</p>
+    ) : (
+      <div className="suggestion-wrap">
+        {suggestions.map((area) => (
+          <button
+            key={area}
+            className={`suggestion-pill ${
+              selectedAreas.includes(area) ? "active" : ""
+            }`}
+            onClick={() => toggleArea(area)}
+          >
             {area}
-            <button onClick={() => toggleArea(area)}>✕</button>
-          </span>
+          </button>
         ))}
       </div>
+    )}
 
-      {/* Actions */}
-      <div className="trust-actions">
-        <button className="btn secondary" onClick={onBack}>
-          Back
-        </button>
-        <button className="btn primary" onClick={handleSubmit}>
-          Continue
-        </button>
-      </div>
+    {/* 🔥 Custom area input */}
+    <div className="custom-area-row">
+      <input
+        className="custom-area-input"
+        type="text"
+        placeholder="Add custom area"
+        value={customArea}
+        onChange={(e) => setCustomArea(e.target.value)}
+      />
+      <button className="add-area-btn" onClick={addCustomArea}>
+        Add
+      </button>
     </div>
-  );
+
+    {/* 🔥 Selected areas */}
+    <div className="selected-areas">
+      {selectedAreas.map((area) => (
+        <div key={area} className="area-chip">
+          {area}
+          <span onClick={() => toggleArea(area)}>✕</span>
+        </div>
+      ))}
+    </div>
+
+    {/* 🔥 Actions */}
+    <div className="trust-actions">
+      <button className="btn secondary" onClick={onBack}>
+        Back
+      </button>
+      <button className="btn primary" onClick={handleSubmit}>
+        Continue
+      </button>
+    </div>
+  </div>
+);
 }
 
 export default ServiceAreasStep;

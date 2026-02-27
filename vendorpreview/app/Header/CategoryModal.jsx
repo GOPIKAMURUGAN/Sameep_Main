@@ -785,27 +785,39 @@ setSelectedBusiness({
                   <div key={q.id} className="trust-question">
                     <label>{q.id.replace("_", " ")}</label>
 
-                    {q.type === "years" && (
-                      <input
-                        type="number"
-                        placeholder="Years of experience"
-                        value={trustAnswers[q.id] || ""}
-                        onChange={(e) =>
-                          setTrustAnswers({ ...trustAnswers, [q.id]: e.target.value })
-                        }
-                      />
-                    )}
+                    {/* YEARS DROPDOWN */}
+{q.type === "years" && (
+  <select
+    value={trustAnswers[q.id] || ""}
+    onChange={(e) =>
+      setTrustAnswers({ ...trustAnswers, [q.id]: e.target.value })
+    }
+  >
+    <option value="">Select years</option>
+    {[...Array(51)].map((_, i) => (
+      <option key={i} value={i}>
+        {i} {i === 1 ? "year" : "years"}
+      </option>
+    ))}
+  </select>
+)}
 
-                    {q.type === "range" && (
-                      <input
-                        type="number"
-                        placeholder="Minimum count"
-                        value={trustAnswers[q.id] || ""}
-                        onChange={(e) =>
-                          setTrustAnswers({ ...trustAnswers, [q.id]: e.target.value })
-                        }
-                      />
-                    )}
+{/* RANGE DROPDOWN */}
+{q.type === "range" && (
+  <select
+    value={trustAnswers[q.id] || ""}
+    onChange={(e) =>
+      setTrustAnswers({ ...trustAnswers, [q.id]: e.target.value })
+    }
+  >
+    <option value="">Select minimum count</option>
+    {[10, 25, 50, 100, 250, 500, 1000].map((n) => (
+      <option key={n} value={n}>
+        {n}+
+      </option>
+    ))}
+  </select>
+)}
 
                     {q.type === "select" && (
                       !q.options || q.options.length === 0 ? (
@@ -1004,53 +1016,59 @@ setSelectedBusiness({
         )}
         {step === "CHOOSE_DOMAIN" && (
           <div className="domain-card">
-            <h2>Choose your website name</h2>
-            <p>Your business will be available at:</p>
+  <h2 className="domain-title">Choose your website name</h2>
+  <p className="domain-subtitle">
+    Your business will be available at:
+  </p>
 
-            <div className="domain-list">
-              {subdomainSuggestions.map((s) => (
-                <div
-                  key={s}
-                  className={`domain-option ${selectedSubdomain === s ? "active" : ""}`}
-                  onClick={() => setSelectedSubdomain(s)}
-                >
-                  {s}.ynot.com
-                </div>
-              ))}
-            </div>
+  <div className="domain-list">
+    {subdomainSuggestions.map((s) => (
+      <button
+        key={s}
+        className={`domain-pill ${
+          selectedSubdomain === s ? "active" : ""
+        }`}
+        onClick={() => setSelectedSubdomain(s)}
+      >
+        <span className="domain-name">{s}</span>
+        <span className="domain-suffix">.ynot.com</span>
+      </button>
+    ))}
+  </div>
 
-            <div className="domain-actions">
-              <button
-                className="btn secondary"
-                onClick={() => setStep("SERVICES_SELECT")}
-              >
-                Back
-              </button>
+  <div className="domain-actions">
+    <button
+      className="btn-last"
+      onClick={() => setStep("SERVICES_SELECT")}
+    >
+      Back
+    </button>
 
-              <button
-                className="btn primary"
-                disabled={!selectedSubdomain}
-                onClick={async () => {
-                  try {
-                    await fetch(
-                      `${API_BASE_URL}/api/vendor/${vendorId}/set-subdomain`,
-                      {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ subdomain: selectedSubdomain }),
-                      }
-                    );
+    <button
+      className="btn-last"
+      disabled={!selectedSubdomain}
+      onClick={async () => {
+        try {
+          const res = await fetch(
+            `${API_BASE_URL}/api/vendor/${vendorId}/set-subdomain`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ subdomain: selectedSubdomain }),
+            }
+          );
+          if (!res.ok) throw new Error("Subdomain save failed");
 
-                    setStep("PREVIEW_CHOICE");
-                  } catch (e) {
-                    alert("Failed to save website name");
-                  }
-                }}
-              >
-                Continue
-              </button>
-            </div>
-          </div>
+          setStep("PREVIEW_CHOICE");
+        } catch (e) {
+          alert("Failed to save website name");
+        }
+      }}
+    >
+      Continue
+    </button>
+  </div>
+</div>
         )}
         {step === "PREVIEW_CHOICE" && (
   <div className="preview-choice-card">
@@ -1104,11 +1122,6 @@ setSelectedBusiness({
 >
   Yes, Preview
 </button>
-
-
-
-
-
 
     </div>
   </div>

@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import "../PackagesPortal/PackagesPortal.css";
 import { useVendor } from "../VendorContext";
-
 
 /* ================= IMAGE TREE HELPERS ================= */
 const categoryCache = new Map();
@@ -60,6 +58,7 @@ function buildFullPayloads(nodes, parentVendorPriceNodeId = null, level = 0, arr
       price: node.price || 0,
       pricingStatus: "Inactive",
       terms: node.terms || "",
+      offerText: node.offerText || "",
       visibleToUser: true,
       visibleToVendor: true,
       sequence: index,
@@ -102,18 +101,22 @@ function syncVendorTree(masterTree, vendorTree) {
 
       const vendorMatch = vendorMap.get(master._id);
 
-      const baseNode = vendorMatch
-        ? vendorMatch
-        : {
-          _id: `new-${master._id}`,
-          categoryId: master._id,
-          name: master.name,
-          isLeaf: master.isLeaf,
-          price: 0,
-          pricingStatus: "Inactive",
-          terms: "",
-          children: []
-        };
+   const baseNode = vendorMatch
+  ? {
+      ...vendorMatch,
+      packagesIncludes: master.packagesIncludes || "", // ⭐ ADD
+    }
+  : {
+      _id: `new-${master._id}`,
+      categoryId: master._id,
+      name: master.name,
+      isLeaf: master.isLeaf,
+      price: 0,
+      pricingStatus: "Inactive",
+      terms: "",
+      packagesIncludes: master.packagesIncludes || "", // ⭐ ADD
+      children: []
+    };
 
       return {
         ...baseNode,
@@ -177,7 +180,20 @@ function findTermsInCategoryTree(nodes, categoryId) {
 
   return [];
 }
+function isFreeTextEnabled(nodes, categoryId) {
+  for (const node of nodes) {
+    if (node._id === categoryId) {
+      return node.enableFreeText === true;
+    }
 
+    if (node.children?.length) {
+      const found = isFreeTextEnabled(node.children, categoryId);
+      if (found) return true;
+    }
+  }
+
+  return false;
+}
 async function fetchCategoryTerms(categoryId) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dummy-categories?parentId=${categoryId}`,
@@ -222,10 +238,13 @@ function buildImageMapFromTree(nodes) {
 
 /* ================= MAIN ================= */
 export default function PackagesPortal({ onClose, onLoaded }) {
-  const searchParams = useSearchParams();
-  const vendor = useVendor();
-  const vendorId = vendor?.vendorId || searchParams.get("vendorId");
-  const rootCategoryId = vendor?.categoryId || searchParams.get("rootCategoryId");
+  const { vendorInfo } = useVendor();
+  const vendorId = vendorInfo?.vendorId || vendorInfo?._id || null;
+  const rootCategoryId =
+    vendorInfo?.categoryId ||
+    vendorInfo?.category?._id ||
+    vendorInfo?.rootCategoryId ||
+    null;
 
   const [rootNodes, setRootNodes] = useState([]);
   const [path, setPath] = useState([]);
@@ -237,7 +256,8 @@ export default function PackagesPortal({ onClose, onLoaded }) {
   const [selectedTerms, setSelectedTerms] = useState([]);
 
   const [pendingServiceId, setPendingServiceId] = useState(null);
-
+  const [modalOfferText, setModalOfferText] = useState("");
+  const [activationOfferText, setActivationOfferText] = useState("");
 
   const [showActivateModal, setShowActivateModal] = useState(false);
   const [pendingService, setPendingService] = useState(null);
@@ -458,10 +478,10 @@ export default function PackagesPortal({ onClose, onLoaded }) {
 
 
     // 👉 INACTIVE → ACTIVATE
-    // 👉 INACTIVE → ACTIVATE
     setPendingService(service);
     setPendingServiceId(service._id);
     setActivationPrice(service.price || "");
+    setActivationOfferText(service.offerText || "");
 
     // ⭐ SAME SOURCE AS EDIT
     const masterTerms = findTermsInCategoryTree(
@@ -489,6 +509,7 @@ export default function PackagesPortal({ onClose, onLoaded }) {
         vendorPriceNodeId: pendingServiceId,
         price: Number(activationPrice),
         terms: selectedTerms.join(", "),
+        offerText: activationOfferText,
         pricingStatus: "Active"
       })
     });
@@ -498,6 +519,7 @@ export default function PackagesPortal({ onClose, onLoaded }) {
       pendingService.price = Number(activationPrice);
       pendingService.pricingStatus = "Active";
       pendingService.terms = selectedTerms.join(", ");
+      pendingService.offerText = activationOfferText;
     }
 
     setRootNodes([...rootNodes]);
@@ -623,9 +645,11 @@ export default function PackagesPortal({ onClose, onLoaded }) {
                         service={service}
                         isActive
                         toggleStatus={toggleStatus}
+                        isOffer={isFreeTextEnabled(categoryTree, service.categoryId)}
                         onEdit={() => {
                           setEditingService(service);
                           setModalPrice(service.price || "");
+                          setModalOfferText(service.offerText || "");
 
                           const masterTerms = findTermsInCategoryTree(
                             categoryTree,
@@ -677,12 +701,7 @@ export default function PackagesPortal({ onClose, onLoaded }) {
       {
         showEditModal && editingService && (
           <Modal title="Edit Service" onClose={() => setShowEditModal(false)}>
-            <label className="modal-label">Price</label>
-            <input
-              className="price-input"
-              value={modalPrice}
-              onChange={e => setModalPrice(e.target.value)}
-            />
+
             <label className="modal-label">Terms</label>
 
             {allTerms.length === 0 ? (
@@ -702,6 +721,25 @@ export default function PackagesPortal({ onClose, onLoaded }) {
                 ))}
               </div>
             )}
+            {isFreeTextEnabled(categoryTree, editingService.categoryId) ? (
+              <>
+                <label className="modal-label">Offer Text</label>
+                <input
+                  className="price-input"
+                  value={modalOfferText}
+                  onChange={e => setModalOfferText(e.target.value)}
+                />
+              </>
+            ) : (
+              <>
+                <label className="modal-label">Price</label>
+                <input
+                  className="price-input"
+                  value={modalPrice}
+                  onChange={e => setModalPrice(e.target.value)}
+                />
+              </>
+            )}
 
 
             <button
@@ -712,6 +750,7 @@ export default function PackagesPortal({ onClose, onLoaded }) {
                 editingService.price = Number(modalPrice);
                 editingService.pricingStatus = "Active";
                 editingService.terms = selectedTerms.join(", ");
+                editingService.offerText = modalOfferText;
 
                 await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
                   method: "PUT",
@@ -720,6 +759,7 @@ export default function PackagesPortal({ onClose, onLoaded }) {
                     vendorPriceNodeId: editingService._id,   // ✅ FIX
                     price: Number(modalPrice),               // ✅ FIX
                     terms: selectedTerms.join(", "),
+                    offerText: modalOfferText,
                     pricingStatus: "Active"
                   })
                 });
@@ -742,12 +782,26 @@ export default function PackagesPortal({ onClose, onLoaded }) {
       {
         showActivateModal && pendingService && (
           <Modal title="Activate Service" onClose={() => setShowActivateModal(false)}>
-            <label className="modal-label">Price</label>
-            <input
-              className="price-input"
-              value={activationPrice}
-              onChange={e => setActivationPrice(e.target.value)}
-            />
+
+            {isFreeTextEnabled(categoryTree, pendingService.categoryId) ? (
+              <>
+                <label className="modal-label">Offer Text</label>
+                <input
+                  className="price-input"
+                  value={activationOfferText}
+                  onChange={e => setActivationOfferText(e.target.value)}
+                />
+              </>
+            ) : (
+              <>
+                <label className="modal-label">Price</label>
+                <input
+                  className="price-input"
+                  value={activationPrice}
+                  onChange={e => setActivationPrice(e.target.value)}
+                />
+              </>
+            )}
 
             <label className="modal-label">Terms</label>
 
@@ -769,6 +823,7 @@ export default function PackagesPortal({ onClose, onLoaded }) {
                     <span className="term-text">{term}</span>
                   </label>
 
+
                 ))}
               </div>
             )}
@@ -788,12 +843,14 @@ export default function PackagesPortal({ onClose, onLoaded }) {
 }
 
 /* ================= SERVICE CARD ================= */
-function ServiceCard({ service, isActive, toggleStatus, onEdit }) {
-  const terms = parseTerms(service.terms); // ✅ from tree API
+function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }){
 
+  const terms = parseTerms(service.terms);
+  const packagesIncludes = parseTerms(service.packagesIncludes);
 
   return (
     <div className={`service-card ${isActive ? "active-card" : "inactive-card"}`}>
+
       <div className="service-top">
         <img
           src={service.imageUrl || "/placeholder.png"}
@@ -803,13 +860,30 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit }) {
         <div className="service-info">
           <h4>{service.name}</h4>
 
-          {/* ✅ TERMS FROM TREE API */}
+          {/* TERMS */}
           {terms.length > 0 && (
             <ul className="service-terms">
               {terms.map((t, i) => (
                 <li key={i}>• {t}</li>
               ))}
             </ul>
+          )}
+
+          {/* ⭐ PACKAGES INCLUDES */}
+          {packagesIncludes.length > 0 && (
+  <div className="service-includes">
+    <div className="includes-title">Includes</div>
+
+    <ul className="service-packages">
+      {packagesIncludes.map((pkg, i) => (
+        <li key={i}>✓ {pkg}</li>
+      ))}
+    </ul>
+  </div>
+)}
+
+          {service.offerText && (
+            <p className="offer-text">{service.offerText}</p>
           )}
         </div>
 
@@ -824,6 +898,7 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit }) {
         </div>
       </div>
 
+      {/* ⭐ THIS WAS MISSING */}
       <div className="service-bottom right">
         <label className="switch">
           <input
@@ -836,6 +911,7 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit }) {
           </span>
         </label>
       </div>
+
     </div>
   );
 }

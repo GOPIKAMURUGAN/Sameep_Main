@@ -1,0 +1,81 @@
+/* ===== LOCATION HEADER ===== */
+.location-header{
+  display:flex;
+  gap:10px;
+  margin-bottom:16px;
+  font-size:18px;
+}
+
+.primary-locality{
+  font-weight:600;
+  color:#fff;
+}
+
+.city-name{
+  opacity:.65;
+}
+
+/* ===== SUGGESTION PILLS ===== */
+.suggestion-wrap{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:18px;
+}
+
+.suggestion-pill{
+  padding:10px 18px;
+  border-radius:999px;
+  border:1px solid rgba(255,210,120,.4);
+  background:rgba(255,210,120,.08);
+  cursor:pointer;
+}
+
+.suggestion-pill.active{
+  background:linear-gradient(90deg,#f4d07a,#e2b55b);
+  color:#000;
+}
+
+/* ===== INPUT ROW ===== */
+.custom-area-row{
+  display:flex;
+  gap:10px;
+  margin-bottom:18px;
+}
+
+.custom-area-input{
+  flex:1;
+  height:48px;
+  border-radius:12px;
+  background:#1b1b1f;
+  border:1px solid rgba(255,210,120,.35);
+  padding:0 14px;
+  color:#fff;
+}
+
+.add-area-btn{
+  height:48px;
+  padding:0 18px;
+  border-radius:12px;
+  background:linear-gradient(90deg,#f4d07a,#e2b55b);
+  border:none;
+  font-weight:600;
+}
+
+/* ===== SELECTED AREAS ===== */
+.selected-areas{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:20px;
+}
+
+.area-chip{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 14px;
+  border-radius:999px;
+  border:1px solid rgba(255,210,120,.4);
+  background:rgba(255,210,120,.08);
+}

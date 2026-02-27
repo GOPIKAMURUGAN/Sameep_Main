@@ -9,6 +9,7 @@ function ChipSelect({ label, options = [], value = [], onChange, placeholder = "
   // ... rest of the code remains the same ...
   const selectAll = () => onChange([...options]);
   const clearAll = () => onChange([]);
+
   const handleOptionClick = (opt) => {
     if (multi) {
       if (isSelected(opt)) onChange(value.filter((v) => v !== opt));
@@ -138,6 +139,7 @@ function CreateCategoryModal({
   parentEnableFreeText = false,
 }) {
   const [name, setName] = useState("");
+  const [offerText, setOfferText] = useState("");
   const [image, setImage] = useState(null);
   const [price, setPrice] = useState("");
   const [terms, setTerms] = useState("");
@@ -273,8 +275,11 @@ const updateColorScheme = (index, key, value) => {
 };
   useEffect(() => {
     if (!show) return;
+    console.log("InitialData:", initialData);
 
     if (initialData) {
+      setOfferText(initialData.offerText || "");
+
       setName(initialData.name || "");
       setImage(null);
       setIcon(null);
@@ -329,6 +334,7 @@ const updateColorScheme = (index, key, value) => {
       setIncludeLeafChildren(Boolean(initialData?.uiRules?.includeLeafChildren ?? true));
     } else {
       setName("");
+      setOfferText("");
       setImage(null);
       setIcon(null);
       setPrice("");
@@ -767,6 +773,7 @@ const updateColorScheme = (index, key, value) => {
       return;
     }
     try {
+      console.log("Submitting offerText:", offerText);
       const formData = new FormData();
       formData.append("name", name);
       if (image) formData.append("image", image);
@@ -776,7 +783,9 @@ const updateColorScheme = (index, key, value) => {
       formData.append("terms", terms);
       formData.append("visibleToUser", visibleToUser);
       formData.append("visibleToVendor", visibleToVendor);
-      formData.append("freeText", freeText);
+      formData.append("enableFreeText", enableFreeText);
+      formData.append("offerText", offerText || "");
+formData.append("freeText", freeText || "");
       formData.append("categoryType", categoryType);
       formData.append("availableForCart", availableForCart); // don't force false for parentId
       formData.append("seoKeywords", parentId ? "" : seoKeywords);
@@ -787,8 +796,7 @@ const updateColorScheme = (index, key, value) => {
         formData.append(`freeText${index + 1}`, txt || "");
       });
       if (icon) formData.append("icon", icon);
-      formData.append("enableFreeText", parentId ? parentEnableFreeText : enableFreeText);
-  formData.append("inventoryLabelName", inventoryLabelName || "");
+      formData.append("inventoryLabelName", inventoryLabelName || "");
       if (!parentId) {
   formData.append("colorSchemes", JSON.stringify(colorSchemes));
 }
@@ -831,6 +839,7 @@ const updateColorScheme = (index, key, value) => {
         throw new Error(errData.message || "Failed to save category");
       }
       setName("");
+      setOfferText("");
       setImage(null);
       setIcon(null);
       setPrice("");
@@ -1091,22 +1100,32 @@ const updateColorScheme = (index, key, value) => {
             </>
           )}
           {parentId && (
-            <>
-              <input
-                type="number"
-                placeholder="Price (Optional)"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                style={inputStyle}
-              />
-              <textarea
-            placeholder="Terms & Conditions"
-            value={terms}
-            onChange={(e) => setTerms(e.target.value)}
-            style={textareaStyle}
-          />
-            </>
-          )}
+  <>
+    <input
+      type="number"
+      placeholder="Price(Optional)"
+      value={price}
+      onChange={(e) => setPrice(e.target.value)}
+      style={inputStyle}
+    />
+
+    {/* ⭐ MOVE OFFER TEXT HERE */}
+    <input
+      type="text"
+      placeholder="Offer Text"
+      value={offerText}
+      onChange={(e) => setOfferText(e.target.value)}
+      style={inputStyle}
+    />
+
+    <textarea
+      placeholder="Terms & Conditions"
+      value={terms}
+      onChange={(e) => setTerms(e.target.value)}
+      style={textareaStyle}
+    />
+  </>
+)}
           {!parentId &&
             freeTexts.map((txt, i) => (
               <input
@@ -1123,18 +1142,19 @@ const updateColorScheme = (index, key, value) => {
               />
             ))}
 {parentId && (
-  <input
-    type="text"
-    placeholder="Enter Info Text"
-    value={freeText}
-    onChange={(e) => setFreeText(e.target.value)}
-    style={{
-      ...inputStyle,
-      backgroundColor: "#fff",
-      cursor: "text",
-    }}
-  />
+  <>
+    {/* ⭐ INFO TEXT (existing freeText) */}
+    <h4 style={labelStyle}>Info Text</h4>
+    <input
+      type="text"
+      placeholder="Enter Info Text"
+      value={freeText}
+      onChange={(e) => setFreeText(e.target.value)}
+      style={inputStyle}
+    />
+  </>
 )}
+
 {!parentId && (
   <>
     <h4 style={{ ...labelStyle, marginTop: "20px" }}>🎨 Color Schemes</h4>
@@ -1223,7 +1243,7 @@ const updateColorScheme = (index, key, value) => {
   <input
     type="checkbox"
     checked={enableFreeText}
-    disabled={parentId ? !parentEnableFreeText : false} // Subcategory respects parentEnableFreeText
+     disabled={parentId ? !parentEnableFreeText : false} // Subcategory respects parentEnableFreeText
     onChange={(e) => setEnableFreeText(e.target.checked)}
   />
   Enable Full Free Text / Discount
