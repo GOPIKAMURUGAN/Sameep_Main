@@ -331,7 +331,7 @@ console.log("REQ FILES:", req.files);
         freeText: req.body.freeText || "",
         enableFreeText: req.body.enableFreeText === "true" || req.body.enableFreeText === true,
         offerText: req.body.offerText || "",
-    
+    packagesIncludes: req.body.packagesIncludes || "",
 
         visibleToUser: String(visibleToUser) === "true" || visibleToUser === true,
         visibleToVendor: String(visibleToVendor) === "true" || visibleToVendor === true,
@@ -357,6 +357,7 @@ console.log("REQ FILES:", req.files);
         freeText: req.body.freeText || "",
         enableFreeText: req.body.enableFreeText === "true" || req.body.enableFreeText === true,
         offerText: req.body.offerText || "",
+        packagesIncludes: req.body.packagesIncludes || "",
         visibleToUser: String(visibleToUser) === "true" || visibleToUser === true,
         visibleToVendor: String(visibleToVendor) === "true" || visibleToVendor === true,
         sequence: parsedSequence,

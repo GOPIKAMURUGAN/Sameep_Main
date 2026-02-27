@@ -14,7 +14,6 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 // import { useLoginPopup } from "./LoginPopupContext";
 
-
 const toAnchor = (label) =>
   label
     .toLowerCase()
@@ -22,14 +21,13 @@ const toAnchor = (label) =>
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-");
 
-const categoryCache = new Map();
 function buildFreeTextMapFromTree(nodes) {
   const map = {};
 
   function walk(node) {
-    if (node._id) {
+    if (node.id) {
       const raw = node.enableFreeText;
-      map[node._id] =
+      map[node.id] =
         raw === true ||
         raw === "true" ||
         raw === 1 ||
@@ -46,8 +44,8 @@ function buildPackagesMapFromTree(nodes) {
   const map = {};
 
   function walk(node) {
-    if (node._id && node.packagesIncludes) {
-      map[node._id] = node.packagesIncludes;
+    if (node.id && node.packagesIncludes) {
+      map[node.id] = node.packagesIncludes;
     }
     node.children?.forEach(walk);
   }
@@ -55,45 +53,14 @@ function buildPackagesMapFromTree(nodes) {
   nodes.forEach(walk);
   return map;
 }
-async function buildCategoryTree(parentId) {
-  if (categoryCache.has(parentId)) {
-    return categoryCache.get(parentId);
-  }
-
-  const res = await fetch(
-    `${API_BASE_URL}/api/dummy-categories?parentId=${parentId}`,
-    { cache: "no-store" }
-  );
-
-  const children = await res.json();
-
-  // IMPORTANT: stop recursion if empty
-  if (!Array.isArray(children) || children.length === 0) {
-    categoryCache.set(parentId, []);
-    return [];
-  }
-
-  const enrichedChildren = await Promise.all(
-    children.map(async (node) => ({
-      ...node,
-      children: await buildCategoryTree(node._id),
-    }))
-  );
-
-  categoryCache.set(parentId, enrichedChildren);
-  return enrichedChildren;
-}
-
-
-
 
 function buildNameMapFromTree(nodes) {
   const map = {};
 
   function walk(node) {
     // ⭐ YOUR CATEGORY API USES _id
-    if (node._id && node.name) {
-      map[node._id] = node.name.trim();
+    if (node.id && node.name) {
+      map[node.id] = node.name.trim();
 
     }
     node.children?.forEach(walk);
@@ -110,8 +77,8 @@ function buildImageMapFromTree(nodes) {
   function walk(node, inheritedImage = null) {
     const currentImage = node.imageUrl || inheritedImage;
 
-    if (node._id && currentImage) {
-      map[node._id] = currentImage;
+    if (node.id && currentImage) {
+      map[node.id] = currentImage;
     }
 
     node.children?.forEach(child =>
@@ -1085,39 +1052,6 @@ function ExploreContent({ onReady }) {
   }, [queryVendorId, setVendorInfo]);
 
 
-  useEffect(() => {
-    if (!rootCategoryId) return;
-
-    async function fetchCategory() {
-      try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/dummy-categories/${rootCategoryId}`,
-          { cache: "no-store" }
-        );
-
-        if (!res.ok) throw new Error("Category API failed");
-
-        const data = await res.json();
-        const categoryObj = Array.isArray(data) ? data[0] : data;
-
-        // ✅ Local state (Explore page)
-        setCategory(categoryObj);
-
-        // ✅ Global state (Header uses this)
-        setVendorInfo(prev => ({
-          ...prev,
-          categoryData: categoryObj
-        }));
-
-      } catch (err) {
-        console.error("Category fetch error", err);
-      }
-    }
-
-    fetchCategory();
-  }, [rootCategoryId, setVendorInfo]);
-
-
   const handleVerifyOtp = async () => {
     if (!billingId || !otp) return;
 
@@ -1184,7 +1118,7 @@ function ExploreContent({ onReady }) {
     // 👉 Walk category tree & pick only active images
     function walk(nodes) {
       nodes.forEach(n => {
-        if (activeIds.has(n._id) && n.imageUrl) {
+        if (activeIds.has(n.id) && n.imageUrl) {
           images.push(n.imageUrl);
         }
         if (n.children?.length) walk(n.children);
@@ -1229,8 +1163,7 @@ function ExploreContent({ onReady }) {
 
     async function load() {
       try {
-        categoryCache.clear();
-        const PRICING_API =
+                const PRICING_API =
           `${API_BASE_URL}/api/vendor-price-nodes/tree` +
           `?vendorId=${vendorId}` +
           `&rootCategoryId=${rootCategoryId}`;
@@ -1248,7 +1181,27 @@ function ExploreContent({ onReady }) {
         setMenuTree(pricingData?.tree || []);
 
         // ✅ build master category tree
-        const categoryTree = await buildCategoryTree(rootCategoryId);
+        const categoryRes = await fetch(
+          `${API_BASE_URL}/api/categories/tree?rootCategoryId=${rootCategoryId}`,
+          { cache: "no-store" }
+        );
+
+        if (!categoryRes.ok) {
+          throw new Error("Category tree API failed");
+        }
+
+        const treeData = await categoryRes.json();
+
+        // Always normalize to array
+        const categoryTree = Array.isArray(treeData)
+          ? treeData
+          : [treeData];
+        const categoryObj = categoryTree[0] || null;
+        setCategory(categoryObj);
+        setVendorInfo(prev => ({
+          ...prev,
+          categoryData: categoryObj
+        }));
         const imageMap = buildImageMapFromTree(categoryTree);
         const nameMap = buildNameMapFromTree(categoryTree);
         const packagesMap = buildPackagesMapFromTree(categoryTree);
@@ -1800,6 +1753,26 @@ function ExploreContent({ onReady }) {
 
 
 
+  const categoryHome = category?.homePopup || {};
+
+  const heroTagline =
+    vendorInfo?.customFields?.freeText1?.trim() ||
+    categoryHome?.tagline?.trim() ||
+    vendorInfo?.businessName ||
+    category?.name ||
+    "Premium Services";
+
+  const heroDescription =
+    vendorInfo?.customFields?.freeText2?.trim() ||
+    categoryHome?.description?.trim() ||
+    "We deliver quality services tailored for every customer.";
+
+  const heroButton1 =
+    categoryHome?.button1Label?.trim() || "Contact Us";
+
+  const heroButton2 =
+    categoryHome?.button2Label?.trim() || "";
+
   return (
     <>
 
@@ -1893,10 +1866,10 @@ function ExploreContent({ onReady }) {
 
 
         // 🟢 CATEGORY (category API)
-        tagline={vendorInfo?.customFields?.freeText1 ||category?.homePopup?.tagline}
-        description={vendorInfo?.customFields?.freeText2 ||category?.homePopup?.description}
-        button1Label={category?.homePopup?.button1Label}
-        button2Label={category?.homePopup?.button2Label}
+        tagline={heroTagline}
+        description={heroDescription}
+        button1Label={heroButton1}
+        button2Label={heroButton2}
       />
 
 
@@ -1941,7 +1914,6 @@ function ExploreContent({ onReady }) {
           <div className="ws-grid">
             {cardsWithoutHeading.map((c, index) => (
               <div key={`flat-${c.id || c.title}-${index}`} className="ws-card-wrapper">
-
                 {/* 🔹 SHOW HEADING INSTEAD OF CARD TITLE */}
                 <h2
                   id={`cat-${toAnchor(c.title)}`}
@@ -1949,14 +1921,10 @@ function ExploreContent({ onReady }) {
                 >
                   {c.title}
                 </h2>
-
                 <ServiceCard
                   key={c.id}
                   data={c}
                   sectionName={c.title}
-
-
-
                   openLogin={openLogin}
                 />
 
@@ -1964,13 +1932,10 @@ function ExploreContent({ onReady }) {
             ))}
           </div>
         )}
-
-
       </section>
       {category?.whyUs && (
         <AdvantageSection whyUs={category.whyUs} />
       )}
-
       <RootsSection about={category?.about} />
       {viewMode === "menu" && (
         <div
@@ -2805,8 +2770,7 @@ function ExploreContent({ onReady }) {
       >
         Menu
       </button>
-
-      <button
+ <button
         type="button"
         onClick={() => {
           if (vendorId) {
@@ -2869,3 +2833,4 @@ export default function Explore({ onReady }) {
     </Suspense>
   );
 }
+
