@@ -31,7 +31,14 @@ const BillingSessionSchema = new mongoose.Schema(
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
-      required: true,
+      required: false,
+      default: null,
+    },
+
+    billingMode: {
+      type: String,
+      enum: ["LOYALTY", "WALK_IN"],
+      default: "WALK_IN",
     },
 
     cartItems: [BillingItemSchema],
@@ -41,7 +48,12 @@ const BillingSessionSchema = new mongoose.Schema(
       default: 0,
     },
 
-    redeemRequested: {
+    pointsEarned: {
+      type: Number,
+      default: 0,
+    },
+
+    pointsRedeemed: {
       type: Number,
       default: 0,
     },
@@ -59,5 +71,8 @@ const BillingSessionSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+BillingSessionSchema.index({ vendorId: 1, createdAt: -1 });
+BillingSessionSchema.index({ customerId: 1 });
 
 module.exports = mongoose.model("BillingSession", BillingSessionSchema);

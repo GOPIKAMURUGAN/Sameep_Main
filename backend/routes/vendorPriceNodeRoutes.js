@@ -27,77 +27,41 @@ function getBackendBaseUrl(req) {
 }
 
 /* =========================================================
-   HELPER 1: Fetch category hierarchy from master (dummy)
-   ✅ NO HARDCODED LOCALHOST
+   HELPER: Flatten optimized tree
 ========================================================= */
-async function fetchCategoryTree(categoryId, baseUrl) {
-  const response = await axios.get(
-    `${baseUrl}/api/dummy-categories?parentId=${categoryId}`
-  );
-
-  const children = response.data || [];
-  const result = [];
-
-  for (const child of children) {
-    const node = {
-      categoryId: child._id,
-      name: child.name,
-      price: child.price,
-      offerText: child.offerText || "",
-      terms: child.terms,
-      
-      children: [],
-    };
-
-    const subChildren = await fetchCategoryTree(
-      child._id,
-      baseUrl
-    );
-
-    if (subChildren.length > 0) {
-      node.children = subChildren;
-    }
-
-    result.push(node);
-  }
-
-  return result;
-}
-
-/* =========================================================
-   HELPER 2: Flatten hierarchy
-========================================================= */
-function flattenCategoryTree(
-  nodes,
-  parentCategoryId = null,
-  level = 0,
-  result = []
-) {
+function flattenTree(nodes, parentCategoryId = null, level = 1, result = []) {
   for (const node of nodes) {
-    const isLeaf = !node.children || node.children.length === 0;
+    const children = node.children || [];
+
+    const computedIsLeaf =
+      typeof node.isLeaf === "boolean"
+        ? node.isLeaf
+        : children.length === 0;
+
+    const computedLevel =
+      typeof node.level === "number"
+        ? node.level
+        : level;
 
     result.push({
-      categoryId: node.categoryId,
-      name: node.name,
+      categoryId: node.id,
       parentCategoryId,
-      level,
-      isLeaf,
-      price: node.price || null,
+      name: node.name,
+      level: computedLevel,
+      isLeaf: computedIsLeaf,
+      price: node.price ?? null,
       terms: node.terms || "",
-       offerText: node.offerText || "",
-      
+      offerText: node.offerText || "",
+      enableFreeText: node.enableFreeText || false,
+      freeText: node.freeText || "",
+      visibleToUser: node.visibleToUser ?? true,
+      visibleToVendor: node.visibleToVendor ?? true,
     });
 
-    if (!isLeaf) {
-      flattenCategoryTree(
-        node.children,
-        node.categoryId,
-        level + 1,
-        result
-      );
+    if (children.length) {
+      flattenTree(children, node.id, computedLevel + 1, result);
     }
   }
-
   return result;
 }
 
@@ -119,8 +83,7 @@ function getPricingStatus(node, activeLeafCategoryIds = []) {
 ========================================================= */
 router.post("/sync", async (req, res) => {
   try {
-    const { vendorId, rootCategoryId, activeLeafCategoryIds = [] } =
-      req.body;
+    const { vendorId, rootCategoryId, activeLeafCategoryIds = [] } = req.body;
 
     if (!vendorId || !rootCategoryId) {
       return res.status(400).json({
@@ -128,80 +91,167 @@ router.post("/sync", async (req, res) => {
       });
     }
 
-    // 🔥 Dynamic backend URL
     const baseUrl = getBackendBaseUrl(req);
 
-    // Fetch hierarchy dynamically
-    const tree = await fetchCategoryTree(
-      rootCategoryId,
-      baseUrl
+    console.time("vendor-sync-total");
+
+    console.time("tree-fetch");
+    const { data } = await axios.get(
+      `${baseUrl}/api/categories/tree?rootCategoryId=${rootCategoryId}`
     );
+    console.timeEnd("tree-fetch");
 
-    const flatNodes = flattenCategoryTree(tree);
+    // Normalize different API response shapes
+    let treePayload;
 
-    const nodeMap = {};
-    let created = 0;
+    if (Array.isArray(data?.tree)) {
+      // Format: { tree: [...] }
+      treePayload = data.tree;
+    } else if (Array.isArray(data)) {
+      // Format: [...]
+      treePayload = data;
+    } else if (data?.children) {
+      // Format: root object
+      treePayload = [data];
+    } else {
+      console.error("Unexpected tree API response:", data);
+      treePayload = [];
+    }
+
+    const flatNodes = flattenTree(treePayload);
+
+    // Safety guard to avoid silent failures
+    if (!flatNodes.length) {
+      console.error("SYNC ABORTED: No nodes flattened from tree API");
+      return res.status(500).json({
+        message: "Tree parsing failed — no nodes found",
+      });
+    }
+
+    console.log("Flattened nodes:", flatNodes.length);
+
+    console.time("existing-load");
+    const existingNodes = await VendorPriceNode.find({
+      vendorId,
+      rootCategoryId,
+    }).lean();
+    console.timeEnd("existing-load");
+
+    const existingMap = {};
+    existingNodes.forEach((n) => {
+      existingMap[n.categoryId] = n;
+    });
+
+    console.time("bulk-build");
+    const ops = [];
 
     for (const node of flatNodes) {
-      let record = await VendorPriceNode.findOne({
+      // 🚨 Skip root category (prevents duplicate Level 2)
+      if (String(node.categoryId) === String(rootCategoryId)) {
+        continue;
+      }
+
+      const baseDoc = {
         vendorId,
         rootCategoryId,
         categoryId: node.categoryId,
-      });
+        parentCategoryId: node.parentCategoryId,
+        name: node.name,
+        level: node.level,
+        isLeaf: node.isLeaf,
+        price: node.isLeaf ? node.price : null,
+        terms: node.terms,
+        offerText: node.offerText,
+        enableFreeText: node.enableFreeText,
+        freeText: node.freeText,
+        visibleToUser: node.visibleToUser,
+        visibleToVendor: node.visibleToVendor,
+        pricingStatus:
+          node.isLeaf && activeLeafCategoryIds.includes(node.categoryId)
+            ? "Active"
+            : "Inactive",
+        source: "MASTER_SYNC",
+      };
 
-      if (!record) {
-  record = await VendorPriceNode.create({
-    vendorId,
-    rootCategoryId,
-    categoryId: node.categoryId,
-    parentCategoryId: node.parentCategoryId,
-    name: node.name,
-    parentVendorPriceNodeId: null,
-    level: node.level,
-    isLeaf: node.isLeaf,
-    price: node.isLeaf ? node.price : null,
-    terms: node.terms,
-    offerText: node.offerText || "",
- 
-    pricingStatus: getPricingStatus(node, activeLeafCategoryIds),
-    source: "MASTER_SYNC",
-  });
+      const existing = existingMap[node.categoryId];
 
-  created++;
-} else {
-  // ⭐⭐⭐ ADD THIS BLOCK ⭐⭐⭐
-  record.offerText = node.offerText || "";
-  record.terms = node.terms || "";
-  if (record.isLeaf) record.price = node.price || null;
-
-  await record.save();
-}
-
-      nodeMap[node.categoryId] = record;
-    }
-
-    // Auto-link parents
-    for (const node of flatNodes) {
-      if (!node.parentCategoryId) continue;
-
-      const child = nodeMap[node.categoryId];
-      const parent = nodeMap[node.parentCategoryId];
-
-      if (
-        child &&
-        parent &&
-        !child.parentVendorPriceNodeId
-      ) {
-        child.parentVendorPriceNodeId = parent._id;
-        await child.save();
+      if (!existing) {
+        ops.push({ insertOne: { document: baseDoc } });
+      } else {
+        ops.push({
+          updateOne: {
+            filter: { _id: existing._id },
+            update: { $set: baseDoc },
+          },
+        });
       }
     }
+    console.timeEnd("bulk-build");
+
+    console.time("bulk-write");
+    if (ops.length) {
+      await VendorPriceNode.bulkWrite(ops);
+    }
+    console.timeEnd("bulk-write");
+
+    // 🔥 Rebuild hierarchy links (FAST VERSION)
+    console.time("hierarchy-link");
+
+    // Fetch all nodes once
+    const allNodes = await VendorPriceNode.find({
+      vendorId,
+      rootCategoryId,
+    }).select("_id categoryId parentCategoryId").lean();
+
+    // Build lookup maps
+    const idMap = {};
+    allNodes.forEach((n) => {
+      idMap[n.categoryId] = n;
+    });
+
+    // Prepare bulk updates
+    const linkOps = [];
+
+    for (const node of allNodes) {
+      // Skip root nodes (no parent OR parent is self/root)
+      if (!node.parentCategoryId) continue;
+
+      // 🚨 Prevent root duplication
+      if (String(node.categoryId) === String(rootCategoryId)) {
+        continue;
+      }
+
+      const parent = idMap[node.parentCategoryId];
+      if (!parent) continue;
+
+      if (String(parent._id) === String(node._id)) {
+        continue;
+      }
+
+      linkOps.push({
+        updateOne: {
+          filter: { _id: node._id },
+          update: {
+            $set: { parentVendorPriceNodeId: parent._id },
+          },
+        },
+      });
+    }
+
+    // Execute in bulk
+    if (linkOps.length) {
+      await VendorPriceNode.bulkWrite(linkOps);
+    }
+
+    console.timeEnd("hierarchy-link");
+
+    console.timeEnd("vendor-sync-total");
 
     return res.json({
-      message:
-        "Vendor pricing synced with auto-linked hierarchy",
+      message: "Vendor pricing synced successfully",
       totalNodes: flatNodes.length,
-      created,
+      existingNodes: existingNodes.length,
+      operations: ops.length,
     });
   } catch (err) {
     console.error(err);

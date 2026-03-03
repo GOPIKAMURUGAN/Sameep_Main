@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import { useSessionGuard } from "../Login/useSessionGuard";
 import "./Header.css";
 
@@ -23,11 +22,13 @@ const PAGE_SECTIONS = {
 export default function Header() {
   useSessionGuard();
 
-  const searchParams = useSearchParams();
-  const { vendorInfo } = useVendor();
+const { vendorInfo } = useVendor();
 
   const rootCategoryId =
-    vendorInfo?.categoryId || searchParams.get("rootCategoryId");
+    vendorInfo?.categoryId ||
+    vendorInfo?.category?._id ||
+    vendorInfo?.rootCategoryId ||
+    null;
 
   const [categoryData, setCategoryData] = useState(null);
   const [openLogin, setOpenLogin] = useState(false);
@@ -93,9 +94,9 @@ export default function Header() {
   // 🔹 UI
   // --------------------------------------------------
   const title =
-  vendorInfo?.businessName ||
-  searchParams.get("vendorName") ||
-  "";
+    vendorInfo?.businessName ||
+    vendorInfo?.vendor?.businessName ||
+    "";
 
   return (
     <>

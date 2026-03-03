@@ -4,7 +4,7 @@ import "./CategoryModal.css";
 import { FcGoogle } from "react-icons/fc";
 import { useCategoryTree } from "./CategoryModal2";
 import './CategoryModal2.css';
-import  { API_BASE_URL } from "../../config"; 
+import { API_BASE_URL } from "../../config";
 import ServiceAreasStep from "../components/ServiceAreasStep";
 // adjust path if needed: ../config or ../../config
 
@@ -44,30 +44,13 @@ export default function ChooseCategoryModal({ onClose }) {
   const [trustAnswers, setTrustAnswers] = useState({});
   const [loadingTrust, setLoadingTrust] = useState(false);
 
-
+  const [globalLoading, setGlobalLoading] = useState(false);
   const [captcha, setCaptcha] = useState("");
   const [captchaInput, setCaptchaInput] = useState(["", "", "", ""]);
   const [captchaError, setCaptchaError] = useState("");
 
 
 
-
-  function getAllLeafNodes(nodes) {
-    const leafIds = [];
-
-    for (const id in nodes) {
-      const node = nodes[id];
-
-      if (
-        Array.isArray(node.children) &&
-        node.children.length === 0
-      ) {
-        leafIds.push(id);
-      }
-    }
-
-    return leafIds;
-  }
 
 
 
@@ -276,54 +259,54 @@ export default function ChooseCategoryModal({ onClose }) {
 
       /* ================= 2️⃣ REGISTER VENDOR ================= */
       const vendorPayload = {
-  customerId,
- phone: cleanPhone,
+        customerId,
+        phone: cleanPhone,
 
 
-  businessName: selectedBusiness?.name || "",
-  contactName: selectedBusiness?.name || "",
-  categoryId: selected?._id,
+        businessName: selectedBusiness?.name || "",
+        contactName: selectedBusiness?.name || "",
+        categoryId: selected?._id,
 
-  status: "Registered",
+        status: "Registered",
 
-  location: {
-    lat: selectedBusiness?.location?.lat ?? null,
-    lng: selectedBusiness?.location?.lng ?? null,
-    address: selectedBusiness?.address || "",
-  },
+        location: {
+          lat: selectedBusiness?.location?.lat ?? null,
+          lng: selectedBusiness?.location?.lng ?? null,
+          address: selectedBusiness?.address || "",
+        },
 
-  openingHoursText: Array.isArray(selectedBusiness?.openingHoursText)
-    ? selectedBusiness.openingHoursText
-    : [],
+        openingHoursText: Array.isArray(selectedBusiness?.openingHoursText)
+          ? selectedBusiness.openingHoursText
+          : [],
 
-  googlePlaceDetails: {
-    placeId:
-      selectedBusiness?.placeId ||
-      selectedSearchBusiness?.placeId ||
-      "",
+        googlePlaceDetails: {
+          placeId:
+            selectedBusiness?.placeId ||
+            selectedSearchBusiness?.placeId ||
+            "",
 
-    rating:
-      selectedBusiness?.rating ??
-      selectedSearchBusiness?.rating ??
-      null,
+          rating:
+            selectedBusiness?.rating ??
+            selectedSearchBusiness?.rating ??
+            null,
 
-    userRatingsTotal:
-      selectedBusiness?.userRatingsTotal ??
-      selectedSearchBusiness?.userRatingsTotal ??
-      0,
+          userRatingsTotal:
+            selectedBusiness?.userRatingsTotal ??
+            selectedSearchBusiness?.userRatingsTotal ??
+            0,
 
-    mapsUrl:
-      selectedBusiness?.placeId
-        ? `https://www.google.com/maps/place/?q=place_id:${selectedBusiness.placeId}`
-        : selectedSearchBusiness?.placeId
-        ? `https://www.google.com/maps/place/?q=place_id:${selectedSearchBusiness.placeId}`
-        : "",
+          mapsUrl:
+            selectedBusiness?.placeId
+              ? `https://www.google.com/maps/place/?q=place_id:${selectedBusiness.placeId}`
+              : selectedSearchBusiness?.placeId
+                ? `https://www.google.com/maps/place/?q=place_id:${selectedSearchBusiness.placeId}`
+                : "",
 
-    types: Array.isArray(selectedBusiness?.types)
-      ? selectedBusiness.types
-      : selectedSearchBusiness?.types || [],
-  },
-};
+          types: Array.isArray(selectedBusiness?.types)
+            ? selectedBusiness.types
+            : selectedSearchBusiness?.types || [],
+        },
+      };
 
       const vendorRes = await fetch(
         `${API_BASE_URL}/api/dummy-vendors`,
@@ -365,10 +348,19 @@ export default function ChooseCategoryModal({ onClose }) {
 
   /* ================= LOAD CATEGORIES ================= */
   useEffect(() => {
-    fetch(CATEGORY_API)
-      .then((r) => r.json())
-      .then(setCategories)
-      .finally(() => setLoading(false));
+    const load = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(CATEGORY_API);
+        const data = await res.json();
+        setCategories(data);
+      } finally {
+
+        setLoading(false);
+      }
+    };
+
+    load();
   }, []);
 
   const filteredCategories = categories.filter((c) =>
@@ -433,6 +425,7 @@ export default function ChooseCategoryModal({ onClose }) {
     }
 
     try {
+      setGlobalLoading(true);
       const res = await fetch(
         `${API_BASE_URL}/api/google/places/search?query=${encodeURIComponent(
           businessQuery
@@ -444,6 +437,9 @@ export default function ChooseCategoryModal({ onClose }) {
       setStep("GOOGLE_RESULTS");
     } catch (err) {
       setCaptchaError("Search failed. Try again.");
+    }
+    finally {
+      setGlobalLoading(false);
     }
   };
 
@@ -463,34 +459,34 @@ export default function ChooseCategoryModal({ onClose }) {
 
     const data = await res.json();
 
-setSelectedBusiness({
-  placeId: selectedSearchBusiness?.placeId,
-  name: selectedSearchBusiness?.name,
-  address: selectedSearchBusiness?.address,
-  location: selectedSearchBusiness?.location,
+    setSelectedBusiness({
+      placeId: selectedSearchBusiness?.placeId,
+      name: selectedSearchBusiness?.name,
+      address: selectedSearchBusiness?.address,
+      location: selectedSearchBusiness?.location,
 
-  rating:
-    data.place?.rating ??
-    selectedSearchBusiness?.rating ??
-    null,
+      rating:
+        data.place?.rating ??
+        selectedSearchBusiness?.rating ??
+        null,
 
-  userRatingsTotal:
-    data.place?.userRatingsTotal ??
-    selectedSearchBusiness?.userRatingsTotal ??
-    0,
+      userRatingsTotal:
+        data.place?.userRatingsTotal ??
+        selectedSearchBusiness?.userRatingsTotal ??
+        0,
 
-  types: Array.isArray(data.place?.types)
-    ? data.place.types
-    : selectedSearchBusiness?.types || [],
+      types: Array.isArray(data.place?.types)
+        ? data.place.types
+        : selectedSearchBusiness?.types || [],
 
-  openingHoursText:
-    data.place?.openingHoursText ||
-    selectedSearchBusiness?.openingHoursText ||
-    [],
+      openingHoursText:
+        data.place?.openingHoursText ||
+        selectedSearchBusiness?.openingHoursText ||
+        [],
 
-  internationalPhoneNumber:
-    data.place?.internationalPhoneNumber || "",
-});
+      internationalPhoneNumber:
+        data.place?.internationalPhoneNumber || "",
+    });
 
 
     setStep("VERIFY_PHONE");
@@ -563,20 +559,27 @@ setSelectedBusiness({
               placeholder="Search category..."
             />
 
-            <div className="category-grid">
-              {!loading &&
-                filteredCategories.map((cat) => (
-                  <div
-                    key={cat.id || cat._id}
-                    className={`category-card ${selected?.name === cat.name ? "active" : ""
-                      }`}
-                    onClick={() => setSelected(cat)}
-                  >
-                    <img src={cat.imageUrl} />
-                    <span>{cat.name}</span>
-                  </div>
-                ))}
-            </div>
+           <div className="category-grid">
+  {loading ? (
+    <div className="category-loader">
+      <div className="spinner" />
+      <p>Loading categories...</p>
+    </div>
+  ) : (
+    filteredCategories.map((cat) => (
+      <div
+        key={cat.id || cat._id}
+        className={`category-card ${
+          selected?.name === cat.name ? "active" : ""
+        }`}
+        onClick={() => setSelected(cat)}
+      >
+        <img src={cat.imageUrl} />
+        <span>{cat.name}</span>
+      </div>
+    ))
+  )}
+</div>
 
             <button
               className="next-btn"
@@ -786,38 +789,38 @@ setSelectedBusiness({
                     <label>{q.id.replace("_", " ")}</label>
 
                     {/* YEARS DROPDOWN */}
-{q.type === "years" && (
-  <select
-    value={trustAnswers[q.id] || ""}
-    onChange={(e) =>
-      setTrustAnswers({ ...trustAnswers, [q.id]: e.target.value })
-    }
-  >
-    <option value="">Select years</option>
-    {[...Array(51)].map((_, i) => (
-      <option key={i} value={i}>
-        {i} {i === 1 ? "year" : "years"}
-      </option>
-    ))}
-  </select>
-)}
+                    {q.type === "years" && (
+                      <select
+                        value={trustAnswers[q.id] || ""}
+                        onChange={(e) =>
+                          setTrustAnswers({ ...trustAnswers, [q.id]: e.target.value })
+                        }
+                      >
+                        <option value="">Select years</option>
+                        {[...Array(51)].map((_, i) => (
+                          <option key={i} value={i}>
+                            {i} {i === 1 ? "year" : "years"}
+                          </option>
+                        ))}
+                      </select>
+                    )}
 
-{/* RANGE DROPDOWN */}
-{q.type === "range" && (
-  <select
-    value={trustAnswers[q.id] || ""}
-    onChange={(e) =>
-      setTrustAnswers({ ...trustAnswers, [q.id]: e.target.value })
-    }
-  >
-    <option value="">Select minimum count</option>
-    {[10, 25, 50, 100, 250, 500, 1000].map((n) => (
-      <option key={n} value={n}>
-        {n}+
-      </option>
-    ))}
-  </select>
-)}
+                    {/* RANGE DROPDOWN */}
+                    {q.type === "range" && (
+                      <select
+                        value={trustAnswers[q.id] || ""}
+                        onChange={(e) =>
+                          setTrustAnswers({ ...trustAnswers, [q.id]: e.target.value })
+                        }
+                      >
+                        <option value="">Select minimum count</option>
+                        {[10, 25, 50, 100, 250, 500, 1000].map((n) => (
+                          <option key={n} value={n}>
+                            {n}+
+                          </option>
+                        ))}
+                      </select>
+                    )}
 
                     {q.type === "select" && (
                       !q.options || q.options.length === 0 ? (
@@ -859,6 +862,7 @@ setSelectedBusiness({
                 className="btn primary"
                 onClick={async () => {
                   try {
+                    setGlobalLoading(true);
                     await fetch(`${API_BASE_URL}/api/trust/save`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -874,6 +878,9 @@ setSelectedBusiness({
                     console.error(err);
                     alert("Failed to save trust info");
                   }
+                  finally {
+                    setGlobalLoading(false);
+                  }
                 }}
               >
                 Continue
@@ -885,12 +892,12 @@ setSelectedBusiness({
         {step === "SERVICE_AREAS" && (
           <ServiceAreasStep
             vendor={{
-  location: {
-    lat: selectedBusiness?.location?.lat,
-    lng: selectedBusiness?.location?.lng,
-  },
-  _id: vendorId, // optional but useful
-}}
+              location: {
+                lat: selectedBusiness?.location?.lat,
+                lng: selectedBusiness?.location?.lng,
+              },
+              _id: vendorId, // optional but useful
+            }}
 
             onBack={() => setStep("TRUST")}
             onNext={async (data) => {
@@ -925,7 +932,7 @@ setSelectedBusiness({
         {/* ================= SERVICES SELECT ================= */}
 
 
-   {step === "SERVICES_SELECT" && (
+        {step === "SERVICES_SELECT" && (
 
           <div className="services-select-card">
 
@@ -1016,117 +1023,122 @@ setSelectedBusiness({
         )}
         {step === "CHOOSE_DOMAIN" && (
           <div className="domain-card">
-  <h2 className="domain-title">Choose your website name</h2>
-  <p className="domain-subtitle">
-    Your business will be available at:
-  </p>
+            <h2 className="domain-title">Choose your website name</h2>
+            <p className="domain-subtitle">
+              Your business will be available at:
+            </p>
 
-  <div className="domain-list">
-    {subdomainSuggestions.map((s) => (
-      <button
-        key={s}
-        className={`domain-pill ${
-          selectedSubdomain === s ? "active" : ""
-        }`}
-        onClick={() => setSelectedSubdomain(s)}
-      >
-        <span className="domain-name">{s}</span>
-        <span className="domain-suffix">.ynot.com</span>
-      </button>
-    ))}
-  </div>
+            <div className="domain-list">
+              {subdomainSuggestions.map((s) => (
+                <button
+                  key={s}
+                  className={`domain-pill ${selectedSubdomain === s ? "active" : ""
+                    }`}
+                  onClick={() => setSelectedSubdomain(s)}
+                >
+                  <span className="domain-name">{s}</span>
+                  <span className="domain-suffix">.ynot.com</span>
+                </button>
+              ))}
+            </div>
 
-  <div className="domain-actions">
-    <button
-      className="btn-last"
-      onClick={() => setStep("SERVICES_SELECT")}
-    >
-      Back
-    </button>
+            <div className="domain-actions">
+              <button
+                className="btn-last"
+                onClick={() => setStep("SERVICES_SELECT")}
+              >
+                Back
+              </button>
 
-    <button
-      className="btn-last"
-      disabled={!selectedSubdomain}
-      onClick={async () => {
-        try {
-          const res = await fetch(
-            `${API_BASE_URL}/api/vendor/${vendorId}/set-subdomain`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ subdomain: selectedSubdomain }),
-            }
-          );
-          if (!res.ok) throw new Error("Subdomain save failed");
+              <button
+                className="btn-last"
+                disabled={!selectedSubdomain}
+                onClick={async () => {
+                  try {
+                    const res = await fetch(
+                      `${API_BASE_URL}/api/vendor/${vendorId}/set-subdomain`,
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ subdomain: selectedSubdomain }),
+                      }
+                    );
+                    if (!res.ok) throw new Error("Subdomain save failed");
 
-          setStep("PREVIEW_CHOICE");
-        } catch (e) {
-          alert("Failed to save website name");
-        }
-      }}
-    >
-      Continue
-    </button>
-  </div>
-</div>
+                    setStep("PREVIEW_CHOICE");
+                  } catch (e) {
+                    alert("Failed to save website name");
+                  }
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
         )}
         {step === "PREVIEW_CHOICE" && (
-  <div className="preview-choice-card">
-    <h2>Do you want to preview your profile?</h2>
+          <div className="preview-choice-card">
+            <h2>Do you want to preview your profile?</h2>
 
-    <div className="preview-actions">
-      <button
-        className="btn secondary"
-        onClick={onClose}
-      >
-        No
-      </button>
+            <div className="preview-actions">
+              <button
+                className="btn secondary"
+                onClick={onClose}
+              >
+                No
+              </button>
 
- <button
-  className="btn primary"
-  onClick={async () => {
-    const subdomain = selectedSubdomain;
+              <button
+                className="btn primary"
+                onClick={async () => {
+                  const subdomain = selectedSubdomain;
 
-    if (!vendorId || !subdomain) {
-      alert("Missing vendor or subdomain");
-      return;
-    }
+                  if (!vendorId || !subdomain) {
+                    alert("Missing vendor or subdomain");
+                    return;
+                  }
 
-    const PREVIEW_BASE =
-      process.env.NEXT_PUBLIC_HARISH_PREVIEW_BASE_URL ||
-      "http://localhost:4000";
+                  const PREVIEW_BASE =
+                    process.env.NEXT_PUBLIC_HARISH_PREVIEW_BASE_URL ||
+                    "http://localhost:4000";
 
-    const previewUrl = PREVIEW_BASE.replace(
-      "://",
-      `://${subdomain}.`
-    );
+                  const previewUrl = PREVIEW_BASE.replace(
+                    "://",
+                    `://${subdomain}.`
+                  );
 
-    const win = window.open("about:blank", "_blank");
+                  const win = window.open("about:blank", "_blank");
 
-    try {
-      await fetch(
-        `${API_BASE_URL}/api/dummy-vendors/${vendorId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "Preview" }),
-        }
-      );
+                  try {
+                    await fetch(
+                      `${API_BASE_URL}/api/dummy-vendors/${vendorId}`,
+                      {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ status: "Preview" }),
+                      }
+                    );
 
-      win.location.href = previewUrl;
-    } catch (e) {
-      win.close();
-      alert("Failed to open preview");
-    }
-  }}
->
-  Yes, Preview
-</button>
+                    win.location.href = previewUrl;
+                  } catch (e) {
+                    win.close();
+                    alert("Failed to open preview");
+                  }
+                }}
+              >
+                Yes, Preview
+              </button>
 
-    </div>
-  </div>
-)}
+            </div>
+          </div>
+        )}
       </div>
+      {globalLoading && (
+        <div className="overlay-loader">
+          <div className="spinner" />
+          <p>Please wait...</p>
+        </div>
+      )}
     </div>
   );
 }

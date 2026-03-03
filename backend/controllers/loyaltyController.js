@@ -5,16 +5,32 @@ const VendorLoyaltyRule = require("../models/VendorLoyaltyRule");
 // ✅ Create or Update Vendor Loyalty Rule
 exports.upsertVendorRule = async (req, res) => {
   try {
-    const { vendorId, percentPer100, expiryDays } = req.body;
+    const payload = req.body;
+
+    const normalizedRule = {
+      vendorId: payload.vendorId,
+      isEnabled: payload.isEnabled ?? true,
+      minBillAmount: payload.minBillAmount ?? 0,
+      rounding: payload.rounding ?? "FLOOR",
+      earn: {
+        percentPer100: payload.percentPer100 ?? 0,
+        type: "PERCENT_PER_BILL",
+      },
+      expiry: {
+        expiryDays: payload.expiryDays ?? 0,
+      },
+      redeem: {
+        allowPartial: payload.allowPartial ?? false,
+        maxPercentPerBill: payload.maxPercentPerBill ?? null,
+      },
+    };
+
+    delete normalizedRule.percentPer100;
+    delete normalizedRule.expiryDays;
 
     const rule = await VendorLoyaltyRule.findOneAndUpdate(
-      { vendorId },
-      {
-        vendorId,
-        percentPer100,
-        expiryDays,
-        isEnabled: true,
-      },
+      { vendorId: payload.vendorId },
+      normalizedRule,
       { upsert: true, new: true }
     );
 

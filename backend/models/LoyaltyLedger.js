@@ -26,6 +26,7 @@ const LoyaltyLedgerSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Transaction",
       required: true,
+      index: true,
     },
 
     points: {
@@ -47,5 +48,9 @@ const LoyaltyLedgerSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+LoyaltyLedgerSchema.index({ vendorId: 1, customerId: 1 });
+LoyaltyLedgerSchema.index({ transactionId: 1 });
+LoyaltyLedgerSchema.index({ customerId: 1, expiryDate: 1 });
 
 module.exports = mongoose.model("LoyaltyLedger", LoyaltyLedgerSchema);

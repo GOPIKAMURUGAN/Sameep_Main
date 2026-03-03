@@ -1,7 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const controller = require("../controllers/vendorDashboardController");
+const dashboard = require("../controllers/vendorDashboardController");
 
-router.get("/summary", controller.getDashboardSummary);
+router.get("/summary", dashboard.getDashboardSummary);
+router.get("/fy-monthly", dashboard.getFinancialYearMonthly);
+router.get("/top-services", dashboard.getTopServices);
+router.get("/daily-trend", dashboard.getDailyTrend);
+router.get("/bills", dashboard.getBillsDrilldown);
 
 module.exports = router;

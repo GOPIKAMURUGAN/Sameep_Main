@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchCategories } from "./ApiService";
 
 /**
- * Builds full tree for a selected category
- * No lazy loading, no guessing, no flicker
+ * Uses full tree API directly
+ * No recursive API calls
  */
 export function useCategoryTree({ setupSelectedCategory, overrideCatId }) {
   const [nodes, setNodes] = useState({});
@@ -19,65 +19,42 @@ export function useCategoryTree({ setupSelectedCategory, overrideCatId }) {
     [overrideCatId, setupSelectedCategory?._id, setupSelectedCategory?.id]
   );
 
-  /* ================= RECURSIVE TREE BUILDER ================= */
-
-  const buildTree = async (parentId, nodesMap, parentMap) => {
-    const children = await fetchCategories(parentId);
-
-    for (const child of children) {
-      nodesMap[child._id] = {
-        id: child._id,
-        data: child,
-        children: [],
-        expanded: false,
-      };
-
-      parentMap[child._id] = parentId;
-
-      // 🔁 recursively fetch all descendants
-      await buildTree(child._id, nodesMap, parentMap);
-    }
-  };
-
-  /* ================= LOAD TREE ================= */
-
   useEffect(() => {
     if (!catId) return;
 
     const loadTree = async () => {
+      // 🔥 fetch full tree once
+      const fullTree = await fetchCategories(catId);
+
       const nodesMap = {};
       const pMap = {};
 
-      // 1️⃣ first level (children of selected category)
-      const roots = await fetchCategories(catId);
-      const rIds = roots.map((r) => r._id);
-
-      for (const root of roots) {
-        nodesMap[root._id] = {
-          id: root._id,
-          data: root,
-          children: [],
+      // 🔥 flatten full tree
+      function walk(node, parentId = null) {
+        nodesMap[node._id] = {
+          id: node._id,
+          data: node,
+          children: (node.children || []).map((c) => c._id),
           expanded: false,
         };
-        pMap[root._id] = null;
 
-        // 🔁 fetch entire subtree
-        await buildTree(root._id, nodesMap, pMap);
+        pMap[node._id] = parentId;
+
+        node.children?.forEach((child) =>
+          walk(child, node._id)
+        );
       }
 
-      // 2️⃣ link children properly
-      Object.keys(pMap).forEach((id) => {
-        const parentId = pMap[id];
-        if (parentId && nodesMap[parentId]) {
-          nodesMap[parentId].children.push(id);
-        }
+      fullTree.forEach((root) => {
+        walk(root, null);
       });
 
       setNodes(nodesMap);
       setParentMap(pMap);
-      setRootIds(rIds);
-    setSelectedIds(Object.keys(nodesMap));
- // optional: auto-select roots
+      setRootIds(fullTree.map((r) => r._id));
+
+      // Optional: auto select all
+      setSelectedIds(Object.keys(nodesMap));
     };
 
     loadTree();
@@ -107,7 +84,6 @@ export function useCategoryTree({ setupSelectedCategory, overrideCatId }) {
     });
     return result;
   };
-
 
   const getAllAncestors = (id, pMap) => {
     const result = [];

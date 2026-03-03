@@ -879,6 +879,7 @@ function ExploreContent({ onReady }) {
     vendorInfo?.category?._id ||
     vendorInfo?.rootCategoryId ||
     null;
+  const canGenerateBill = cartItems.length > 0 && !!vendorId;
   const verifyOtp = async () => {
     if (!otp || otp.length < 4) {
       alert("Enter valid OTP");
@@ -1331,7 +1332,8 @@ function ExploreContent({ onReady }) {
 
 
         if (data?.success && data?.data) {
-          setPercentPer100(data.data.percentPer100 || 0);
+          setPercentPer100(data?.data?.earn?.percentPer100 ?? 0);
+          setExpiryDays(data?.data?.expiry?.expiryDays ?? 0);
         } else {
           setPercentPer100(0);
         }
@@ -1389,8 +1391,12 @@ function ExploreContent({ onReady }) {
         if (data?.success && data?.data) {
           const rule = data.data;
           if (typeof rule.isEnabled === "boolean") setIsEnabled(rule.isEnabled);
-          if (typeof rule.expiryDays === "number") setExpiryDays(rule.expiryDays);
-
+          if (typeof rule?.earn?.percentPer100 === "number") {
+            setPercentPer100(rule.earn.percentPer100);
+          }
+          if (typeof rule?.expiry?.expiryDays === "number") {
+            setExpiryDays(rule.expiry.expiryDays);
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -1416,9 +1422,13 @@ function ExploreContent({ onReady }) {
       const payload = {
         vendorId,
         categoryId: rootCategoryId,
-        percentPer100,
-        expiryDays,
         isEnabled,
+        earn: {
+          percentPer100,
+        },
+        expiry: {
+          expiryDays,
+        },
       };
 
 
@@ -1538,9 +1548,29 @@ function ExploreContent({ onReady }) {
     setRedeemPoints(0);
   };
 
+  const resetBillingState = () => {
+    setCartItems([]);
+    setCustomerId(null);
+    setCustomerMobile("");
+    setMobile("");
+    setAvailablePoints(0);
+    setRedeemPoints(0);
+    setEarnPoints(0);
+    setBillingId(null);
+    setShowOtpInput(false);
+    setOtp("");
+
+    // optional safety
+    localStorage.removeItem("ynot_cart");
+  };
+
+  useEffect(() => {
+    resetBillingState();
+  }, [vendorId]);
+
   async function handleGenerateBill() {
-    if (!vendorId || !customerId || !cartItems.length) {
-      alert("Missing billing data");
+    if (!vendorId || !cartItems.length) {
+      alert("Cart is empty. Please add items.");
       return;
     }
 
@@ -1553,14 +1583,20 @@ function ExploreContent({ onReady }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vendorId,
-          customerId,
+          customerId: customerId || null,
         }),
       });
 
       const createData = await createRes.json();
+      if (!createData?.success) {
+        alert(createData?.message || "Billing failed");
+        return;
+      }
       const newBillingId = createData?.data?._id;
-
-      if (!newBillingId) throw new Error("Billing session failed");
+      if (!newBillingId) {
+        alert("Billing session failed");
+        return;
+      }
       setBillingId(newBillingId);
 
       // STEP 2 - Update cart with hierarchy fields
@@ -1574,7 +1610,10 @@ function ExploreContent({ onReady }) {
       });
 
       const updateData = await updateRes.json();
-      if (!updateData?.success) throw new Error("Billing update failed");
+      if (!updateData?.success) {
+        alert(updateData?.message || "Billing update failed");
+        return;
+      }
 
       if (redeemPoints > 0) {
         // STEP 3 - Request OTP for redemption
@@ -1588,7 +1627,10 @@ function ExploreContent({ onReady }) {
         });
 
         const otpData = await otpRes.json();
-        if (!otpData?.success) throw new Error("OTP request failed");
+        if (!otpData?.success) {
+          alert(otpData?.message || "OTP request failed");
+          return;
+        }
 
         setShowOtpInput(true);
         return;
@@ -1605,20 +1647,16 @@ function ExploreContent({ onReady }) {
       });
 
       const completeData = await completeRes.json();
-      if (!completeData?.success) throw new Error("Billing completion failed");
+      if (!completeData?.success) {
+        alert(completeData?.message || "Billing completion failed");
+        return;
+      }
 
-      setCartItems([]);
-      setCustomerMobile("");
-      setAvailablePoints(0);
-      setRedeemPoints(0);
-      setCustomerId(null);
-      setBillingId(null);
-      setEarnPoints(0);
-
-      alert("Bill Generated Successfully");
+      resetBillingState();
+      alert(completeData?.message || "Bill generated successfully");
     } catch (err) {
       console.error(err);
-      alert("Billing failed");
+      alert("Server error while billing");
     } finally {
       setProcessingBill(false);
     }
@@ -1954,7 +1992,10 @@ function ExploreContent({ onReady }) {
             <div style={{ fontSize: 20, fontWeight: 700 }}>Menu</div>
             <button
               type="button"
-              onClick={() => setViewMode("preview")}
+              onClick={() => {
+                resetBillingState();
+                setViewMode("preview");
+              }}
               style={{
                 marginLeft: "auto",
                 background: "transparent",
@@ -2172,6 +2213,11 @@ function ExploreContent({ onReady }) {
                         <div style={{ fontSize: "13px", color: "#aaa", marginTop: 6 }}>
                           Available Points: {availablePoints}
                         </div>
+                        {!customerMobile && (
+                          <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
+                            Walk-in billing — no loyalty points will be applied
+                          </div>
+                        )}
                         {verifyingCustomer && (
                           <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
                             Checking customer...
@@ -2234,51 +2280,24 @@ function ExploreContent({ onReady }) {
                             Verify OTP
                           </button>
                         )}
-                        <button
-                          onClick={handleGenerateBill}
-                          style={{
-                            marginTop: "14px",
-                            width: "100%",
-                            background: "#e6c37a",
-                            color: "#000",
-                            padding: "12px",
-                            borderRadius: "10px",
-                            fontWeight: "600",
-                            opacity:
-                              cartItems.length > 0 &&
-                                customerValidated &&
-                                loyaltyLoaded &&
-                                checkingCustomer === false &&
-                                !processingBill &&
-                                !showOtpInput &&
-                                !verifyingCustomer
-                                ? 1
-                                : 0.6,
-                            cursor:
-                              cartItems.length > 0 &&
-                                customerValidated &&
-                                loyaltyLoaded &&
-                                checkingCustomer === false &&
-                                !processingBill &&
-                                !showOtpInput &&
-                                !verifyingCustomer
-                                ? "pointer"
-                                : "not-allowed",
-                          }}
-                          disabled={
-                            !(
-                              cartItems.length > 0 &&
-                              customerValidated &&
-                              loyaltyLoaded &&
-                              checkingCustomer === false &&
-                              !processingBill &&
-                              !showOtpInput &&
-                              !verifyingCustomer
-                            )
-                          }
-                        >
-                          Generate Bill
-                        </button>
+                          <button
+                            onClick={handleGenerateBill}
+                            style={{
+                              marginTop: "14px",
+                              width: "100%",
+                              background: "#e6c37a",
+                              color: "#000",
+                              padding: "12px",
+                              borderRadius: "10px",
+                              fontWeight: "600",
+                              opacity: canGenerateBill ? 1 : 0.6,
+                              cursor:
+                              canGenerateBill ? "pointer" : "not-allowed",
+                            }}
+                            disabled={!canGenerateBill}
+                          >
+                            Generate Bill
+                          </button>
                       </div>
                     </>
                   )}
@@ -2511,6 +2530,11 @@ function ExploreContent({ onReady }) {
                           <div style={{ fontSize: "13px", color: "#aaa" }}>
                             Available Points: {availablePoints}
                           </div>
+                          {!customerMobile && (
+                            <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
+                              Walk-in billing — no loyalty points will be applied
+                            </div>
+                          )}
                           {verifyingCustomer && (
                             <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
                               Checking customer...
@@ -2583,38 +2607,11 @@ function ExploreContent({ onReady }) {
                               padding: "12px",
                               borderRadius: "10px",
                               fontWeight: "600",
-                              opacity:
-                                cartItems.length > 0 &&
-                                  customerValidated &&
-                                  loyaltyLoaded &&
-                                  checkingCustomer === false &&
-                                  !processingBill &&
-                                  !showOtpInput &&
-                                  !verifyingCustomer
-                                  ? 1
-                                  : 0.6,
+                              opacity: canGenerateBill ? 1 : 0.6,
                               cursor:
-                                cartItems.length > 0 &&
-                                  customerValidated &&
-                                  loyaltyLoaded &&
-                                  checkingCustomer === false &&
-                                  !processingBill &&
-                                  !showOtpInput &&
-                                  !verifyingCustomer
-                                  ? "pointer"
-                                  : "not-allowed",
+                                canGenerateBill ? "pointer" : "not-allowed",
                             }}
-                            disabled={
-                              !(
-                                cartItems.length > 0 &&
-                                customerValidated &&
-                                loyaltyLoaded &&
-                                checkingCustomer === false &&
-                                !processingBill &&
-                                !showOtpInput &&
-                                !verifyingCustomer
-                              )
-                            }
+                            disabled={!canGenerateBill}
                           >
                             Generate Bill
                           </button>

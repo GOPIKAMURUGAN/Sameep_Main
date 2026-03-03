@@ -11,9 +11,17 @@ exports.createBillingSession = async (req, res) => {
   try {
     const { vendorId, customerId } = req.body;
 
+    if (!vendorId) {
+      return res.status(400).json({
+        success: false,
+        message: "Vendor ID required",
+      });
+    }
+
     const billing = await BillingSession.create({
       vendorId,
-      customerId,
+      customerId: customerId || null,
+      billingMode: customerId ? "LOYALTY" : "WALK_IN",
       cartItems: [],
       totalAmount: 0,
     });
@@ -93,6 +101,13 @@ exports.requestRedeemOTP = async (req, res) => {
       });
     }
 
+    if (!billing.customerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Loyalty redemption requires customer",
+      });
+    }
+
     const customer = await Customer.findById(billing.customerId);
     const mobile = customer?.fullNumber;
 
@@ -119,7 +134,7 @@ exports.requestRedeemOTP = async (req, res) => {
       }
     );
 
-    billing.redeemRequested = redeemPoints;
+    billing.pointsRedeemed = redeemPoints;
     billing.otpVerified = false;
 
     await billing.save();
@@ -216,8 +231,10 @@ exports.completeBillingSession = async (req, res) => {
       });
     }
 
+    const isWalkIn = !billing.customerId;
+
     // 🔐 OTP SAFETY CHECK
-    if (billing.redeemRequested > 0 && !billing.otpVerified) {
+    if (!isWalkIn && billing.pointsRedeemed > 0 && !billing.otpVerified) {
       return res.status(400).json({
         success: false,
         message: "OTP verification required before redemption",
@@ -229,12 +246,12 @@ exports.completeBillingSession = async (req, res) => {
     // -------------------------
     const transaction = await Transaction.create({
       vendorId: billing.vendorId,
-      customerId: billing.customerId,
+      customerId: billing.customerId || null,
       totalAmount: billing.totalAmount,
-      redeemedPoints: billing.redeemRequested || 0,
-      redeemValue: billing.redeemRequested || 0,
+      redeemedPoints: billing.pointsRedeemed || 0,
+      redeemValue: billing.pointsRedeemed || 0,
       finalPaidAmount:
-        billing.totalAmount - (billing.redeemRequested || 0),
+        billing.totalAmount - (billing.pointsRedeemed || 0),
       paymentMode,
       paymentStatus: "OFFLINE_PAID",
       billingSource: "POS_OFFLINE",
@@ -243,9 +260,9 @@ exports.completeBillingSession = async (req, res) => {
     // -------------------------
     // FIFO Redemption
     // -------------------------
-    let redeemLeft = billing.redeemRequested || 0;
+    let redeemLeft = billing.pointsRedeemed || 0;
 
-    if (redeemLeft > 0) {
+    if (!isWalkIn && redeemLeft > 0) {
       const earns = await LoyaltyLedger.find({
         vendorId: billing.vendorId,
         customerId: billing.customerId,
@@ -269,28 +286,47 @@ exports.completeBillingSession = async (req, res) => {
         vendorId: billing.vendorId,
         customerId: billing.customerId,
         transactionId: transaction._id,
-        points: -(billing.redeemRequested || 0),
+        points: -(billing.pointsRedeemed || 0),
       });
     }
 
     // -------------------------
     // Earn Points
     // -------------------------
-    const rule = await VendorLoyaltyRule.findOne({
-      vendorId: billing.vendorId,
-      isEnabled: true,
-    });
+    let rule = null;
+    if (!isWalkIn) {
+      rule = await VendorLoyaltyRule.findOne({
+        vendorId: billing.vendorId,
+        isEnabled: true,
+      });
+    }
 
-    if (rule) {
-      const blocks = Math.floor(transaction.finalPaidAmount / 100);
-      const pointsEarned = blocks * rule.percentPer100;
+    if (!isWalkIn && rule) {
+      const totalAmount = transaction.finalPaidAmount;
+      const earnPercent = rule?.earn?.percentPer100 ?? 0;
+      let earnedPoints = 0;
 
-      if (pointsEarned > 0) {
+      if (
+        typeof totalAmount === "number" &&
+        totalAmount > 0 &&
+        typeof earnPercent === "number" &&
+        earnPercent > 0
+      ) {
+        earnedPoints = Math.floor((totalAmount / 100) * earnPercent);
+      }
+
+      billing.pointsEarned = Number.isFinite(earnedPoints)
+        ? earnedPoints
+        : 0;
+
+      if (billing.pointsEarned > 0) {
         let expiryDate = null;
 
-        if (rule.expiryDays) {
+        if (rule?.expiry?.expiryDays) {
           expiryDate = new Date();
-          expiryDate.setDate(expiryDate.getDate() + rule.expiryDays);
+          expiryDate.setDate(
+            expiryDate.getDate() + rule.expiry.expiryDays
+          );
         }
 
         await LoyaltyLedger.create({
@@ -298,19 +334,26 @@ exports.completeBillingSession = async (req, res) => {
           vendorId: billing.vendorId,
           customerId: billing.customerId,
           transactionId: transaction._id,
-          points: pointsEarned,
-          remainingPoints: pointsEarned,
+          points: billing.pointsEarned,
+          remainingPoints: billing.pointsEarned,
           expiryDate,
         });
       }
     }
 
    // 🔒 Atomic completion lock (prevents double completion)
-const closed = await BillingSession.findOneAndUpdate(
-  { _id: billingId, status: "ACTIVE" },
-  { status: "COMPLETED" },
-  { new: true }
-);
+    if (isWalkIn) {
+      billing.pointsEarned = 0;
+      billing.pointsRedeemed = 0;
+    }
+
+    await billing.save();
+
+    const closed = await BillingSession.findOneAndUpdate(
+      { _id: billingId, status: "ACTIVE" },
+      { status: "COMPLETED" },
+      { new: true }
+    );
 
 if (!closed) {
   return res.status(400).json({
@@ -321,6 +364,8 @@ if (!closed) {
 
     res.status(200).json({
       success: true,
+      type: isWalkIn ? "WALK_IN" : "CUSTOMER",
+      message: isWalkIn ? "Walk-in bill generated" : "Bill generated",
       transaction,
     });
 

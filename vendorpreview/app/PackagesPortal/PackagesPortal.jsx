@@ -3,12 +3,6 @@
 import { useEffect, useState } from "react";
 import "../PackagesPortal/PackagesPortal.css";
 import { useVendor } from "../VendorContext";
-
-/* ================= IMAGE TREE HELPERS ================= */
-const categoryCache = new Map();
-
-/* ================= DEFAULT OPTIONS ================= */
-
 function parseTerms(terms) {
   if (!terms) return [];
   return terms
@@ -23,7 +17,6 @@ function collectMasterIds(nodes, set = new Set()) {
   });
   return set;
 }
-
 function collectVendorIds(nodes, set = new Set()) {
   nodes.forEach(n => {
     if (n.categoryId) set.add(n.categoryId);
@@ -31,21 +24,8 @@ function collectVendorIds(nodes, set = new Set()) {
   });
   return set;
 }
-
-
-function collectCategoryIds(nodes, set = new Set()) {
-  nodes.forEach(n => {
-    if (n.categoryId) set.add(n.categoryId);
-    if (n.children) collectCategoryIds(n.children, set);
-  });
-  return set;
-}
-
-
 function buildFullPayloads(nodes, parentVendorPriceNodeId = null, level = 0, arr = []) {
-
   nodes.forEach((node, index) => {
-
     const payload = {
       vendorId: node.vendorId,
       rootCategoryId: node.rootCategoryId,
@@ -70,21 +50,14 @@ function buildFullPayloads(nodes, parentVendorPriceNodeId = null, level = 0, arr
       buildFullPayloads(
         node.children,
         node._id?.startsWith("new-") ? null : node._id,
-        // parentVendorPriceNodeId
         level + 1,
         arr
       );
     }
   });
-
   return arr;
 }
-
-
-
 function syncVendorTree(masterTree, vendorTree) {
-
-  // 🔥 flatten vendor tree once
   const vendorMap = new Map();
 
   function flatten(nodes) {
@@ -114,7 +87,7 @@ function syncVendorTree(masterTree, vendorTree) {
       price: 0,
       pricingStatus: "Inactive",
       terms: "",
-      packagesIncludes: master.packagesIncludes || "", // ⭐ ADD
+      packagesIncludes: master.packagesIncludes || "",
       children: []
     };
 
@@ -128,38 +101,6 @@ function syncVendorTree(masterTree, vendorTree) {
   return walk(masterTree);
 }
 
-function stringifyTerms(termsArray) {
-  return termsArray.join(", ");
-}
-
-
-async function buildCategoryTree(parentId) {
-  if (categoryCache.has(parentId)) {
-    return categoryCache.get(parentId);
-  }
-
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dummy-categories?parentId=${parentId}`,
-    { cache: "no-store" }
-  );
-
-  const children = await res.json();
-
-  if (!Array.isArray(children) || children.length === 0) {
-    categoryCache.set(parentId, []);
-    return [];
-  }
-
-  const enriched = await Promise.all(
-    children.map(async c => ({
-      ...c,
-      children: await buildCategoryTree(c._id),
-    }))
-  );
-
-  categoryCache.set(parentId, enriched);
-  return enriched;
-}
 function findTermsInCategoryTree(nodes, categoryId) {
   for (const node of nodes) {
     if (node._id === categoryId) {
@@ -168,7 +109,6 @@ function findTermsInCategoryTree(nodes, categoryId) {
         ? node.terms
         : parseTerms(node.terms);
     }
-
     if (node.children?.length) {
       const found = findTermsInCategoryTree(
         node.children,
@@ -177,7 +117,6 @@ function findTermsInCategoryTree(nodes, categoryId) {
       if (found.length) return found;
     }
   }
-
   return [];
 }
 function isFreeTextEnabled(nodes, categoryId) {
@@ -191,30 +130,8 @@ function isFreeTextEnabled(nodes, categoryId) {
       if (found) return true;
     }
   }
-
   return false;
 }
-async function fetchCategoryTerms(categoryId) {
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dummy-categories?parentId=${categoryId}`,
-    { cache: "no-store" }
-  );
-
-  const children = await res.json();
-
-  // find matching category node that has terms
-  for (const c of children) {
-    if (c.terms && c.terms.length) {
-      return Array.isArray(c.terms)
-        ? c.terms
-        : parseTerms(c.terms);
-    }
-  }
-
-  return [];
-}
-
-
 function buildImageMapFromTree(nodes) {
   const map = {};
 
@@ -235,8 +152,13 @@ function buildImageMapFromTree(nodes) {
   return map;
 }
 
-
-/* ================= MAIN ================= */
+function normalizeTree(node) {
+  return {
+    ...node,
+    _id: node.id,
+    children: (node.children || []).map(normalizeTree),
+  };
+}
 export default function PackagesPortal({ onClose, onLoaded }) {
   const { vendorInfo } = useVendor();
   const vendorId = vendorInfo?.vendorId || vendorInfo?._id || null;
@@ -263,33 +185,17 @@ export default function PackagesPortal({ onClose, onLoaded }) {
   const [pendingService, setPendingService] = useState(null);
   const [activationPrice, setActivationPrice] = useState("");
 
-  const [selectedTermsMap, setSelectedTermsMap] = useState({});
   const [allTerms, setAllTerms] = useState([]);
 
   const [categoryTree, setCategoryTree] = useState([]);
 
   function toggleTerm(term) {
     setSelectedTerms(prev => {
-      const updated = prev.includes(term)
+      return prev.includes(term)
         ? prev.filter(t => t !== term) // ❌ remove → untick
         : [...prev, term];             // ✅ add → tick
-
-      const serviceId =
-        editingService?._id || pendingService?._id;
-
-      if (serviceId) {
-        setSelectedTermsMap(map => ({
-          ...map,
-          [serviceId]: updated
-        }));
-      }
-
-      return updated;
     });
   }
-
-
-
   function attachImagesToPricingTree(pricingNodes, imageMap) {
     function walk(nodes, inheritedImage = null) {
       return nodes.map(n => {
@@ -311,24 +217,30 @@ export default function PackagesPortal({ onClose, onLoaded }) {
     if (!vendorId || !rootCategoryId) return;
 
     async function load() {
-
-
-
       setLoading(true);
-
-      // 1️⃣ Pricing tree
       const pricingRes = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/tree?vendorId=${vendorId}&rootCategoryId=${rootCategoryId}`
       );
       const pricingData = await pricingRes.json();
 
       // 2️⃣ Category image tree
-      const catTree = await buildCategoryTree(rootCategoryId);
+      const catRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/categories/tree?rootCategoryId=${rootCategoryId}`
+      );
+
+      const rawTree = await catRes.json();
+
+      if (!rawTree || !rawTree.id) {
+        setCategoryTree([]);
+        setRootNodes([]);
+        setLoading(false);
+        return;
+      }
+
+      const normalizedRoot = normalizeTree(rawTree);
+      const catTree = normalizedRoot.children || [];
+
       setCategoryTree(catTree);
-
-      // ================= SYNC BACKEND =================
-
-
 
       const masterIds = collectMasterIds(catTree);
       const vendorIds = collectVendorIds(pricingData.tree || []);
@@ -352,9 +264,6 @@ export default function PackagesPortal({ onClose, onLoaded }) {
           )
         );
       }
-
-      const extraIds = [...vendorIds].filter(id => !masterIds.has(id));
-
 
       // 🔄 REFRESH pricing tree AFTER sync
       const refreshedRes = await fetch(
@@ -405,22 +314,13 @@ export default function PackagesPortal({ onClose, onLoaded }) {
 
     load();
   }, [vendorId, rootCategoryId]);
-
-
   if (loading) return null;
-
-
-
   /* ================= CURRENT LEVEL ================= */
   const showingRoot = path.length === 0;
   const currentNode = path[path.length - 1];
   const children = showingRoot ? rootNodes : currentNode.children || [];
-
   const categoryChildren = children.filter(c => !c.isLeaf);
   const serviceChildren = children.filter(c => c.isLeaf);
-
-
-
   /* ================= TOGGLE ================= */
   function updatePathStatus(path, id, status) {
     return path.map(node => ({
@@ -428,9 +328,6 @@ export default function PackagesPortal({ onClose, onLoaded }) {
       children: updateNodeStatus(node.children || [], id, status)
     }));
   }
-
-
-
   function updateNodeStatus(nodes, id, status) {
     return nodes.map(node => {
       if (node._id === id) {
@@ -454,9 +351,6 @@ export default function PackagesPortal({ onClose, onLoaded }) {
       return node;
     });
   }
-
-
-
   const toggleStatus = async (service) => {
     const isActive = service.pricingStatus === "Active";
 
@@ -475,30 +369,22 @@ export default function PackagesPortal({ onClose, onLoaded }) {
 
       return;
     }
-
-
     // 👉 INACTIVE → ACTIVATE
     setPendingService(service);
     setPendingServiceId(service._id);
     setActivationPrice(service.price || "");
     setActivationOfferText(service.offerText || "");
-
-    // ⭐ SAME SOURCE AS EDIT
     const masterTerms = findTermsInCategoryTree(
       categoryTree,
       service.categoryId
     );
 
-    // ⭐ SAME PRESELECT RULE AS EDIT
     const selected = parseTerms(service.terms);
 
     setAllTerms(masterTerms);
     setSelectedTerms(selected);
-
     setShowActivateModal(true);
   };
-
-
   const confirmActivateService = async () => {
     if (!pendingServiceId) return;   // safety
 
@@ -527,17 +413,12 @@ export default function PackagesPortal({ onClose, onLoaded }) {
     setPendingService(null);
     setPendingServiceId(null);
   };
-
-
-
   const sortedChildren = [...serviceChildren].sort((a, b) => {
     const aActive = a.pricingStatus === "Active";
     const bActive = b.pricingStatus === "Active";
     if (aActive === bActive) return 0;
     return aActive ? -1 : 1;
   });
-
-
   async function updateService(service, status) {
     await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
       method: "PUT",
@@ -564,11 +445,6 @@ export default function PackagesPortal({ onClose, onLoaded }) {
         : []
     )
   ];
-
-
-
-
-
   return (
     <div className="packages-overlay">
       <div className="packages-card">
@@ -581,7 +457,6 @@ export default function PackagesPortal({ onClose, onLoaded }) {
           >
             ←
           </span>
-
           <div className="header-text">
             <h2>{showingRoot ? "Packages" : currentNode.name}</h2>
             <p className="section-path">
@@ -591,11 +466,6 @@ export default function PackagesPortal({ onClose, onLoaded }) {
             </p>
           </div>
         </div>
-
-        {/* LIST */}
-        {/* ================= CATEGORY LIST ================= */}
-
-
         {displayCategories.map(node => (
           <div
             key={node._id}
@@ -612,15 +482,8 @@ export default function PackagesPortal({ onClose, onLoaded }) {
             {node.name}
           </div>
         ))}
-
-
-
         {/* ================= LEAF GRID ================= */}
         {displayCategories.length === 0 && serviceChildren.length > 0 && (() => {
-
-
-
-
           const activeServices = sortedChildren.filter(
             s => s.pricingStatus === "Active"
           );
@@ -693,11 +556,7 @@ export default function PackagesPortal({ onClose, onLoaded }) {
 
           );
         })()}
-
-
       </div >
-
-      {/* MODALS */}
       {
         showEditModal && editingService && (
           <Modal title="Edit Service" onClose={() => setShowEditModal(false)}>
@@ -740,18 +599,14 @@ export default function PackagesPortal({ onClose, onLoaded }) {
                 />
               </>
             )}
-
-
             <button
               className="btn-primary"
               onClick={async () => {
                 if (!editingService) return; // safety
-
                 editingService.price = Number(modalPrice);
                 editingService.pricingStatus = "Active";
                 editingService.terms = selectedTerms.join(", ");
                 editingService.offerText = modalOfferText;
-
                 await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
                   method: "PUT",
                   headers: { "Content-Type": "application/json" },
@@ -770,15 +625,9 @@ export default function PackagesPortal({ onClose, onLoaded }) {
             >
               Save
             </button>
-
-
-
-
-
           </Modal>
         )
       }
-
       {
         showActivateModal && pendingService && (
           <Modal title="Activate Service" onClose={() => setShowActivateModal(false)}>
@@ -832,7 +681,6 @@ export default function PackagesPortal({ onClose, onLoaded }) {
               className="btn-primary"
               onClick={() => confirmActivateService(pendingService)}
             >
-
               Activate
             </button>
           </Modal>
@@ -841,7 +689,6 @@ export default function PackagesPortal({ onClose, onLoaded }) {
     </div>
   );
 }
-
 /* ================= SERVICE CARD ================= */
 function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }){
 
@@ -868,12 +715,10 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }){
               ))}
             </ul>
           )}
-
           {/* ⭐ PACKAGES INCLUDES */}
           {packagesIncludes.length > 0 && (
   <div className="service-includes">
     <div className="includes-title">Includes</div>
-
     <ul className="service-packages">
       {packagesIncludes.map((pkg, i) => (
         <li key={i}>✓ {pkg}</li>
@@ -881,12 +726,10 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }){
     </ul>
   </div>
 )}
-
           {service.offerText && (
             <p className="offer-text">{service.offerText}</p>
           )}
         </div>
-
         <div className="service-right">
           <span className="price">₹{service.price}</span>
 
@@ -915,8 +758,6 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }){
     </div>
   );
 }
-
-
 /* ================= MODAL ================= */
 function Modal({ title, children, onClose }) {
   return (

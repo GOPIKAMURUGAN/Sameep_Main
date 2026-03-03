@@ -12,7 +12,14 @@ const TransactionSchema = new mongoose.Schema(
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
-      required: true,
+      required: false,
+      default: null,
+      index: true,
+    },
+
+    billingSessionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "BillingSession",
       index: true,
     },
 
@@ -40,5 +47,8 @@ const TransactionSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+TransactionSchema.index({ vendorId: 1, createdAt: -1 });
+TransactionSchema.index({ billingSessionId: 1 });
 
 module.exports = mongoose.model("Transaction", TransactionSchema);

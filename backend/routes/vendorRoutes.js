@@ -8,6 +8,7 @@ const VendorCategoryPrice = require("../models/VendorCategoryPrice");
 const Customer = require("../models/Customer"); // 
 const getCategoryModel = require("../utils/getCategoryModel");
 const VendorLocation = require("../models/VendorLocation");
+const { getVendorBills, getBillDetails } = require("../controllers/vendorBillingController");
 
 const router = express.Router();
 const multer = require("multer");
@@ -1290,8 +1291,10 @@ router.put("/:id/business-hours", async (req, res) => {
   }
 });
 
-
-
-
+// --------------------
+// Dashboard Bills
+// --------------------
+router.get("/dashboard/bills", getVendorBills);
+router.get("/dashboard/bills/:billId", getBillDetails);
 
 module.exports = router;
