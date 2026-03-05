@@ -263,6 +263,179 @@ router.post("/sync", async (req, res) => {
 });
 
 /* =========================================================
+   ADD MISSING LEAF NODES
+========================================================= */
+router.post("/add-missing-leaves", async (req, res) => {
+  try {
+    const { vendorId, rootCategoryId, leafCategoryIds } = req.body;
+
+    if (!vendorId) {
+      return res.status(400).json({ message: "vendorId is required" });
+    }
+    if (!rootCategoryId) {
+      return res.status(400).json({ message: "rootCategoryId is required" });
+    }
+    if (!Array.isArray(leafCategoryIds)) {
+      return res.status(400).json({ message: "leafCategoryIds must be an array" });
+    }
+
+    const baseUrl = getBackendBaseUrl(req);
+
+    const { data } = await axios.get(
+      `${baseUrl}/api/categories/tree?rootCategoryId=${rootCategoryId}`
+    );
+
+    let treePayload;
+
+    if (Array.isArray(data?.tree)) {
+      treePayload = data.tree;
+    } else if (Array.isArray(data)) {
+      treePayload = data;
+    } else if (data?.children) {
+      treePayload = [data];
+    } else {
+      console.error("Unexpected tree API response:", data);
+      treePayload = [];
+    }
+
+    const flatNodes = flattenTree(treePayload);
+
+    if (!flatNodes.length) {
+      return res.status(500).json({
+        message: "Tree parsing failed — no nodes found",
+      });
+    }
+
+    const masterMap = {};
+    flatNodes.forEach((n) => {
+      masterMap[String(n.categoryId)] = n;
+    });
+
+    const existingNodes = await VendorPriceNode.find({
+      vendorId,
+      rootCategoryId,
+    }).select("categoryId").lean();
+
+    const existingSet = new Set(
+      existingNodes.map((n) => String(n.categoryId))
+    );
+
+    const leafSet = new Set(leafCategoryIds.map((id) => String(id)));
+
+    const requiredNodeIds = new Set();
+
+    for (const leafId of leafSet) {
+      let current = masterMap[String(leafId)];
+
+      while (current) {
+        requiredNodeIds.add(String(current.categoryId));
+
+        if (!current.parentCategoryId) break;
+
+        if (String(current.parentCategoryId) === String(rootCategoryId)) {
+          break;
+        }
+
+        current = masterMap[String(current.parentCategoryId)];
+      }
+    }
+
+    const nodesToInsert = [...requiredNodeIds].filter(
+      (id) => !existingSet.has(id)
+    );
+
+    const ops = [];
+    const insertedCategoryIds = [];
+
+    for (const categoryId of nodesToInsert) {
+      const node = masterMap[String(categoryId)];
+      if (!node) continue;
+
+      if (String(node.categoryId) === String(rootCategoryId)) continue;
+
+      ops.push({
+        insertOne: {
+          document: {
+            vendorId,
+            rootCategoryId,
+            categoryId: node.categoryId,
+            parentCategoryId: node.parentCategoryId,
+            name: node.name,
+            level: node.level,
+            isLeaf: node.isLeaf,
+            price: node.isLeaf ? node.price : null,
+            terms: node.terms,
+            offerText: node.offerText,
+            enableFreeText: node.enableFreeText,
+            freeText: node.freeText,
+            visibleToUser: node.visibleToUser,
+            visibleToVendor: node.visibleToVendor,
+            pricingStatus: "Inactive",
+            source: "MASTER_SYNC",
+          },
+        },
+      });
+
+      insertedCategoryIds.push(String(node.categoryId));
+    }
+
+    if (ops.length) {
+      await VendorPriceNode.bulkWrite(ops);
+    }
+
+    if (insertedCategoryIds.length) {
+      const allNodes = await VendorPriceNode.find({
+        vendorId,
+        rootCategoryId,
+      }).select("_id categoryId parentCategoryId").lean();
+
+      const idMap = {};
+      allNodes.forEach((n) => {
+        idMap[String(n.categoryId)] = n;
+      });
+
+      const linkOps = [];
+
+      for (const categoryId of insertedCategoryIds) {
+        const node = idMap[String(categoryId)];
+        if (!node || !node.parentCategoryId) continue;
+
+        const parent = idMap[String(node.parentCategoryId)];
+        if (!parent) continue;
+
+        if (String(parent._id) === String(node._id)) {
+          continue;
+        }
+
+        linkOps.push({
+          updateOne: {
+            filter: { _id: node._id },
+            update: {
+              $set: { parentVendorPriceNodeId: parent._id },
+            },
+          },
+        });
+      }
+
+      if (linkOps.length) {
+        await VendorPriceNode.bulkWrite(linkOps);
+      }
+    }
+
+    return res.json({
+      message: "Missing leaves added successfully",
+      insertedCount: ops.length,
+    });
+  } catch (err) {
+    console.error("ADD MISSING LEAVES ERROR:", err);
+    return res.status(500).json({
+      message: "Internal Server Error",
+      error: err.message,
+    });
+  }
+});
+
+/* =========================================================
    STEP 9: READ HIERARCHY (TREE VIEW)
 ========================================================= */
 router.get("/tree", async (req, res) => {

@@ -3,6 +3,18 @@
 import { useEffect, useState } from "react";
 import "../PackagesPortal/PackagesPortal.css";
 import { useVendor } from "../VendorContext";
+function fetchWithAuth(url, options = {}) {
+  const token = localStorage.getItem("authToken");
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+      Authorization: token ? `Bearer ${token}` : "",
+    },
+  });
+}
 function parseTerms(terms) {
   if (!terms) return [];
   return terms
@@ -21,6 +33,17 @@ function collectVendorIds(nodes, set = new Set()) {
   nodes.forEach(n => {
     if (n.categoryId) set.add(n.categoryId);
     if (n.children) collectVendorIds(n.children, set);
+  });
+  return set;
+}
+function collectLeafIds(nodes, set = new Set()) {
+  nodes.forEach(n => {
+    if (n.isLeaf) {
+      set.add(n._id);
+    }
+    if (n.children) {
+      collectLeafIds(n.children, set);
+    }
   });
   return set;
 }
@@ -57,48 +80,48 @@ function buildFullPayloads(nodes, parentVendorPriceNodeId = null, level = 0, arr
   });
   return arr;
 }
-function syncVendorTree(masterTree, vendorTree) {
-  const vendorMap = new Map();
+function mergeVendorWithCategory(vendorTree, categoryTree) {
+  const categoryMap = new Map();
 
-  function flatten(nodes) {
-    nodes.forEach(n => {
-      vendorMap.set(n.categoryId, n);
-      if (n.children?.length) flatten(n.children);
+  function flatten(nodes, inheritedImage = null) {
+    nodes.forEach(node => {
+      const currentImage = node.imageUrl || inheritedImage || null;
+
+      categoryMap.set(node._id, {
+        imageUrl: currentImage,
+        packagesIncludes: node.packagesIncludes || "",
+        enableFreeText: node.enableFreeText === true,
+      });
+
+      if (node.children?.length) {
+        flatten(node.children, currentImage);
+      }
     });
   }
 
-  flatten(vendorTree);
+  flatten(categoryTree || []);
 
-  function walk(masterNodes) {
-    return masterNodes.map(master => {
-
-      const vendorMatch = vendorMap.get(master._id);
-
-   const baseNode = vendorMatch
-  ? {
-      ...vendorMatch,
-      packagesIncludes: master.packagesIncludes || "", // ⭐ ADD
-    }
-  : {
-      _id: `new-${master._id}`,
-      categoryId: master._id,
-      name: master.name,
-      isLeaf: master.isLeaf,
-      price: 0,
-      pricingStatus: "Inactive",
-      terms: "",
-      packagesIncludes: master.packagesIncludes || "",
-      children: []
-    };
+  function walk(nodes) {
+    return (nodes || []).map(vendorNode => {
+      const meta = categoryMap.get(vendorNode.categoryId);
 
       return {
-        ...baseNode,
-        children: walk(master.children || [])
+        ...vendorNode,
+        imageUrl: vendorNode.imageUrl || meta?.imageUrl || null,
+        packagesIncludes:
+          meta?.packagesIncludes ??
+          vendorNode.packagesIncludes ??
+          "",
+        enableFreeText:
+          meta?.enableFreeText ??
+          vendorNode.enableFreeText ??
+          false,
+        children: walk(vendorNode.children || []),
       };
     });
   }
 
-  return walk(masterTree);
+  return walk(vendorTree || []);
 }
 
 function findTermsInCategoryTree(nodes, categoryId) {
@@ -138,7 +161,6 @@ function buildImageMapFromTree(nodes) {
   function walk(node, inheritedImage = null) {
     const currentImage = node.imageUrl || inheritedImage;
 
-    // 🔑 store by _id (this matches pricing.categoryId)
     if (node._id && currentImage) {
       map[node._id] = currentImage;
     }
@@ -212,70 +234,57 @@ export default function PackagesPortal({ onClose, onLoaded }) {
 
     return walk(pricingNodes);
   }
-  /* ================= FETCH TREE ================= */
   useEffect(() => {
     if (!vendorId || !rootCategoryId) return;
 
     async function load() {
       setLoading(true);
-      const pricingRes = await fetch(
+      const pricingRes = await fetchWithAuth(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/tree?vendorId=${vendorId}&rootCategoryId=${rootCategoryId}`
       );
       const pricingData = await pricingRes.json();
 
       // 2️⃣ Category image tree
-      const catRes = await fetch(
+      const catRes = await fetchWithAuth(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/categories/tree?rootCategoryId=${rootCategoryId}`
       );
 
       const rawTree = await catRes.json();
-
       if (!rawTree || !rawTree.id) {
         setCategoryTree([]);
         setRootNodes([]);
         setLoading(false);
         return;
       }
-
       const normalizedRoot = normalizeTree(rawTree);
       const catTree = normalizedRoot.children || [];
-
       setCategoryTree(catTree);
+  const masterLeafIds = collectLeafIds(catTree);
+const vendorIds = collectVendorIds(pricingData.tree || []);
 
-      const masterIds = collectMasterIds(catTree);
-      const vendorIds = collectVendorIds(pricingData.tree || []);
-
-      const missingIds = [...masterIds].filter(id => !vendorIds.has(id));
-      if (missingIds.length) {
-        await Promise.all(
-          missingIds.map(id =>
-            fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/sync`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                vendorId,
-                rootCategoryId,
-                categoryId: id,
-                price: 0,
-                pricingStatus: "Inactive",
-                terms: ""
-              })
-            })
-          )
-        );
-      }
-
-      // 🔄 REFRESH pricing tree AFTER sync
-      const refreshedRes = await fetch(
+const missingLeafIds = [...masterLeafIds].filter(
+  id => !vendorIds.has(id)
+);
+console.log("MISSING LEAF IDS:", missingLeafIds);
+if (missingLeafIds.length) {
+  await fetchWithAuth(
+    `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/add-missing-leaves`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        vendorId,
+        rootCategoryId,
+        leafCategoryIds: missingLeafIds
+      })
+    }
+  );
+}
+      const refreshedRes = await fetchWithAuth(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/tree?vendorId=${vendorId}&rootCategoryId=${rootCategoryId}`
       );
       const refreshedPricing = await refreshedRes.json();
-
-      // ================= BUILD FINAL TREE =================
-
       const imageMap = buildImageMapFromTree(catTree);
-
-      const syncedTree = syncVendorTree(catTree, refreshedPricing.tree || []);
+      const syncedTree = mergeVendorWithCategory(refreshedPricing.tree || [], catTree);
       function collectActiveLeafIds(nodes, arr = []) {
         nodes.forEach(n => {
           if (n.isLeaf && n.pricingStatus === "Active") {
@@ -287,21 +296,15 @@ export default function PackagesPortal({ onClose, onLoaded }) {
         });
         return arr;
       }
-
       const activeLeafCategoryIds = collectActiveLeafIds(syncedTree);
-
       const payload = {
         vendorId,
         rootCategoryId,
         activeLeafCategoryIds
       };
-
       console.log("SYNC PAYLOAD:", payload);
-
       const fullPayload = buildFullPayloads(syncedTree);
-
       console.log("FULL PAYLOAD:", fullPayload);
-
       const treeWithImages =
         attachImagesToPricingTree(syncedTree, imageMap);
 
@@ -388,9 +391,8 @@ export default function PackagesPortal({ onClose, onLoaded }) {
   const confirmActivateService = async () => {
     if (!pendingServiceId) return;   // safety
 
-    await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
+    await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         vendorPriceNodeId: pendingServiceId,
         price: Number(activationPrice),
@@ -400,7 +402,6 @@ export default function PackagesPortal({ onClose, onLoaded }) {
       })
     });
 
-    // update local UI object if still present
     if (pendingService) {
       pendingService.price = Number(activationPrice);
       pendingService.pricingStatus = "Active";
@@ -420,9 +421,8 @@ export default function PackagesPortal({ onClose, onLoaded }) {
     return aActive ? -1 : 1;
   });
   async function updateService(service, status) {
-    await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
+    await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         vendorPriceNodeId: service._id,
         price: Number(service.price),
@@ -551,9 +551,7 @@ export default function PackagesPortal({ onClose, onLoaded }) {
                   </div>
                 </>
               )}
-
             </section>
-
           );
         })()}
       </div >
@@ -607,9 +605,8 @@ export default function PackagesPortal({ onClose, onLoaded }) {
                 editingService.pricingStatus = "Active";
                 editingService.terms = selectedTerms.join(", ");
                 editingService.offerText = modalOfferText;
-                await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
+                await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
                   method: "PUT",
-                  headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     vendorPriceNodeId: editingService._id,   // ✅ FIX
                     price: Number(modalPrice),               // ✅ FIX

@@ -13,11 +13,11 @@ exports.upsertVendorRule = async (req, res) => {
       minBillAmount: payload.minBillAmount ?? 0,
       rounding: payload.rounding ?? "FLOOR",
       earn: {
-        percentPer100: payload.percentPer100 ?? 0,
+        percentPer100: payload?.earn?.percentPer100 ?? payload?.percentPer100 ?? 0,
         type: "PERCENT_PER_BILL",
       },
       expiry: {
-        expiryDays: payload.expiryDays ?? 0,
+        expiryDays: payload?.expiry?.expiryDays ?? payload?.expiryDays ?? 0,
       },
       redeem: {
         allowPartial: payload.allowPartial ?? false,

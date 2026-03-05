@@ -4,6 +4,8 @@ const Transaction = require("../models/Transaction");
 const VendorLoyaltyRule = require("../models/VendorLoyaltyRule");
 const LoyaltyLedger = require("../models/LoyaltyLedger");
 const Customer = require("../models/Customer");
+const Vendor = require("../models/Vendor");
+const { sendBillWhatsapp } = require("../utils/whatsappService");
 
 
 // ✅ Create Billing Session
@@ -139,6 +141,34 @@ exports.requestRedeemOTP = async (req, res) => {
 
     await billing.save();
 
+    setImmediate(async () => {
+      try {
+        if (!billing.customerId) return;
+
+        const [customer, vendor] = await Promise.all([
+          Customer.findById(billing.customerId).lean(),
+          Vendor.findById(billing.vendorId).lean(),
+        ]);
+
+        const mobile = customer?.fullNumber || customer?.phone;
+        if (!mobile) return;
+
+        await sendBillWhatsapp({
+          mobile,
+          customerName: customer?.name || "Customer",
+          vendorName: vendor?.businessName || "Vendor",
+          billAmount: billing.totalAmount,
+          earned: billing.pointsEarned || 0,
+          redeemed: billing.pointsRedeemed || 0,
+          finalPaid:
+            billing.totalAmount - (billing.pointsRedeemed || 0),
+          balance: null,
+        });
+      } catch (err) {
+        console.error("WhatsApp send failed:", err?.message || err);
+      }
+    });
+
     res.status(200).json({
       success: true,
       message: "OTP sent via MSG91",
@@ -247,6 +277,7 @@ exports.completeBillingSession = async (req, res) => {
     const transaction = await Transaction.create({
       vendorId: billing.vendorId,
       customerId: billing.customerId || null,
+      billingSessionId: billing._id,
       totalAmount: billing.totalAmount,
       redeemedPoints: billing.pointsRedeemed || 0,
       redeemValue: billing.pointsRedeemed || 0,

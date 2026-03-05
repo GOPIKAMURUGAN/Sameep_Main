@@ -164,6 +164,7 @@ app.use("/api/billing", billingRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
 app.use("/api/trust", trustProfileRoutes);
 app.use("/api/location", require("./routes/locationRoutes"));
+app.use("/api/test", require("./routes/test"));
 // Vendor Dashboard APIs
 app.use("/api/vendor/dashboard", require("./routes/vendorDashboardRoutes"));
 app.use("/api/vendor/dashboard", require("./routes/customerAnalyticsRoutes"));

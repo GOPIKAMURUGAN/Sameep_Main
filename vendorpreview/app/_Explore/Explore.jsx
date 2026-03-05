@@ -119,6 +119,13 @@ function TermsList({ terms }) {
 
 
 function ServiceCard({ data, sectionName, openLogin }) {
+	   
+			  
+			  
+				
+				
+		 
+	
 
   // ================= LOYALTY STATES =================
   const [loadingRule, setLoadingRule] = useState(false);
@@ -156,6 +163,10 @@ const [isMobile, setIsMobile] = useState(false);
     if (price <= 0) return "Contact for price";
     return `₹${price.toLocaleString("en-IN")}`;
   };
+
+										
+												
+																			   
 
 
   if (data.simple) {
@@ -206,12 +217,16 @@ const [isMobile, setIsMobile] = useState(false);
         <div className="ws-actions">
           <button
             className="btn-primary"
+					 
+			 
+								   
             onClick={() =>
               openLogin({
-                serviceName: data.title,
+                serviceName: data.title,   
                 price: data.base,
                 terms: data.terms?.join(", ") || "",
                 attributes: {},
+																	  
                 categoryPath: [sectionName].filter(Boolean),
                 categoryIds: [],
               })
@@ -219,6 +234,7 @@ const [isMobile, setIsMobile] = useState(false);
           >
             Enroll Now
           </button>
+			
 
 
 
@@ -428,6 +444,9 @@ const [isMobile, setIsMobile] = useState(false);
 
       <div className="ws-actions">
         <button
+									   
+				   
+						   
           className="btn-primary"
           onClick={() =>
             openLogin({
@@ -598,6 +617,7 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
 
         return {
           label: getName(c).trim(),
+								   
           price,
           imageUrl: imageMap[c.categoryId] || null,
           terms: normalizeTerms(c.terms || ""),
@@ -667,6 +687,7 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
           ) {
             options.push({
               label: getName(level2).trim(),
+											
               price: 0,
               imageUrl: imageMap[level2.categoryId] || null,
               terms: normalizeTerms(level2.terms || ""),
@@ -679,6 +700,7 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
           }
           options.push({
             label: getName(level2).trim(),
+										  
             price,
             imageUrl: imageMap[level2.categoryId] || null,
             terms: normalizeTerms(level2.terms || ""),
@@ -716,6 +738,7 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
 
               return {
                 label: getName(c).trim(),
+										 
                 price,
                 imageUrl: imageMap[c.categoryId] || null,
                 terms: normalizeTerms(c.terms || ""),
@@ -812,8 +835,12 @@ function ExploreContent({ onReady }) {
 
   const [showLogin, setShowLogin] = useState(false);
   const [viewMode, setViewMode] = useState("preview");
+																  
+																		
+														   
   // ================= MENU TREE (TEMP SAFE STATE) =================
   const [menuTree, setMenuTree] = useState([]);
+										 
 
   const [selectedServiceName, setSelectedServiceName] = useState("");
   const [selectedPrice, setSelectedPrice] = useState(null);
@@ -1153,9 +1180,10 @@ function ExploreContent({ onReady }) {
     return [...normal, ...offers]; // ✅ Offers always last
   }, [finalCategories]);
 
+								   
+
   useEffect(() => {
-
-
+											  
 
     if (!vendorId || !rootCategoryId) {
       setDataLoaded(true);
@@ -1227,20 +1255,7 @@ function ExploreContent({ onReady }) {
         const invalidNodes = collectInvalidNodes(pricingData.tree);
 
 
-        if (invalidNodes.length) {
-          await Promise.all(
-            invalidNodes.map(node =>
-              fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  vendorPriceNodeId: node._id,
-                  pricingStatus: "Archive"
-                })
-              })
-            )
-          );
-        }
+     
 
         setHeroImages(
           extractHeroImages(categoryTree, pricingData.tree)
@@ -1542,7 +1557,6 @@ function ExploreContent({ onReady }) {
       ];
     });
   };
-
   const clearCart = () => {
     setCartItems([]);
     setRedeemPoints(0);
@@ -1786,11 +1800,6 @@ function ExploreContent({ onReady }) {
     });
   };
 
-
-
-
-
-
   const categoryHome = category?.homePopup || {};
 
   const heroTagline =
@@ -1940,6 +1949,7 @@ function ExploreContent({ onReady }) {
                   sectionName={section.sectionName}
                   openLogin={openLogin}
                 />
+								 
               ))}
 
             </div>
@@ -1953,6 +1963,7 @@ function ExploreContent({ onReady }) {
             {cardsWithoutHeading.map((c, index) => (
               <div key={`flat-${c.id || c.title}-${index}`} className="ws-card-wrapper">
                 {/* 🔹 SHOW HEADING INSTEAD OF CARD TITLE */}
+			   
                 <h2
                   id={`cat-${toAnchor(c.title)}`}
                   className="ws-heading small"
@@ -1965,9 +1976,8 @@ function ExploreContent({ onReady }) {
                   sectionName={c.title}
                   openLogin={openLogin}
                 />
-
               </div>
-            ))}
+            ))}						  
           </div>
         )}
       </section>
@@ -2745,7 +2755,6 @@ function ExploreContent({ onReady }) {
           </div>
         </div>
       )}
-
       <button
         type="button"
         onClick={() => setViewMode("menu")}
@@ -2830,4 +2839,3 @@ export default function Explore({ onReady }) {
     </Suspense>
   );
 }
-
