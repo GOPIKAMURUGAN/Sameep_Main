@@ -46,6 +46,7 @@ function BillingScreen({ vendorId: vendorIdProp, rootCategoryId: rootCategoryIdP
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [customerMobile, setCustomerMobile] = useState("");
   const [availablePoints, setAvailablePoints] = useState(0);
+  const [expiredPoints, setExpiredPoints] = useState(0);
   const [redeemPoints, setRedeemPoints] = useState(0);
   const [customerId, setCustomerId] = useState(null);
   const [verifyingCustomer, setVerifyingCustomer] = useState(false);
@@ -165,6 +166,7 @@ function BillingScreen({ vendorId: vendorIdProp, rootCategoryId: rootCategoryIdP
 
       const wallet = await res.json();
       setAvailablePoints(wallet?.availablePoints || 0);
+      setExpiredPoints(wallet?.expiredPoints || 0);
     } catch (err) {
       console.error("Wallet fetch failed", err);
     }
@@ -214,6 +216,12 @@ function BillingScreen({ vendorId: vendorIdProp, rootCategoryId: rootCategoryIdP
   return (
     <div>
       {enabled ? "Loyalty Program Enabled" : "Loyalty Program Not Enabled"}
+      <div style={{ marginTop: 8 }}>
+        Available Points: {availablePoints}
+      </div>
+      <div style={{ marginTop: 4 }}>
+        Expired Points: {expiredPoints}
+      </div>
       {verifyingCustomer && (
         <div style={{ marginTop: 8, fontSize: 12 }}>
           Verifying customer...

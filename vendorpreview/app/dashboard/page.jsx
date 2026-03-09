@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { API_BASE_URL } from "../../config";
+import CustomerSummary from "./components/CustomerSummary";
+import StylistPerformance from "../../components/dashboard/StylistPerformance";
 
 function formatTime(dateString) {
   const d = new Date(dateString);
@@ -421,13 +423,15 @@ export default function VendorDashboardPage() {
           </div>
         </div>
 
+        <StylistPerformance vendorId={vendorId} />
+
         {customerData && (
           <div className="mt-10 w-full max-w-4xl text-left">
             <h2 className="text-2xl font-semibold text-white mb-4">
               Customer Summary
             </h2>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-3 gap-4">
               <div className="bg-black border border-white/10 rounded-xl p-4">
                 <div className="text-gray-400 text-sm">Phone</div>
                 <div className="text-white font-semibold">
@@ -461,8 +465,29 @@ export default function VendorDashboardPage() {
                 <div className="text-white font-semibold">
                   Balance: {customerData.loyalty?.balance || 0}
                 </div>
+                <div className="text-white font-semibold">
+                  Available: {customerData.loyalty?.availablePoints || 0}
+                </div>
+                <div className="text-white font-semibold">
+                  Expired: {customerData.loyalty?.expiredPoints || 0}
+                </div>
+                <div className="text-white font-semibold">
+                  Expiring Soon: {customerData.loyalty?.expiringSoonPoints || 0}
+                </div>
+              </div>
+
+              <div className="bg-black border border-white/10 rounded-xl p-4">
+                <div className="text-gray-400 text-sm">Customer Retention</div>
+                <div className="text-white font-semibold">
+                  Retention: {customerData.retention?.retentionScore || 0}%
+                </div>
+                <div className="text-white font-semibold">
+                  Returning Customers: {customerData.retention?.returningCustomers || 0}
+                </div>
               </div>
             </div>
+
+            <CustomerSummary bills={customerData.bills || []} />
 
             <div className="mt-6">
               <h3 className="text-xl font-semibold text-white mb-3">

@@ -154,6 +154,8 @@ const [packagesIncludes, setPackagesIncludes] = useState("");
   const [postRequestsDeals, setPostRequestsDeals] = useState(false);
   const [loyaltyPoints, setLoyaltyPoints] = useState(false);
   const [linkAttributesPricing, setLinkAttributesPricing] = useState(false);
+  const [enableHumanResources, setEnableHumanResources] = useState(false);
+  const [humanResourceLabel, setHumanResourceLabel] = useState("");
   const [freeTexts, setFreeTexts] = useState(Array(10).fill(""));
   const [icon, setIcon] = useState(null);
   const [colorSchemes, setColorSchemes] = useState([]);
@@ -279,6 +281,8 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
       setPostRequestsDeals(Boolean(initialData.postRequestsDeals));
       setLoyaltyPoints(Boolean(initialData.loyaltyPoints));
       setLinkAttributesPricing(Boolean(initialData.linkAttributesPricing));
+      setEnableHumanResources(Boolean(initialData.enableHumanResources));
+      setHumanResourceLabel(initialData.humanResourceLabel || "");
       setColorSchemes(
         Array.isArray(initialData.colorSchemes) && initialData.colorSchemes.length > 0
           ? initialData.colorSchemes.map((scheme) => ({
@@ -432,6 +436,8 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
       setPostRequestsDeals(false);
       setLoyaltyPoints(false);
       setLinkAttributesPricing(false);
+      setEnableHumanResources(false);
+      setHumanResourceLabel("");
       setFreeTexts(Array(10).fill(""));
       setSignupLevels([]);
       setSignupLevelDetails({});
@@ -713,6 +719,8 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
       formData.append("postRequestsDeals", postRequestsDeals);
       formData.append("loyaltyPoints", loyaltyPoints);
       formData.append("linkAttributesPricing", linkAttributesPricing);
+      formData.append("enableHumanResources", enableHumanResources);
+      formData.append("humanResourceLabel", humanResourceLabel);
       freeTexts.forEach((txt, index) => {
         formData.append(`freeText${index + 1}`, txt || "");
       });
@@ -1468,6 +1476,25 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
                     Configure Linked Attributes
                   </button>
                 </div>
+              )}
+
+              <label style={checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={enableHumanResources}
+                  onChange={(e) => setEnableHumanResources(e.target.checked)}
+                />
+                Enable Human Resources Setting
+              </label>
+
+              {enableHumanResources && (
+                <input
+                  type="text"
+                  placeholder="Enter Label (Example: Manage Stylists)"
+                  value={humanResourceLabel}
+                  onChange={(e) => setHumanResourceLabel(e.target.value)}
+                  style={inputStyle}
+                />
               )}
             </>
           )}

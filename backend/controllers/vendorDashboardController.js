@@ -320,3 +320,56 @@ function maskPhone(phone) {
   if (!phone) return "";
   return phone.slice(0, 5) + "****";
 }
+
+exports.getStylistPerformance = async (req, res) => {
+  try {
+    const { vendorId, range } = req.query;
+
+    if (!vendorId) {
+      return res.status(400).json({ message: "vendorId required" });
+    }
+
+    const now = new Date();
+    let startDate;
+
+    if (range === "today") {
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (range === "mtd") {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (range === "ytd") {
+      startDate = new Date(now.getFullYear(), 0, 1);
+    } else {
+      startDate = new Date(0);
+    }
+
+    const result = await BillingSession.aggregate([
+      {
+        $match: {
+          vendorId: new mongoose.Types.ObjectId(vendorId),
+          status: "COMPLETED",
+          createdAt: { $gte: startDate },
+        },
+      },
+      { $unwind: "$cartItems" },
+      {
+        $match: {
+          "cartItems.resourceId": { $ne: null },
+        },
+      },
+      {
+        $group: {
+          _id: "$cartItems.resourceId",
+          stylist: { $first: "$cartItems.resourceName" },
+          revenue: { $sum: "$cartItems.total" },
+          services: { $sum: "$cartItems.qty" },
+        },
+      },
+      { $sort: { revenue: -1 } },
+    ]);
+
+    res.json(result);
+  } catch (err) {
+    console.error("Stylist analytics error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};

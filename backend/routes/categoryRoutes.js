@@ -126,6 +126,10 @@ router.post("/", upload.single("image"), async (req, res) => {
       seoKeywords: parent ? undefined : seoKeywords || "",
       linkAttributesPricing: req.body.linkAttributesPricing === "true",
       loyaltyPoints: req.body.loyaltyPoints === "true",
+      enableHumanResources:
+        req.body.enableHumanResources === "true" ||
+        req.body.enableHumanResources === true,
+      humanResourceLabel: req.body.humanResourceLabel || "",
       postRequestsDeals: req.body.postRequestsDeals === "true",
       inventoryLabelName: req.body.inventoryLabelName || "",
     };
@@ -347,6 +351,14 @@ router.put("/:id", uploadFields, async (req, res) => {
       category.postRequestsDeals = req.body.postRequestsDeals === "true";
       category.loyaltyPoints = req.body.loyaltyPoints === "true";
       category.linkAttributesPricing = req.body.linkAttributesPricing === "true";
+      if (req.body.enableHumanResources !== undefined) {
+        category.enableHumanResources =
+          req.body.enableHumanResources === "true" ||
+          req.body.enableHumanResources === true;
+      }
+      if (req.body.humanResourceLabel !== undefined) {
+        category.humanResourceLabel = req.body.humanResourceLabel;
+      }
       // Correctly read freeText1..freeText10
       category.freeTexts = Array.from({ length: 10 }, (_, idx) => req.body[`freeText${idx + 1}`] || "");
       if (req.body.inventoryLabelName !== undefined) category.inventoryLabelName = req.body.inventoryLabelName;

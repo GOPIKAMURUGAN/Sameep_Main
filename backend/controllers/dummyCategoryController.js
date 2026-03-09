@@ -213,6 +213,10 @@ console.log("REQ FILES:", req.files);
         postRequestsDeals: req.body.postRequestsDeals === "true",
         loyaltyPoints: req.body.loyaltyPoints === "true",
         linkAttributesPricing: req.body.linkAttributesPricing === "true",
+        enableHumanResources:
+          req.body.enableHumanResources === "true" ||
+          req.body.enableHumanResources === true,
+        humanResourceLabel: req.body.humanResourceLabel || "",
       };
 
       // Attach uploaded profile picture URLs (if any)
@@ -532,6 +536,14 @@ exports.updateCategory = async (req, res) => {
       if (req.body.postRequestsDeals !== undefined) doc.postRequestsDeals = req.body.postRequestsDeals === "true";
       if (req.body.loyaltyPoints !== undefined) doc.loyaltyPoints = req.body.loyaltyPoints === "true";
       if (req.body.linkAttributesPricing !== undefined) doc.linkAttributesPricing = req.body.linkAttributesPricing === "true";
+      if (req.body.enableHumanResources !== undefined) {
+        doc.enableHumanResources =
+          req.body.enableHumanResources === "true" ||
+          req.body.enableHumanResources === true;
+      }
+      if (req.body.humanResourceLabel !== undefined) {
+        doc.humanResourceLabel = req.body.humanResourceLabel;
+      }
 
       if (!doc.homePopup) doc.homePopup = {};
       if (req.body.homeTagline !== undefined) doc.homePopup.tagline = req.body.homeTagline;
@@ -669,6 +681,11 @@ exports.updateCategory = async (req, res) => {
         } catch {}
       }
     }
+
+    console.log("HR SETTINGS:", {
+      enableHumanResources: req.body.enableHumanResources,
+      humanResourceLabel: req.body.humanResourceLabel,
+    });
 
     await doc.save();
 

@@ -10,6 +10,7 @@ import HeroSection from "../Hero/Hero";
 import { API_BASE_URL } from "../../config";
 // adjust path if needed: ../config or ../../config
 import { Suspense } from "react";
+import ResourceButton from "./components/ResourceButton";
 
 import { useSearchParams } from "next/navigation";
 // import { useLoginPopup } from "./LoginPopupContext";
@@ -798,6 +799,7 @@ function ExploreContent({ onReady }) {
   const [cartItems, setCartItems] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const cartTotal = cartItems.reduce((a, b) => a + (b.total || 0), 0);
+  const [resources, setResources] = useState([]);
   // ================= LOYALTY STATES (FIX ERROR) =================
   const [loadingRule, setLoadingRule] = useState(false);
   const [savingRule, setSavingRule] = useState(false);
@@ -828,6 +830,7 @@ function ExploreContent({ onReady }) {
   const [vendorLoaded, setVendorLoaded] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [category, setCategory] = useState(null);
+  const [hrCategory, setHrCategory] = useState(null);
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -1279,6 +1282,33 @@ function ExploreContent({ onReady }) {
     }
     load();
   }, [vendorId, rootCategoryId]);
+
+  useEffect(() => {
+    if (!rootCategoryId) return;
+
+    fetch(`${API_BASE_URL}/api/dummy-categories/${rootCategoryId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setHrCategory(data);
+        console.log("CATEGORY STATE:", data);
+      })
+      .catch((err) => {
+        console.error("Failed to load category", err);
+      });
+  }, [rootCategoryId]);
+
+  useEffect(() => {
+    if (!vendorId) return;
+
+    fetch(`${API_BASE_URL}/api/vendor-resources?vendorId=${vendorId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setResources(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        console.error("Failed loading resources", err);
+      });
+  }, [vendorId]);
   useEffect(() => {
     if (vendorLoaded && dataLoaded) {
       onReady?.();
@@ -1548,6 +1578,8 @@ function ExploreContent({ onReady }) {
           price: node.price,
           qty: 1,
           total: node.price,
+          resourceId: null,
+          resourceName: "",
 
           parentId: node.parentId || null,
           rootCategoryId: rootCategoryId || node.rootCategoryId || null,
@@ -1705,6 +1737,22 @@ function ExploreContent({ onReady }) {
 
   const removeItem = (itemId) => {
     setCartItems(prev => prev.filter(i => i.itemId !== itemId));
+  };
+
+  const updateItemStylist = (itemId, resourceId) => {
+    const resource = resources.find(r => String(r._id) === String(resourceId));
+
+    setCartItems(prev =>
+      prev.map(item =>
+        item.itemId === itemId
+          ? {
+              ...item,
+              resourceId: resourceId || null,
+              resourceName: resource?.name || "",
+            }
+          : item
+      )
+    );
   };
 
   const menuClassForDepth = (depth, isLeaf = false) => {
@@ -1986,18 +2034,35 @@ function ExploreContent({ onReady }) {
       )}
       <RootsSection about={category?.about} />
       {viewMode === "menu" && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(8, 8, 8, 0.96)",
-            color: "#f3f3f3",
-            zIndex: 2000,
-            overflowY: "auto",
-            padding: "24px",
-            textAlign: "left",
-          }}
-        >
+        <div>
+          {hrCategory && hrCategory.enableHumanResources && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginBottom: "12px",
+              }}
+            >
+              <ResourceButton
+                vendorId={vendorId}
+                label={hrCategory.humanResourceLabel || "Manage Resources"}
+              />
+            </div>
+          )}
+
+          <div className="menuContainer">
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(8, 8, 8, 0.96)",
+                color: "#f3f3f3",
+                zIndex: 2000,
+                overflowY: "auto",
+                padding: "24px",
+                textAlign: "left",
+              }}
+            >
           <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
             <div style={{ fontSize: 20, fontWeight: 700 }}>Menu</div>
             <button
@@ -2085,6 +2150,11 @@ function ExploreContent({ onReady }) {
                               ₹ {item.total}
                             </span>
                           </div>
+                          {item.resourceName ? (
+                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+                              Stylist: {item.resourceName}
+                            </div>
+                          ) : null}
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <span style={{ minWidth: 40, color: "rgba(255,255,255,0.8)" }}>
                               x{item.qty}
@@ -2136,6 +2206,33 @@ function ExploreContent({ onReady }) {
                                 🗑
                               </button>
                             </div>
+                          </div>
+                          <div style={{ marginTop: 8 }}>
+                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+                              Stylist
+                            </div>
+                            <select
+                              value={item.resourceId || ""}
+                              onChange={(e) => updateItemStylist(item.itemId, e.target.value)}
+                              style={{
+                                width: "100%",
+                                marginTop: 6,
+                                background: "#111",
+                                border: "1px solid #444",
+                                color: "#fff",
+                                padding: "8px",
+                                borderRadius: 6,
+                              }}
+                            >
+                              <option value="">Select Stylist</option>
+                              {resources
+                                .filter((r) => r.status === "Active")
+                                .map((r) => (
+                                  <option key={r._id} value={r._id}>
+                                    {r.name}
+                                  </option>
+                                ))}
+                            </select>
                           </div>
                         </div>
                       ))}
@@ -2402,6 +2499,11 @@ function ExploreContent({ onReady }) {
                                 ₹ {item.total}
                               </span>
                             </div>
+                            {item.resourceName ? (
+                              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+                                Stylist: {item.resourceName}
+                              </div>
+                            ) : null}
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                               <span style={{ minWidth: 40, color: "rgba(255,255,255,0.8)" }}>
                                 x{item.qty}
@@ -2453,6 +2555,33 @@ function ExploreContent({ onReady }) {
                                   🗑
                                 </button>
                               </div>
+                            </div>
+                            <div style={{ marginTop: 8 }}>
+                              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+                                Stylist
+                              </div>
+                              <select
+                                value={item.resourceId || ""}
+                                onChange={(e) => updateItemStylist(item.itemId, e.target.value)}
+                                style={{
+                                  width: "100%",
+                                  marginTop: 6,
+                                  background: "#111",
+                                  border: "1px solid #444",
+                                  color: "#fff",
+                                  padding: "8px",
+                                  borderRadius: 6,
+                                }}
+                              >
+                                <option value="">Select Stylist</option>
+                                {resources
+                                  .filter((r) => r.status === "Active")
+                                  .map((r) => (
+                                    <option key={r._id} value={r._id}>
+                                      {r.name}
+                                    </option>
+                                  ))}
+                              </select>
                             </div>
                           </div>
                         ))}
@@ -2634,6 +2763,8 @@ function ExploreContent({ onReady }) {
             </>
           )}
         </div>
+          </div>
+        </div>
       )}
 
       {viewMode === "loyalty" && (
@@ -2753,8 +2884,9 @@ function ExploreContent({ onReady }) {
               Close
             </button>
           </div>
-        </div>
+          </div>
       )}
+
       <button
         type="button"
         onClick={() => setViewMode("menu")}

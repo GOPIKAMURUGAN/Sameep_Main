@@ -6,7 +6,7 @@ const router = express.Router();
 router.get("/whatsapp-test", async (req, res) => {
   try {
     const data = await sendBillWhatsapp({
-      mobile: "919666060396",
+      mobile: "916309719521",
       customerName: "Naresh",
       vendorName: "YNOT Salon",
       billAmount: 1000,

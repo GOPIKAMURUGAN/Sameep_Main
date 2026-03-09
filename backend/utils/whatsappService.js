@@ -13,16 +13,18 @@ async function sendBillWhatsapp(data) {
       balance,
     } = data;
 
+    const cleanMobile = mobile.replace("+", "");
+
     const payload = {
-      integrated_number: "15558138529",
+      integrated_number: process.env.MSG91_WHATSAPP_NUMBER,
       content_type: "template",
       payload: {
         messaging_product: "whatsapp",
         type: "template",
         template: {
-          name: "bill_confirmation",
+          name: "bill",
           language: {
-            code: "En_GB",
+            code: "en",
           },
           components: [
             {
@@ -39,7 +41,7 @@ async function sendBillWhatsapp(data) {
             },
           ],
         },
-        to: mobile,
+        to: cleanMobile,
       },
     };
 

@@ -14,6 +14,17 @@ const BillingItemSchema = new mongoose.Schema(
     rootCategoryId: mongoose.Schema.Types.ObjectId,
     nodePath: [String],
     categoryPathIds: [mongoose.Schema.Types.ObjectId],
+
+    // ⭐ Resource assignment
+    resourceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "VendorResource",
+      default: null,
+    },
+    resourceName: {
+      type: String,
+      default: "",
+    },
   },
   { _id: false }
 );

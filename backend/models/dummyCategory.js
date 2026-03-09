@@ -27,6 +27,9 @@ const DummyCategorySchema = new mongoose.Schema({
   postRequestsDeals: { type: Boolean, default: false },
   loyaltyPoints: { type: Boolean, default: false },
   linkAttributesPricing: { type: Boolean, default: false },
+  // Human Resources configuration
+  enableHumanResources: { type: Boolean, default: false },
+  humanResourceLabel: { type: String, default: '' },
   freeTexts: { type: [String], default: Array(10).fill('') },
   categoryVisibility: { type: [String], default: [] },
   categoryModel: { type: [String], default: [] },

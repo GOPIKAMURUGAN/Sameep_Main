@@ -4,7 +4,7 @@ const Transaction = require("../models/Transaction");
 const VendorLoyaltyRule = require("../models/VendorLoyaltyRule");
 const LoyaltyLedger = require("../models/LoyaltyLedger");
 const Customer = require("../models/Customer");
-const Vendor = require("../models/Vendor");
+const Vendor = require("../models/DummyVendor");
 const { sendBillWhatsapp } = require("../utils/whatsappService");
 
 
@@ -140,34 +140,6 @@ exports.requestRedeemOTP = async (req, res) => {
     billing.otpVerified = false;
 
     await billing.save();
-
-    setImmediate(async () => {
-      try {
-        if (!billing.customerId) return;
-
-        const [customer, vendor] = await Promise.all([
-          Customer.findById(billing.customerId).lean(),
-          Vendor.findById(billing.vendorId).lean(),
-        ]);
-
-        const mobile = customer?.fullNumber || customer?.phone;
-        if (!mobile) return;
-
-        await sendBillWhatsapp({
-          mobile,
-          customerName: customer?.name || "Customer",
-          vendorName: vendor?.businessName || "Vendor",
-          billAmount: billing.totalAmount,
-          earned: billing.pointsEarned || 0,
-          redeemed: billing.pointsRedeemed || 0,
-          finalPaid:
-            billing.totalAmount - (billing.pointsRedeemed || 0),
-          balance: null,
-        });
-      } catch (err) {
-        console.error("WhatsApp send failed:", err?.message || err);
-      }
-    });
 
     res.status(200).json({
       success: true,
@@ -392,6 +364,51 @@ if (!closed) {
     message: "Billing already completed or locked",
   });
 }
+
+    setImmediate(async () => {
+      try {
+        if (!billing.customerId) return;
+
+        const [customer, vendor] = await Promise.all([
+          Customer.findById(billing.customerId).lean(),
+          Vendor.findById(billing.vendorId).lean(),
+        ]);
+
+        const mobile = customer?.fullNumber || customer?.phone;
+
+        if (!mobile) return;
+
+        const balanceAgg = await LoyaltyLedger.aggregate([
+          {
+            $match: {
+              vendorId: billing.vendorId,
+              customerId: billing.customerId,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              balance: { $sum: "$remainingPoints" },
+            },
+          },
+        ]);
+
+        const balance = balanceAgg[0]?.balance || 0;
+
+        await sendBillWhatsapp({
+          mobile,
+          customerName: customer?.name || "Customer",
+          vendorName: vendor?.businessName || "Vendor",
+          billAmount: billing.totalAmount,
+          earned: billing.pointsEarned || 0,
+          redeemed: billing.pointsRedeemed || 0,
+          finalPaid: billing.totalAmount - (billing.pointsRedeemed || 0),
+          balance,
+        });
+      } catch (err) {
+        console.error("WhatsApp send failed:", err?.message || err);
+      }
+    });
 
     res.status(200).json({
       success: true,

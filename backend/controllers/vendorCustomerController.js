@@ -47,10 +47,40 @@ exports.getVendorCustomer = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
+    const transactionIds = billsRaw
+      .map((b) => b.transactionId)
+      .filter(Boolean)
+      .map((id) => String(id));
+
+    const ledgerMap = new Map();
+    if (transactionIds.length) {
+      const earnEntries = await LoyaltyLedger.find({
+        type: "EARN",
+        transactionId: { $in: transactionIds },
+      })
+        .select("transactionId points expiryDate")
+        .lean();
+
+      earnEntries.forEach((e) => {
+        if (e.transactionId) {
+          ledgerMap.set(String(e.transactionId), e);
+        }
+      });
+    }
+
     const bills = billsRaw.map((bill) => {
       const items = bill.items || bill.cartItems || [];
       const earned = bill.pointsEarned || 0;
       const redeemed = bill.pointsRedeemed || 0;
+      const ledger = bill.transactionId
+        ? ledgerMap.get(String(bill.transactionId))
+        : null;
+      const now = new Date();
+      let daysLeft = null;
+      if (ledger?.expiryDate) {
+        const diff = new Date(ledger.expiryDate) - now;
+        daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+      }
 
       return {
         billId: bill._id,
@@ -58,6 +88,10 @@ exports.getVendorCustomer = async (req, res) => {
         earned,
         redeemed,
         createdAt: bill.createdAt,
+        transactionDate: bill.createdAt,
+        pointsEarned: ledger?.points ?? earned,
+        expiryDate: ledger?.expiryDate || null,
+        daysLeft,
         phone: bill.phone || bill.customerPhone || customer.phone || customer.fullNumber || "Walk-in",
         items: items.map((i) => ({
           name: i.name,
@@ -73,6 +107,10 @@ exports.getVendorCustomer = async (req, res) => {
     const totalVisits = billsRaw.length;
     const avgBill = totalVisits ? Math.round(totalSpend / totalVisits) : 0;
     const lastVisit = billsRaw[0]?.createdAt || null;
+
+    const now = new Date();
+    const soonDate = new Date();
+    soonDate.setDate(soonDate.getDate() + 7);
 
     const loyaltyAgg = await LoyaltyLedger.aggregate([
       {
@@ -103,13 +141,63 @@ exports.getVendorCustomer = async (req, res) => {
               $cond: [{ $eq: ["$type", "EARN"] }, "$remainingPoints", 0],
             },
           },
+          availablePoints: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$type", "EARN"] },
+                    { $gt: ["$remainingPoints", 0] },
+                    {
+                      $or: [
+                        { $eq: ["$expiryDate", null] },
+                        { $gte: ["$expiryDate", now] },
+                      ],
+                    },
+                  ],
+                },
+                "$remainingPoints",
+                0,
+              ],
+            },
+          },
+          expiredPoints: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$type", "EARN"] },
+                    { $gt: ["$remainingPoints", 0] },
+                    { $lt: ["$expiryDate", now] },
+                  ],
+                },
+                "$remainingPoints",
+                0,
+              ],
+            },
+          },
+          expiringSoonPoints: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$type", "EARN"] },
+                    { $gt: ["$remainingPoints", 0] },
+                    { $gte: ["$expiryDate", now] },
+                    { $lte: ["$expiryDate", soonDate] },
+                  ],
+                },
+                "$remainingPoints",
+                0,
+              ],
+            },
+          },
         },
       },
     ]);
 
     const loyaltyRow = loyaltyAgg?.[0] || {};
 
-    const now = new Date();
     const expiringPoints = await LoyaltyLedger.aggregate([
       {
         $match: {
@@ -125,7 +213,7 @@ exports.getVendorCustomer = async (req, res) => {
           _id: 0,
           expiryDate: 1,
           remainingPoints: 1,
-          daysToExpire: {
+          daysLeft: {
             $ceil: {
               $divide: [{ $subtract: ["$expiryDate", now] }, 86400000],
             },
@@ -134,6 +222,39 @@ exports.getVendorCustomer = async (req, res) => {
       },
       { $sort: { expiryDate: 1 } },
     ]);
+
+    const retentionAgg = await BillingSession.aggregate([
+      {
+        $match: {
+          vendorId: new mongoose.Types.ObjectId(vendorId),
+          status: "COMPLETED",
+        },
+      },
+      {
+        $group: {
+          _id: "$customerId",
+          visits: { $sum: 1 },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalCustomers: { $sum: 1 },
+          returningCustomers: {
+            $sum: {
+              $cond: [{ $gt: ["$visits", 1] }, 1, 0],
+            },
+          },
+        },
+      },
+    ]);
+
+    const retentionRow = retentionAgg?.[0] || {};
+    const totalCustomers = retentionRow.totalCustomers || 0;
+    const returningCustomers = retentionRow.returningCustomers || 0;
+    const retentionScore = totalCustomers
+      ? Math.round((returningCustomers / totalCustomers) * 100)
+      : 0;
 
     res.json({
       success: true,
@@ -149,7 +270,15 @@ exports.getVendorCustomer = async (req, res) => {
           earned: loyaltyRow.earned || 0,
           redeemed: loyaltyRow.redeemed || 0,
           balance: loyaltyRow.balance || 0,
+          availablePoints: loyaltyRow.availablePoints || 0,
+          expiredPoints: loyaltyRow.expiredPoints || 0,
+          expiringSoonPoints: loyaltyRow.expiringSoonPoints || 0,
           expiringPoints,
+        },
+        retention: {
+          totalCustomers,
+          returningCustomers,
+          retentionScore,
         },
         bills,
       },
