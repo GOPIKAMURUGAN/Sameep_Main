@@ -30,6 +30,7 @@ export default function ChooseCategoryModal({ onClose }) {
 
   const [elapsed, setElapsed] = useState(0);
   const [vendorId, setVendorId] = useState(null);
+  const [serviceAreas, setServiceAreas] = useState(null);
 
   const [businessQuery, setBusinessQuery] = useState("");
   const [googleResults, setGoogleResults] = useState([]);
@@ -919,6 +920,11 @@ export default function ChooseCategoryModal({ onClose }) {
                   }),
                 });
 
+                setServiceAreas({
+                  primaryLocality: data.primaryLocality,
+                  targetAreas: data.targetAreas,
+                });
+
                 // ✅ Move to services selection
                 setStep("SERVICES_SELECT");
               } catch (err) {
@@ -992,10 +998,13 @@ export default function ChooseCategoryModal({ onClose }) {
                     );
 
                     const businessName = selectedBusiness?.name;
-                    const categoryName = confirmedCategory?.name;
+                    const locations = [
+                      serviceAreas?.primaryLocality,
+                      ...(serviceAreas?.targetAreas || []),
+                    ].filter(Boolean);
 
                     const res = await fetch(
-                      `${API_BASE_URL}/api/vendor/subdomain-check?businessName=${encodeURIComponent(businessName)}&categoryName=${encodeURIComponent(categoryName)}`
+                      `${API_BASE_URL}/api/vendor/subdomain-check?businessName=${encodeURIComponent(businessName)}&locations=${encodeURIComponent(locations.join(","))}`
                     );
 
                     const data = await res.json();

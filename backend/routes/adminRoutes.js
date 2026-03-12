@@ -3,6 +3,17 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const AdminUser = require("../models/AdminUser");
 const { requireAdminAuth } = require("../utils/adminAuthMiddleware");
+const {
+  getPlans,
+  createPlan,
+  updatePlan,
+  deletePlan,
+} = require("../controllers/planController");
+const {
+  assignVendorPlan,
+  getVendorSubscription,
+  updateVendorSubscription,
+} = require("../controllers/vendorSubscriptionController");
 
 const router = express.Router();
 
@@ -68,5 +79,14 @@ router.get("/me", requireAdminAuth, async (req, res) => {
     return res.status(500).json({ message: "Failed to load admin" });
   }
 });
+
+router.get("/plans", getPlans);
+router.post("/plans", createPlan);
+router.put("/plans/:id", updatePlan);
+router.delete("/plans/:id", deletePlan);
+
+router.post("/vendor-subscriptions", assignVendorPlan);
+router.get("/vendor-subscriptions/:vendorId", getVendorSubscription);
+router.put("/vendor-subscriptions/:vendorId", updateVendorSubscription);
 
 module.exports = router;

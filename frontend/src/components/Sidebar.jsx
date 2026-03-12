@@ -65,6 +65,9 @@ function Sidebar() {
       <NavLink to="/enquiries" style={linkStyle}>
         📩 Enquiries
       </NavLink>
+      <NavLink to="/subscription-plans" style={linkStyle}>
+        🧾 Subscription Plans
+      </NavLink>
 
       <div style={{ flex: 1 }} />
       <button

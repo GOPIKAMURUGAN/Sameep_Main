@@ -3,6 +3,7 @@ body {
   padding: 0 !important;
 }
 @import "bootstrap/dist/css/bootstrap.min.css";
+@import "../styles/resource.css";
 section[id] {
   scroll-margin-top: 80px; /* match navbar height */
 }

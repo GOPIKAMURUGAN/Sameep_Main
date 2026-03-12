@@ -2,7 +2,6 @@ const VendorFlow = require("../models/VendorFlow");
 const Vendor = require("../models/Vendor");
 const Category = require("../models/Category");
 const DummyVendor = require("../models/DummyVendor");
-const { generateSubdomain } = require("../utils/subdomain.util");
 
 // GET all services for a specific vendor (flattened, frontend-ready)
 exports.getVendorFlows = async (req, res) => {
@@ -243,24 +242,70 @@ exports.updatePricingStatus = async (req, res) => {
 
 exports.checkSubdomainAvailability = async (req, res) => {
   try {
-    const { businessName, categoryName } = req.query;
+    const { businessName, locations } = req.query;
 
-    const suggestions = generateSubdomain({ businessName, categoryName });
-    const available = [];
+    const locationList = (locations || "")
+      .split(",")
+      .map((l) => l.trim())
+      .filter(Boolean);
 
-    for (const s of suggestions || []) {
-      const exists = await DummyVendor.findOne({ subdomain: s });
-      if (!exists) available.push(s);
-    }
+    const candidates = generateSubdomainSuggestions(businessName, locationList);
+
+    const existing = await DummyVendor.find({
+      subdomain: { $in: candidates },
+    }).select("subdomain");
+
+    const taken = new Set(existing.map((v) => v.subdomain));
+    const available = candidates.filter((s) => !taken.has(s));
+    const finalSuggestions = available.slice(0, 5);
 
     res.json({
-      available: available.length > 0,
-      suggestions,
+      available: finalSuggestions.length > 0,
+      suggestions: finalSuggestions,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
+function slugify(value) {
+  if (!value) return "";
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function compact(value) {
+  if (!value) return "";
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function generateSubdomainSuggestions(businessName, locations = []) {
+  const hyphenName = slugify(businessName);
+  const compactName = compact(businessName);
+
+  if (!hyphenName && !compactName) return [];
+
+  const unique = new Set();
+
+  if (compactName) unique.add(compactName);
+  if (hyphenName) unique.add(hyphenName);
+
+  locations.forEach((loc) => {
+    const hyphenLoc = slugify(loc);
+    const compactLoc = compact(loc);
+
+    if (compactName && compactLoc) unique.add(`${compactName}${compactLoc}`);
+    if (hyphenName && hyphenLoc) unique.add(`${hyphenName}-${hyphenLoc}`);
+  });
+
+  return Array.from(unique);
+}
 
 exports.setSubdomain = async (req, res) => {
   try {

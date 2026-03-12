@@ -6,6 +6,7 @@ const LoyaltyLedger = require("../models/LoyaltyLedger");
 const Customer = require("../models/Customer");
 const Vendor = require("../models/DummyVendor");
 const { sendBillWhatsapp } = require("../utils/whatsappService");
+const { calculateCustomerBalance } = require("../services/loyaltyService");
 
 
 // ✅ Create Billing Session
@@ -266,11 +267,17 @@ exports.completeBillingSession = async (req, res) => {
     let redeemLeft = billing.pointsRedeemed || 0;
 
     if (!isWalkIn && redeemLeft > 0) {
+      const now = new Date();
+
       const earns = await LoyaltyLedger.find({
         vendorId: billing.vendorId,
         customerId: billing.customerId,
         type: "EARN",
         remainingPoints: { $gt: 0 },
+        $or: [
+          { expiryDate: null },
+          { expiryDate: { $gte: now } }
+        ],
       }).sort({ expiryDate: 1, createdAt: 1 });
 
       for (const earn of earns) {
@@ -378,22 +385,10 @@ if (!closed) {
 
         if (!mobile) return;
 
-        const balanceAgg = await LoyaltyLedger.aggregate([
-          {
-            $match: {
-              vendorId: billing.vendorId,
-              customerId: billing.customerId,
-            },
-          },
-          {
-            $group: {
-              _id: null,
-              balance: { $sum: "$remainingPoints" },
-            },
-          },
-        ]);
-
-        const balance = balanceAgg[0]?.balance || 0;
+        const balance = await calculateCustomerBalance(
+          billing.customerId,
+          billing.vendorId
+        );
 
         await sendBillWhatsapp({
           mobile,

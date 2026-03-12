@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import resourceService from "../services/resourceService";
 import AddResourceModal from "./AddResourceModal";
+import { API_BASE_URL } from "../../../config";
 
 export default function ManageResourcesModal({ vendorId, label, onClose }) {
   const [resources, setResources] = useState([]);
@@ -17,13 +18,26 @@ export default function ManageResourcesModal({ vendorId, label, onClose }) {
     setResources(data);
   }
 
-  async function markInactive(r) {
-    await resourceService.updateResource(r._id, {
+  async function deactivateResource(id) {
+    await resourceService.updateResource(id, {
       status: "Inactive",
     });
 
     loadResources();
   }
+
+  async function activateResource(id) {
+    await fetch(`${API_BASE_URL}/api/vendor-resources/${id}/activate`, {
+      method: "PUT",
+    });
+
+    loadResources();
+  }
+
+  const sortedResources = [...resources].sort((a, b) => {
+    if (a.status === b.status) return 0;
+    return a.status === "Active" ? -1 : 1;
+  });
 
   return (
     <div
@@ -52,14 +66,30 @@ export default function ManageResourcesModal({ vendorId, label, onClose }) {
         </thead>
 
         <tbody>
-          {resources.map((r) => (
+          {sortedResources.map((r) => (
             <tr key={r._id}>
               <td>{r.name}</td>
               <td>{r.role}</td>
-              <td>{r.status}</td>
+              <td>
+                <span
+                  className={
+                    r.status === "Active" ? "statusActive" : "statusInactive"
+                  }
+                >
+                  {r.status}
+                </span>
+              </td>
 
               <td>
-                <button onClick={() => markInactive(r)}>Inactivate</button>
+                {r.status === "Active" ? (
+                  <button onClick={() => deactivateResource(r._id)}>
+                    Inactivate
+                  </button>
+                ) : (
+                  <button onClick={() => activateResource(r._id)}>
+                    Activate
+                  </button>
+                )}
               </td>
             </tr>
           ))}

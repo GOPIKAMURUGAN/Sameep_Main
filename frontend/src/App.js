@@ -51,6 +51,7 @@ import DummyVendorCategoriesDetailPage from "./pages/DummyVendorCategoriesDetail
 import AppConfigurationsPage from "./pages/AppConfigurationsPage";
 import EnquiriesPage from "./pages/EnquiriesPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
+import PlansPage from "./pages/subscriptionPlans/PlansPage";
 
 
 function App() {
@@ -153,6 +154,9 @@ function AppContent() {
           {/* Dummy Categories */}
           <Route path="/dummy-categories" element={<DummyCategoryPage />} />
           <Route path="/dummy-categories/:parentId" element={<DummyCategoryPage />} />
+
+          {/* Subscription Plans */}
+          <Route path="/subscription-plans" element={<PlansPage />} />
 
           {/* Fallback */}
           <Route path="*" element={<Dashboard />} />
