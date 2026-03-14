@@ -4,12 +4,13 @@ import { useState, useEffect } from "react";
 import { useSessionGuard } from "../Login/useSessionGuard";
 import "./Header.css";
 
-import { useVendor } from "@/app/context/VendorContext";
+import { useVendor } from "../context/VendorContext";
 import Login from "../Login/Login";
 import ProfileModal from "../Profile/Profile";
 import Portal from "../Portal/Portal";
 import CategoryModal from "./CategoryModal";
 import PackagesPortal from "../PackagesPortal/PackagesPortal";
+import VendorGalleryModal from "../components/gallery/VendorGalleryModal";
 
 const PAGE_SECTIONS = {
   Home: "home",
@@ -22,7 +23,7 @@ const PAGE_SECTIONS = {
 export default function Header() {
   useSessionGuard();
 
-const { vendorInfo } = useVendor();
+  const { vendorInfo } = useVendor();
 
   const rootCategoryId =
     vendorInfo?.categoryId ||
@@ -97,6 +98,12 @@ const { vendorInfo } = useVendor();
     vendorInfo?.businessName ||
     vendorInfo?.vendor?.businessName ||
     "";
+
+  const galleryRowId =
+    vendorInfo?.galleryRowId ||
+    vendorInfo?.rowId ||
+    vendorInfo?.rows?.[0]?._id ||
+    "default";
 
   return (
     <>
@@ -183,7 +190,7 @@ const { vendorInfo } = useVendor();
           <ProfileModal
             onClose={() => setOpenProfile(false)}
             onOpenServices={(type) => {
-              setProfileLoading(true);
+              setProfileLoading(type === "packages");
               setServiceType(type);
               setOpenProfile(false);
               setOpenServices(true);
@@ -205,6 +212,20 @@ const { vendorInfo } = useVendor();
         </Portal>
       )}
 
+      {openServices && serviceType === "gallery" && (
+        <Portal>
+          <VendorGalleryModal
+            vendorId={vendorInfo?.vendorId || vendorInfo?._id || vendorInfo?.vendor?._id || null}
+            rowId={galleryRowId}
+            onClose={() => {
+              setOpenServices(false);
+              setServiceType(null);
+              setProfileLoading(false);
+            }}
+          />
+        </Portal>
+      )}
+
       {profileLoading && (
         <div className="profile-loader-overlay">
           <div className="profile-loader-spinner" />
@@ -212,10 +233,18 @@ const { vendorInfo } = useVendor();
       )}
 
       {open && (
-        <Portal>
-          <CategoryModal onClose={() => setOpen(false)} />
-        </Portal>
-      )}
+  <Portal>
+    <CategoryModal
+      onClose={() => setOpen(false)}
+      vendorId={
+        vendorInfo?.vendorId ||
+        vendorInfo?._id ||
+        vendorInfo?.vendor?._id ||
+        null
+      }
+    />
+  </Portal>
+)}
     </>
   );
 }
