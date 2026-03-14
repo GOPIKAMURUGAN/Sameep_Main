@@ -11,15 +11,20 @@ const currencyFmt = new Intl.NumberFormat("en-IN", {
 });
 
 export default function YearRevenue({ vendorId }) {
+  const [activeSection, setActiveSection] = useState("revenue");
   const [summary, setSummary] = useState(null);
   const [months, setMonths] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [stylists, setStylists] = useState([]);
+  const [loadingStylists, setLoadingStylists] = useState(true);
 
   useEffect(() => {
     if (!vendorId) {
       setSummary(null);
       setMonths([]);
       setLoading(false);
+      setStylists([]);
+      setLoadingStylists(false);
       return;
     }
 
@@ -62,7 +67,42 @@ export default function YearRevenue({ vendorId }) {
       }
     };
 
+    const loadStylists = async () => {
+      try {
+        setLoadingStylists(true);
+        const res = await fetch(
+          `${API_BASE_URL}/api/vendor/dashboard/stylist-performance?vendorId=${encodeURIComponent(vendorId)}&range=ytd`,
+          { cache: "no-store" }
+        );
+
+        if (!res.ok) {
+          throw new Error("Failed to load stylist performance");
+        }
+
+        const json = await res.json();
+        const rawStylists = Array.isArray(json)
+          ? json
+          : Array.isArray(json?.data)
+            ? json.data
+            : [];
+
+        if (!cancelled) {
+          setStylists(rawStylists);
+        }
+      } catch (error) {
+        console.error("Failed to fetch stylist performance", error);
+        if (!cancelled) {
+          setStylists([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingStylists(false);
+        }
+      }
+    };
+
     loadData();
+    loadStylists();
 
     return () => {
       cancelled = true;
@@ -103,57 +143,102 @@ export default function YearRevenue({ vendorId }) {
           Financial year revenue with month-by-month performance.
         </div>
       </div>
+      <div className="revenue-panel-tabs">
+        <button
+          type="button"
+          className={`revenue-panel-tab ${activeSection === "revenue" ? "active" : ""}`}
+          onClick={() => setActiveSection("revenue")}
+        >
+          Revenue
+        </button>
+        <button
+          type="button"
+          className={`revenue-panel-tab ${activeSection === "stylists" ? "active" : ""}`}
+          onClick={() => setActiveSection("stylists")}
+        >
+          Stylist Performance
+        </button>
+      </div>
 
-      {loading ? (
-        <div className="revenue-panel-loading">Loading yearly revenue...</div>
+      {activeSection === "revenue" ? (
+        loading ? (
+          <div className="revenue-panel-loading">Loading yearly revenue...</div>
+        ) : (
+          <>
+            <div className="revenue-panel-stat-grid">
+              <div className="revenue-panel-stat-card">
+                <div className="revenue-panel-stat-label">Total Revenue</div>
+                <div className="revenue-panel-stat-value">
+                  {currencyFmt.format(totals.totalRevenue)}
+                </div>
+              </div>
+              <div className="revenue-panel-stat-card">
+                <div className="revenue-panel-stat-label">Orders This Year</div>
+                <div className="revenue-panel-stat-value">{totals.totalOrders}</div>
+              </div>
+              <div className="revenue-panel-stat-card">
+                <div className="revenue-panel-stat-label">Best Month</div>
+                <div className="revenue-panel-stat-value">
+                  {totals.bestMonth?.month || "-"}
+                </div>
+              </div>
+            </div>
+
+            <div className="revenue-panel-section">
+              <div className="revenue-panel-section-title">Monthly Breakdown</div>
+              {months.length === 0 ? (
+                <div className="revenue-panel-empty">No yearly revenue data found.</div>
+              ) : (
+                <div className="revenue-panel-month-grid">
+                  {months.map((month) => (
+                    <div
+                      key={month.month}
+                      className={`revenue-panel-month-card ${
+                        month.month === currentMonth ? "active" : ""
+                      }`}
+                    >
+                      <div className="revenue-panel-month-name">{month.month}</div>
+                      <div className="revenue-panel-month-revenue">
+                        {currencyFmt.format(Number(month.revenue || 0))}
+                      </div>
+                      <div className="revenue-panel-month-meta">
+                        {Number(month.orders || 0)} orders • Avg{" "}
+                        {currencyFmt.format(Number(month.avgBill || 0))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )
       ) : (
-        <>
-          <div className="revenue-panel-stat-grid">
-            <div className="revenue-panel-stat-card">
-              <div className="revenue-panel-stat-label">Total Revenue</div>
-              <div className="revenue-panel-stat-value">
-                {currencyFmt.format(totals.totalRevenue)}
-              </div>
+        <div className="revenue-panel-section">
+          <div className="revenue-panel-section-title">Stylist Performance</div>
+          {loadingStylists ? (
+            <div className="revenue-panel-loading">Loading stylist performance...</div>
+          ) : stylists.length === 0 ? (
+            <div className="revenue-panel-empty">
+              No stylist performance data available for this year.
             </div>
-            <div className="revenue-panel-stat-card">
-              <div className="revenue-panel-stat-label">Orders This Year</div>
-              <div className="revenue-panel-stat-value">{totals.totalOrders}</div>
-            </div>
-            <div className="revenue-panel-stat-card">
-              <div className="revenue-panel-stat-label">Best Month</div>
-              <div className="revenue-panel-stat-value">
-                {totals.bestMonth?.month || "-"}
-              </div>
-            </div>
-          </div>
-
-          <div className="revenue-panel-section">
-            <div className="revenue-panel-section-title">Monthly Breakdown</div>
-            {months.length === 0 ? (
-              <div className="revenue-panel-empty">No yearly revenue data found.</div>
-            ) : (
-              <div className="revenue-panel-month-grid">
-                {months.map((month) => (
-                  <div
-                    key={month.month}
-                    className={`revenue-panel-month-card ${
-                      month.month === currentMonth ? "active" : ""
-                    }`}
-                  >
-                    <div className="revenue-panel-month-name">{month.month}</div>
-                    <div className="revenue-panel-month-revenue">
-                      {currencyFmt.format(Number(month.revenue || 0))}
-                    </div>
-                    <div className="revenue-panel-month-meta">
-                      {Number(month.orders || 0)} orders • Avg{" "}
-                      {currencyFmt.format(Number(month.avgBill || 0))}
-                    </div>
+          ) : (
+            <div className="revenue-panel-list">
+              {stylists.map((row, index) => (
+                <div
+                  key={row._id || row.stylist || index}
+                  className="revenue-panel-list-item"
+                >
+                  <div className="revenue-panel-list-main">
+                    {row.stylist || `Stylist ${index + 1}`}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
+                  <div className="revenue-panel-list-value">
+                    {currencyFmt.format(Number(row.revenue || 0))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </section>
   );

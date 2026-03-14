@@ -68,6 +68,29 @@
   font-weight: 700;
 }
 
+.revenue-panel-tabs {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.revenue-panel-tab {
+  padding: 10px 16px;
+  border: 1px solid rgba(230, 195, 122, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f5f2ea;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.revenue-panel-tab.active {
+  border-color: #e6c37a;
+  background: rgba(230, 195, 122, 0.12);
+  color: #e6c37a;
+}
+
 .revenue-panel-list {
   display: grid;
   gap: 12px;

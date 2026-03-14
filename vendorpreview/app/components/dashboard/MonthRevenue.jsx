@@ -37,13 +37,18 @@ function getMonthRange() {
 }
 
 export default function MonthRevenue({ vendorId }) {
+  const [activeSection, setActiveSection] = useState("revenue");
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [stylists, setStylists] = useState([]);
+  const [loadingStylists, setLoadingStylists] = useState(true);
 
   useEffect(() => {
     if (!vendorId) {
       setBills([]);
       setLoading(false);
+      setStylists([]);
+      setLoadingStylists(false);
       return;
     }
 
@@ -84,7 +89,42 @@ export default function MonthRevenue({ vendorId }) {
       }
     };
 
+    const loadStylists = async () => {
+      try {
+        setLoadingStylists(true);
+        const res = await fetch(
+          `${API_BASE_URL}/api/vendor/dashboard/stylist-performance?vendorId=${encodeURIComponent(vendorId)}&range=mtd`,
+          { cache: "no-store" }
+        );
+
+        if (!res.ok) {
+          throw new Error("Failed to load stylist performance");
+        }
+
+        const json = await res.json();
+        const rawStylists = Array.isArray(json)
+          ? json
+          : Array.isArray(json?.data)
+            ? json.data
+            : [];
+
+        if (!cancelled) {
+          setStylists(rawStylists);
+        }
+      } catch (error) {
+        console.error("Failed to fetch stylist performance", error);
+        if (!cancelled) {
+          setStylists([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingStylists(false);
+        }
+      }
+    };
+
     loadBills();
+    loadStylists();
 
     return () => {
       cancelled = true;
@@ -112,60 +152,105 @@ export default function MonthRevenue({ vendorId }) {
           Running revenue for the current month with the most recent bills.
         </div>
       </div>
+      <div className="revenue-panel-tabs">
+        <button
+          type="button"
+          className={`revenue-panel-tab ${activeSection === "revenue" ? "active" : ""}`}
+          onClick={() => setActiveSection("revenue")}
+        >
+          Revenue
+        </button>
+        <button
+          type="button"
+          className={`revenue-panel-tab ${activeSection === "stylists" ? "active" : ""}`}
+          onClick={() => setActiveSection("stylists")}
+        >
+          Stylist Performance
+        </button>
+      </div>
 
-      {loading ? (
-        <div className="revenue-panel-loading">Loading monthly revenue...</div>
+      {activeSection === "revenue" ? (
+        loading ? (
+          <div className="revenue-panel-loading">Loading monthly revenue...</div>
+        ) : (
+          <>
+            <div className="revenue-panel-stat-grid">
+              <div className="revenue-panel-stat-card">
+                <div className="revenue-panel-stat-label">Total Revenue</div>
+                <div className="revenue-panel-stat-value">
+                  {currencyFmt.format(summary.totalRevenue || 0)}
+                </div>
+              </div>
+              <div className="revenue-panel-stat-card">
+                <div className="revenue-panel-stat-label">Bills This Month</div>
+                <div className="revenue-panel-stat-value">{summary.totalBills}</div>
+              </div>
+              <div className="revenue-panel-stat-card">
+                <div className="revenue-panel-stat-label">Points Distributed</div>
+                <div className="revenue-panel-stat-value">{summary.totalDistributed}</div>
+              </div>
+              <div className="revenue-panel-stat-card">
+                <div className="revenue-panel-stat-label">Points Redeemed</div>
+                <div className="revenue-panel-stat-value">{summary.totalRedeemed}</div>
+              </div>
+            </div>
+
+            <div className="revenue-panel-section">
+              <div className="revenue-panel-section-title">Recent Bills</div>
+              {bills.length === 0 ? (
+                <div className="revenue-panel-empty">No revenue bills found for this month.</div>
+              ) : (
+                <div className="revenue-panel-list">
+                  {bills.slice(0, 8).map((bill) => (
+                    <div
+                      key={bill.billId || `${bill.phone}-${bill.createdAt}`}
+                      className="revenue-panel-list-item"
+                    >
+                      <div>
+                        <div className="revenue-panel-list-main">
+                          Bill #{String(bill.billId || "").slice(0, 8)}
+                        </div>
+                        <div className="revenue-panel-list-sub">
+                          {bill.phone || "Walk-in"} • {formatDateTime(bill.createdAt)}
+                        </div>
+                      </div>
+                      <div className="revenue-panel-list-value">
+                        {currencyFmt.format(Number(bill.total || 0))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )
       ) : (
-        <>
-          <div className="revenue-panel-stat-grid">
-            <div className="revenue-panel-stat-card">
-              <div className="revenue-panel-stat-label">Total Revenue</div>
-              <div className="revenue-panel-stat-value">
-                {currencyFmt.format(summary.totalRevenue || 0)}
-              </div>
+        <div className="revenue-panel-section">
+          <div className="revenue-panel-section-title">Stylist Performance</div>
+          {loadingStylists ? (
+            <div className="revenue-panel-loading">Loading stylist performance...</div>
+          ) : stylists.length === 0 ? (
+            <div className="revenue-panel-empty">
+              No stylist performance data available for this month.
             </div>
-            <div className="revenue-panel-stat-card">
-              <div className="revenue-panel-stat-label">Bills This Month</div>
-              <div className="revenue-panel-stat-value">{summary.totalBills}</div>
-            </div>
-            <div className="revenue-panel-stat-card">
-              <div className="revenue-panel-stat-label">Points Distributed</div>
-              <div className="revenue-panel-stat-value">{summary.totalDistributed}</div>
-            </div>
-            <div className="revenue-panel-stat-card">
-              <div className="revenue-panel-stat-label">Points Redeemed</div>
-              <div className="revenue-panel-stat-value">{summary.totalRedeemed}</div>
-            </div>
-          </div>
-
-          <div className="revenue-panel-section">
-            <div className="revenue-panel-section-title">Recent Bills</div>
-            {bills.length === 0 ? (
-              <div className="revenue-panel-empty">No revenue bills found for this month.</div>
-            ) : (
-              <div className="revenue-panel-list">
-                {bills.slice(0, 8).map((bill) => (
-                  <div
-                    key={bill.billId || `${bill.phone}-${bill.createdAt}`}
-                    className="revenue-panel-list-item"
-                  >
-                    <div>
-                      <div className="revenue-panel-list-main">
-                        Bill #{String(bill.billId || "").slice(0, 8)}
-                      </div>
-                      <div className="revenue-panel-list-sub">
-                        {bill.phone || "Walk-in"} • {formatDateTime(bill.createdAt)}
-                      </div>
-                    </div>
-                    <div className="revenue-panel-list-value">
-                      {currencyFmt.format(Number(bill.total || 0))}
-                    </div>
+          ) : (
+            <div className="revenue-panel-list">
+              {stylists.map((row, index) => (
+                <div
+                  key={row._id || row.stylist || index}
+                  className="revenue-panel-list-item"
+                >
+                  <div className="revenue-panel-list-main">
+                    {row.stylist || `Stylist ${index + 1}`}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
+                  <div className="revenue-panel-list-value">
+                    {currencyFmt.format(Number(row.revenue || 0))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </section>
   );
