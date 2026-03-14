@@ -1,26 +1,21 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import "./Hero.css";
-import { useSearchParams } from "next/navigation";
-
 
 const HeroSection = ({
   images = [],
   googleRating,
   googleReviews,
   googleMapsUrl,
-trustSummary = {},
-
-  // ✅ FROM CATEGORY API
+  trustSummary = {},
   tagline,
   description,
   button1Label,
   button2Label,
 }) => {
-
   const [index, setIndex] = useState(0);
   const [slide, setSlide] = useState(false);
+
   const experience = trustSummary?.experienceYears;
 
   const getStatLabel = (key) => {
@@ -33,83 +28,70 @@ trustSummary = {},
     return map[key] || key;
   };
 
-const searchParams = useSearchParams();
-const vendorName = searchParams.get("vendorName");
-  // reset index if images change
-  useEffect(() => {
-    setIndex(0);
-  }, [images]);
+  const allImages = images;
 
-  // Slide every 4 seconds
+  /* ================= AUTO SLIDER ================= */
+
   useEffect(() => {
-    if (!images.length) return;
+    if (!allImages.length) return;
 
     const interval = setInterval(() => {
       setSlide(true);
 
       setTimeout(() => {
-        setIndex((prev) => (prev + 1) % images.length);
+        setIndex((prev) => (prev + 1) % allImages.length);
         setSlide(false);
-      }, 800); // animation duration
+      }, 800);
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [images]);
+  }, [allImages]);
 
-  // 🛑 safety guard
-  if (!images.length) return null;
-// ✅ Build proper Google Maps deep link
-// ✅ NORMALIZE GOOGLE MAPS LINK
-const mapsLink = (() => {
-  if (!googleMapsUrl) return "#";
+  /* ================= SAFETY ================= */
 
-  let placeId = "";
+  if (!allImages.length) return null;
+  const currentIndex = index % allImages.length;
 
-  // CASE 1: place_id:XXXX
-  if (googleMapsUrl.startsWith("place_id:")) {
-    placeId = googleMapsUrl.replace("place_id:", "");
-  }
+  /* ================= GOOGLE MAP LINK ================= */
 
-  // CASE 2: https://www.google.com/maps/place/?q=place_id:XXXX
-  else if (googleMapsUrl.includes("place_id:")) {
-    placeId = googleMapsUrl.split("place_id:")[1];
-  }
+  const mapsLink = (() => {
+    if (!googleMapsUrl) return "#";
 
-  // CASE 3: already correct maps link
-  if (!placeId) return googleMapsUrl;
+    let placeId = "";
 
- const queryName = encodeURIComponent(vendorName);
+    if (googleMapsUrl.startsWith("place_id:")) {
+      placeId = googleMapsUrl.replace("place_id:", "");
+    } else if (googleMapsUrl.includes("place_id:")) {
+      placeId = googleMapsUrl.split("place_id:")[1];
+    }
 
+    if (!placeId) return googleMapsUrl;
 
-  return `https://www.google.com/maps/search/?api=1&query=${queryName}&query_place_id=${placeId}`;
-})();
+    const queryName = encodeURIComponent(tagline || "");
 
+    return `https://www.google.com/maps/search/?api=1&query=${queryName}&query_place_id=${placeId}`;
+  })();
 
+  /* ================= UI ================= */
 
   return (
     <section id="home" className="hero">
       <div className="hero-left">
-        <h1>
-          {tagline}
-          <br />
-        </h1>
+        <h1>{tagline}</h1>
 
-        {description && (
-          <p className="hero-text">
-            {description}
-          </p>
-        )}
+        {description && <p className="hero-text">{description}</p>}
 
-          <div className="stats">
+        <div className="stats">
           {experience && (
             <div className="stat-item">
               <h2>{experience}+</h2>
               <p>Years Experience</p>
             </div>
           )}
-            {Object.entries(trustSummary || {}).map(([key, value]) => {
+
+          {Object.entries(trustSummary || {}).map(([key, value]) => {
             if (key === "experienceYears") return null;
-            if (value === null || value === undefined || value === "") return null;
+            if (!value) return null;
 
             return (
               <div className="stat-item" key={key}>
@@ -119,17 +101,15 @@ const mapsLink = (() => {
             );
           })}
 
-       
           <div className="stat-item">
             {typeof googleRating === "number" ? (
               <a
-  className="rating-clickable"
-href={mapsLink || "#"}
-  target="_blank"
-  rel="noopener noreferrer"
-  style={{ textDecoration: "none", color: "inherit" }}
->
-
+                className="rating-clickable"
+                href={mapsLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
                 <h2>⭐ {googleRating}</h2>
                 <p>
                   Google Rating
@@ -143,30 +123,18 @@ href={mapsLink || "#"}
               </>
             )}
           </div>
-
-
         </div>
 
         <div className="hero-buttons">
-          {button1Label && (
-            <button className="btn">
-              {button1Label}
-            </button>
-          )}
-
-          {button2Label && (
-            <button className="btn">
-              {button2Label}
-            </button>
-          )}
+          {button1Label && <button className="btn">{button1Label}</button>}
+          {button2Label && <button className="btn">{button2Label}</button>}
         </div>
-
       </div>
 
-      {/* RIGHT SLIDER */}
+      {/* RIGHT IMAGE SLIDER */}
       <div className="hero-right">
         <img
-          src={images[index]}
+          src={allImages[currentIndex]}
           alt="Hero Slide"
           className={`hero-img ${slide ? "slide-transition" : ""}`}
         />

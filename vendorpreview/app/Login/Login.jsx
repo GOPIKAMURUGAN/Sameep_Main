@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import "./Login.css";
-import { useVendor } from "../VendorContext";
+import { useVendor } from "@/app/context/VendorContext";
 
 
 export default function Login({ onClose }) {

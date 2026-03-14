@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import "./About.css";
-import { useVendor } from "../VendorContext";
+import { useVendor } from "@/app/context/VendorContext";
 import {
   FaLeaf,
   FaUserTie,

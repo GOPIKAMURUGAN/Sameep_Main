@@ -3,116 +3,104 @@
 .services-select-card {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  align-items: stretch;
+  min-height: 10px;
+  overflow: hidden;
 }
 
 .preview-actions {
   display: flex;
   gap: 16px;
   justify-content: center;
+  margin-top: 20px;
 }
 
 .preview-actions .btn {
-  width: auto;         
+  width: auto;
   min-width: 140px;
-  padding: 12px 20px;
-  border-radius: 7px;
+  padding: 10px 18px;
+  border-radius: 8px;
 }
-
 
 /* ================= SCROLL AREA ================= */
 
 .services-scroll {
- 
-  max-height: 420px;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 440px;
   overflow-y: auto;
-  padding-right: 6px;
+  padding: 8px 6px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  align-content: flex-start;
 }
 
-/* smooth scrollbar */
 .services-scroll::-webkit-scrollbar {
   width: 6px;
 }
 
 .services-scroll::-webkit-scrollbar-thumb {
-   background: rgba(255, 215, 130, 0.45);
+  background: rgba(255, 215, 130, 0.45);
   border-radius: 4px;
 }
 
 /* ================= SERVICE TREE ================= */
 
 .service-node {
+  display: block;
+  flex: 0 0 auto;
+  align-self: stretch;
   position: relative;
+  width: 100%;
   height: auto;
-  margin-bottom: 8px;
+  min-width: 0;
 }
-
-/* ================= SERVICE CARD ================= */
-/* ===== COMPACT SERVICE CARD — FINAL ===== */
 
 .service-card {
-  display: flex;
-  align-items: center;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
   justify-content: space-between;
-
-  height: 44px;              /* 🔥 smaller */
-  min-height: 44px;
-
-  padding: 0 14px;           /* 🔥 no vertical padding */
-  border-radius: 14px;
-
-  background:
-    linear-gradient(180deg, rgba(26,28,24,0.96), rgba(14,16,12,0.98));
-
-  border: 1.5px solid rgba(255,210,130,0.45);
-
-  box-shadow:
-    inset 0 0 8px rgba(255,210,130,0.06),
-    0 3px 8px rgba(0,0,0,0.45);
-
-  transition: all .18s ease;
+  width: 100%;
+  flex: 0 0 auto;
+  height: 66px;
+  min-height: 66px;
+  max-height: 66px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(24, 26, 22, 0.96), rgba(16, 18, 14, 0.98));
+  border: 1px solid rgba(255, 210, 130, 0.28);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
-
-
-
 
 .service-card.active {
   border-color: #6fca33;
-
-  background:
-    linear-gradient(180deg, rgba(26,32,20,0.95), rgba(12,18,10,0.98));
-
-  box-shadow:
-    inset 0 0 12px rgba(111,202,51,0.18),
-    0 6px 16px rgba(0,0,0,0.55);
+  background: linear-gradient(180deg, rgba(24, 31, 20, 0.95), rgba(15, 20, 12, 0.98));
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
 }
-
-
-/* ================= LEFT SIDE ================= */
-
 
 .service-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex: 1 !important;
+  min-width: 0 !important;
 }
 
-
-/* hide native checkbox */
 .service-left input {
   display: none;
 }
 
-/* custom checkbox */
 .check-ui {
-  width: 18px;
-  height: 18px;
-  border-radius: 6px;
-
-  background: rgba(255,255,255,0.06);
-  border: 1.5px solid rgba(255, 215, 130, 0.5);
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 215, 130, 0.45);
   position: relative;
 }
 
@@ -121,85 +109,76 @@
   border-color: #43c93b;
 }
 
-
 .service-card.active .check-ui::after {
-  content: "✓";
+  content: "\2713";
   position: absolute;
   inset: 0;
-  color: #0B0B0D;
-  font-weight: 900;
+  color: #0b0b0d;
+  font-weight: 800;
+  font-size: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-
-/* ================= TEXT ================= */
-
 .service-name {
-    color: #FFDFA0;
-  font-size: 15px;
+  color: #ffdfa0;
+  font-size: 13px;
   font-weight: 600;
- display: inline-flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   line-height: 1;
-  align-items: center;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-/* ================= CHILD COUNT BADGE ================= */
 
 .child-count-badge {
-  padding: 2px 7px;
-  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.2;
   font-weight: 700;
-
   background: linear-gradient(135deg, #ffe3a3, #e6b85c);
   color: #1a1406;
-
-  box-shadow: none;
 }
 
-
-
-/* ================= EXPAND BUTTON ================= */
-
 .expand-btn {
-  width: 28px;
-  height: 28px;
-
-  background: rgba(255,210,130,0.10);
-  border: 1px solid rgba(255,210,130,0.35);
-
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  align-self: center;
+  border-radius: 6px;
+  background: rgba(255, 210, 130, 0.1);
+  border: 1px solid rgba(255, 210, 130, 0.3);
+  color: #ffdca0;
   box-shadow: none;
 }
 
 .expand-btn:hover {
-  background: rgba(255,210,130,0.18);
+  background: rgba(255, 210, 130, 0.18);
   transform: translateY(-1px);
 }
 
-
-.expand-btn {
-  flex-shrink: 0;
-
-}
-
-/* ================= CHILDREN ================= */
-
 .service-children {
-  margin-left: 18px;
-  padding-left: 12px;
+  margin-left: 14px;
+  padding-left: 10px;
   margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
 }
 
-/* dotted vertical connector */
 .vertical-line {
   position: absolute;
-  left: 6px;
-  top: 0;
+  left: 5px;
+  top: 2px;
   bottom: 0;
-  border-left: 1px dashed rgba(255, 215, 130, 0.35);
+  border-left: 1px dashed rgba(255, 215, 130, 0.3);
 }
 
 /* ================= STICKY FOOTER ================= */
@@ -207,62 +186,33 @@
 .services-footer {
   position: sticky;
   bottom: 0;
-
-  background: linear-gradient(
-    to top,
-    rgba(25,25,28,0.95),
-    rgba(25,25,28,0.65),
-    transparent
-  );
-
-  padding: 12px;
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-
-  border-top: 1px solid rgba(255, 215, 130, 0.25);
-}
-
-/* ================= BUTTONS ================= */
-
-.services-footer .btn.primary {
-  background: linear-gradient(135deg, #E6BF6A, #CFA94E);
-  color: #0B0B0D;
-width: auto;          /* 🚨 stops full-width stretch */
-  border-radius: 10px;
-  padding: 10px 16px;
-  border: none;
-
-  font-weight: 800;
-
-  box-shadow:
-    0 6px 14px rgba(255, 200, 110, 0.35),
-    0 0 16px rgba(255, 190, 120, 0.35);
-}
-
-.services-footer {
-  display: flex;
   gap: 16px;
-  justify-content: space-between;
-  padding: 16px;
+  padding: 14px 16px;
+  background: linear-gradient(to top, rgba(25, 25, 28, 0.95), rgba(25, 25, 28, 0.7), transparent);
   border-top: 1px solid rgba(255, 215, 120, 0.15);
 }
+
 .services-footer .btn {
-  width: auto;          /* 🚫 stop 100% / 100vw */
+  width: auto;
   min-width: 120px;
-  padding: 12px 20px;
+  padding: 10px 16px;
   border-radius: 10px;
 }
 
+.services-footer .btn.primary {
+  background: linear-gradient(135deg, #e6bf6a, #cfa94e);
+  color: #0b0b0d;
+  border: none;
+  font-weight: 800;
+  box-shadow: 0 6px 14px rgba(255, 200, 110, 0.35), 0 0 16px rgba(255, 190, 120, 0.35);
+}
 
 .services-footer .btn.secondary {
-  width: auto;          /* 🚨 stops full-width stretch */
   background: transparent;
   color: #020202;
-
   border: 1.5px solid rgba(255, 215, 130, 0.6);
-  border-radius: 10px;
-  padding: 10px 16px;
 }
 
 .btn:disabled {
@@ -270,13 +220,12 @@ width: auto;          /* 🚨 stops full-width stretch */
   cursor: not-allowed;
 }
 
-
-
+/* ================= LOADER ================= */
 
 .overlay-loader {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -288,45 +237,139 @@ width: auto;          /* 🚨 stops full-width stretch */
   width: 40px;
   height: 40px;
   border: 4px solid rgba(255, 215, 130, 0.25);
-  border-top: 4px solid #FFD27D;
+  border-top: 4px solid #ffd27d;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
-
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
+
 .preview-choice-card {
   text-align: center;
   padding: 24px;
 }
 
-.preview-actions {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  margin-top: 20px;
-}
-/* ===== FINAL CARD LAYOUT FIX ===== *
-/* ===== ARROW POSITION LOCK ===== */
+@media (max-width: 768px) {
+  .services-scroll {
+    max-height: 380px;
+    padding: 6px 4px 8px;
+  }
 
-.service-card {
-  display: flex!important;
-  flex-direction: row!important;
-  align-items: center!important;
+  .service-card {
+    height: 34px;
+    min-height: 34px;
+    max-height: 34px;
+    padding: 0 8px;
+    border-radius: 7px;
+  }
+
+  .service-left {
+    gap: 7px !important;
+  }
+
+  .service-name {
+    font-size: 12px;
+  }
+
+  .expand-btn {
+    width: 20px;
+    height: 20px;
+    flex-basis: 20px;
+  }
+
+  .service-children {
+    margin-left: 12px;
+    padding-left: 8px;
+    gap: 6px;
+  }
 }
 
-.service-left {
-  display: flex!important;
-  align-items: center!important;
-  gap: 10px!important;
-  flex: 1!important;
-  min-width: 0!important;
+/* ================= FINAL COMPACT OVERRIDES ================= */
+/* Keep these at file end so they beat duplicated rules in CategoryModal.css */
+
+.category-modal .services-select-card {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  min-height: 0 !important;
+  height: auto !important;
+  flex: 0 0 auto !important;
+  padding: 12px !important;
+  border-radius: 12px !important;
 }
 
-.expand-btn {
-  margin-left: auto;
-  flex: 0 0 28px;
-  align-self: center;
+.category-modal .services-title,
+.category-modal .services-select-card h2 {
+  margin: 0 0 6px 0 !important;
+  line-height: 1.2 !important;
+}
+
+.category-modal .services-scroll {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: stretch !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: min(52vh, 420px) !important;
+  padding: 4px !important;
+}
+
+.category-modal .services-scroll > .service-node {
+  margin: 0 !important;
+}
+
+.category-modal .services-scroll > .service-node + .service-node {
+  margin-top: 6px !important;
+}
+
+.category-modal .service-node,
+.category-modal .service-node * {
+  box-sizing: border-box;
+}
+
+.category-modal .service-node,
+.category-modal .service-card {
+  flex-grow: 0 !important;
+}
+
+.category-modal .service-card {
+  height: 66px !important;
+  min-height: 66px !important;
+  max-height: 66px !important;
+  padding: 0 10px !important;
+}
+
+.category-modal .service-children {
+  margin-top: 6px !important;
+  margin-left: 14px !important;
+  padding-left: 10px !important;
+  gap: 6px !important;
+}
+
+@media (max-width: 768px) {
+  .category-modal .services-select-card {
+    padding: 10px !important;
+    gap: 7px !important;
+  }
+
+  .category-modal .services-scroll {
+    max-height: min(48vh, 360px) !important;
+    padding: 3px !important;
+  }
+
+  .category-modal .service-card {
+    height: 34px !important;
+    min-height: 34px !important;
+    max-height: 34px !important;
+    padding: 0 8px !important;
+  }
+
+  .category-modal .services-scroll > .service-node + .service-node {
+    margin-top: 6px !important;
+  }
 }

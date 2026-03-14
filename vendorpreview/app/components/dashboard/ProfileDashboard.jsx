@@ -1,0 +1,337 @@
+"use client";
+import "./ProfileDashboard.css";
+import ProfileSocialHandles from "./ProfileSocialHandles";
+import { useState } from "react";
+import { SOCIAL_ICONS } from "../../Icons/SocialIcons";
+import { useVendor } from "@/app/context/VendorContext";
+import HomeLocationModal from "../../Profile/HomeLocationModal";
+import BusinessLocationsModal from "../../Profile/BusinessLocationsModal";
+import BusinessHoursModal from "../../Profile/BusinessHoursModal";
+
+function ProfileDashboard({
+  vendorInfo,
+  categorySocials,
+  onBack,
+  onOpenServices,
+}) {
+  const { vendorInfo: contextVendorInfo, setVendorInfo } = useVendor();
+  const [activePanel, setActivePanel] = useState("home");
+  const [selectedSocial, setSelectedSocial] = useState(null);
+  const [showHomeLocation, setShowHomeLocation] = useState(false);
+  const [showBusinessLocations, setShowBusinessLocations] = useState(false);
+  const [showBusinessHours, setShowBusinessHours] = useState(false);
+  const [hoursVendor, setHoursVendor] = useState(null);
+  const [loadingVendor, setLoadingVendor] = useState(false);
+  const currentVendorInfo = contextVendorInfo || vendorInfo;
+  const vendorId = currentVendorInfo?.vendorId || currentVendorInfo?._id || null;
+  const galleryCount = Array.isArray(currentVendorInfo?.rowImages)
+    ? currentVendorInfo.rowImages.length
+    : currentVendorInfo?.rowImages && typeof currentVendorInfo.rowImages === "object"
+      ? Object.values(currentVendorInfo.rowImages).flat().filter(Boolean).length
+      : 0;
+
+  const socialLinks = currentVendorInfo?.socialLinks || {};
+  const locationCount =
+    currentVendorInfo?.locations?.length ||
+    currentVendorInfo?.nearbyLocations?.length ||
+    0;
+  const targetedLocationCount =
+    currentVendorInfo?.targetedLocations?.length ||
+    currentVendorInfo?.nearbyLocations?.length ||
+    currentVendorInfo?.location?.nearbyLocations?.length ||
+    0;
+  const initialHomeLocation = currentVendorInfo?.location
+    ? {
+        lat: currentVendorInfo.location.lat,
+        lng: currentVendorInfo.location.lng,
+      }
+    : undefined;
+  const hoursCount = currentVendorInfo?.businessHours?.length || currentVendorInfo?.hours?.length || 0;
+  const openService = (serviceKey) => {
+    onOpenServices?.(serviceKey);
+  };
+  const openBusinessHours = async () => {
+    try {
+      if (!vendorId) return;
+
+      setLoadingVendor(true);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dummy-vendors/${vendorId}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load business hours");
+      }
+
+      const data = await response.json();
+      setHoursVendor(data);
+      setShowBusinessHours(true);
+    } catch (error) {
+      console.error("Failed to load vendor", error);
+      alert("Failed to load business hours");
+    } finally {
+      setLoadingVendor(false);
+    }
+  };
+  const normalize = (label) =>
+    String(label || "")
+      .toLowerCase()
+      .replace(/\s+/g, "");
+  const formatSocialUrl = (value) =>
+    value.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
+  const socialsToRender =
+    categorySocials === null
+      ? []
+      : (categorySocials || [])
+          .map((label) => {
+            const key = normalize(label);
+            if (!SOCIAL_ICONS[key]) return null;
+
+            return {
+              key,
+              label,
+              value: socialLinks[key] || "",
+            };
+          })
+          .filter(Boolean);
+  const socialCount = socialsToRender.filter((item) => Boolean(item.value?.trim())).length;
+
+const cardHandlers = {
+  gallery: () => openService("gallery"),
+  locations: () => setShowHomeLocation(true),
+  targetedLocations: () => setShowBusinessLocations(true),
+  hours: () => openBusinessHours(),
+};
+
+  const profileCards = [
+    {
+      key: "social-panel",
+      title: "My Social Handles",
+      description: `Add Instagram, Facebook, LinkedIn etc. ${socialCount} handle${socialCount === 1 ? "" : "s"} linked.`,
+    },
+    {
+      key: "gallery",
+      title: "My Gallery",
+      description: `Manage business images. ${galleryCount} image${galleryCount === 1 ? "" : "s"} available.`,
+    },
+    {
+      key: "locations",
+      title: "Home Locations",
+      description: `Manage business locations. ${locationCount} location${locationCount === 1 ? "" : "s"} available.`,
+    },
+    {
+  key: "targetedLocations",
+  title: "Targeted Locations",
+  description: `Manage targeted service areas. ${targetedLocationCount} location${
+    targetedLocationCount === 1 ? "" : "s"
+  } available.`,
+},
+    {
+      key: "hours",
+      title: "Business Hours",
+      description: loadingVendor
+        ? "Loading business hours..."
+        : `Update working hours. ${hoursCount} hour entr${hoursCount === 1 ? "y" : "ies"} available.`,
+    },
+  ];
+
+  return (
+    <div className="profile-dashboard">
+      <button
+        className="dashboard-back-btn"
+        type="button"
+        onClick={onBack}
+      >
+        Back
+      </button>
+
+      {activePanel === "home" && (
+        <div className="profile-grid">
+          {profileCards.map((card) => (
+            <div
+              key={card.key}
+              className="profile-card clickable"
+              onClick={() => {
+                if (card.key === "social-panel") {
+                  setActivePanel("social");
+                  return;
+                }
+                cardHandlers[card.key]();
+              }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  if (card.key === "social-panel") {
+                    setActivePanel("social");
+                    return;
+                  }
+                  cardHandlers[card.key]();
+                }
+              }}
+            >
+              <h3 className="profile-card-title">{card.title}</h3>
+              <p className="profile-card-copy">{card.description}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showHomeLocation && (
+        <HomeLocationModal
+          vendorId={vendorId}
+          initialPosition={initialHomeLocation}
+          onClose={() => setShowHomeLocation(false)}
+        />
+      )}
+
+      {showBusinessLocations && (
+        <BusinessLocationsModal
+          vendorId={vendorId}
+          initialLocations={
+            currentVendorInfo?.targetedLocations ||
+            currentVendorInfo?.location?.nearbyLocations ||
+            currentVendorInfo?.nearbyLocations ||
+            []
+          }
+          onSaved={(updatedLocations) => {
+            setVendorInfo((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    targetedLocations: updatedLocations,
+                    nearbyLocations: updatedLocations,
+                    location: {
+                      ...(prev.location || {}),
+                      nearbyLocations: updatedLocations,
+                    },
+                  }
+                : prev
+            );
+          }}
+          onClose={() => setShowBusinessLocations(false)}
+        />
+      )}
+
+      {showBusinessHours && hoursVendor && (
+        <BusinessHoursModal
+          vendorId={vendorId}
+          businessName={
+            hoursVendor.businessName ||
+            currentVendorInfo?.businessName ||
+            ""
+          }
+          initialHours={hoursVendor.businessHours || []}
+          onClose={() => {
+            setShowBusinessHours(false);
+            setHoursVendor(null);
+          }}
+        />
+      )}
+
+      {activePanel === "social" && (
+        <div className="profile-panel">
+          <button
+            className="dashboard-back-btn profile-panel-back"
+            type="button"
+            onClick={() => setActivePanel("home")}
+          >
+            Back To Profile
+          </button>
+
+          <div className="profile-card profile-card-social">
+            <h3 className="profile-card-title">My Social Handles</h3>
+            <p className="profile-card-copy">
+              Add Instagram, Facebook, LinkedIn etc. {socialCount} handle{socialCount === 1 ? "" : "s"} linked.
+            </p>
+            <div className="profile-social-task-list">
+              {categorySocials === null && (
+                <div className="profile-social-task-muted">
+                  Loading social options...
+                </div>
+              )}
+
+              {categorySocials !== null && socialsToRender.length === 0 && (
+                <div className="profile-social-task-muted">
+                  No social platforms configured for this category
+                </div>
+              )}
+
+              {socialsToRender.map(({ key, label, value }) => {
+                const Icon = SOCIAL_ICONS[key];
+                const hasValue = Boolean(value?.trim());
+                const displayValue = hasValue ? formatSocialUrl(value) : "";
+
+                return (
+                  <div
+                    key={key}
+                    className="profile-social-task clickable"
+                    onClick={() => {
+                      setSelectedSocial({ key, label, value });
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedSocial({ key, label, value });
+                      }
+                    }}
+                  >
+                    <div className="profile-social-task-main">
+                      {Icon ? (
+                        <Icon className={`social-icon ${key}`} />
+                      ) : null}
+                      <div className="profile-social-text">
+                        <span className="profile-social-task-label">
+                          {label}
+                        </span>
+                        {hasValue && (
+                          <span className="profile-social-link-text">
+                            {displayValue}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {hasValue ? (
+                      <a
+                        className="profile-social-task-status"
+                        href={value}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                        }}
+                      >
+                        Open
+                      </a>
+                    ) : (
+                      <span className="profile-social-task-status">
+                        Add
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {selectedSocial && (
+            <ProfileSocialHandles
+              showTitle={false}
+              hideList={true}
+              initialSocialKey={selectedSocial.key || ""}
+              initialSocialLabel={selectedSocial.label || ""}
+              initialSocialValue={selectedSocial.value || ""}
+              onCloseEditor={() => setSelectedSocial(null)}
+              onSaved={() => setSelectedSocial(null)}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default ProfileDashboard;

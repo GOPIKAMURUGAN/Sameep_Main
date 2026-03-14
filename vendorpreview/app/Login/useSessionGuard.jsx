@@ -1,18 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { checkSessionStatus } from "./SessionStatus";
 export function useSessionGuard() {
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
-    const user = localStorage.getItem("userData");
-    const parsedUser = user ? JSON.parse(user) : null;
-
-    if (!token) return;
-
-    // 🚨 Skip backend session check for admin
-    if (parsedUser?.isAdmin) return;
-
     const forceLogout = () => {
       localStorage.removeItem("authToken");
       localStorage.removeItem("userData");
@@ -20,6 +10,15 @@ export function useSessionGuard() {
     };
 
     const checkSession = async () => {
+      const token = localStorage.getItem("authToken");
+      if (!token) return;
+
+      const user = localStorage.getItem("userData");
+      const parsedUser = user ? JSON.parse(user) : null;
+
+      // Skip backend customer session check for admin impersonation
+      if (parsedUser?.isAdmin) return;
+
       try {
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/customers/session-status-token`,
@@ -30,17 +29,35 @@ export function useSessionGuard() {
           }
         );
 
-        if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
           forceLogout();
         }
       } catch {
-        forceLogout();
+        // Ignore transient failures; interval will retry
+      }
+    };
+
+    const onFocus = () => {
+      checkSession();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        checkSession();
       }
     };
 
     checkSession();
     const interval = setInterval(checkSession, 60_000);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 }
+
+

@@ -1,0 +1,17 @@
+.popup-card {
+  background: #000000 !important;   /* change white → black */
+  color: #ffffff;
+  border-radius: 18px;
+  padding: 24px;
+}
+.profile-social-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-social-link {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-top: 2px;
+  word-break: break-all;
+}

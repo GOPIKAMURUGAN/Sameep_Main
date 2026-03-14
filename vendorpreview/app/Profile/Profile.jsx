@@ -2,24 +2,25 @@
 
 import "./Profile.css";
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import HomeLocationModal from "./HomeLocationModal";
 import BusinessLocationsModal from "./BusinessLocationsModal";
 import BusinessHoursModal from "./BusinessHoursModal";
 import { SOCIAL_ICONS } from "../Icons/SocialIcons";
-import { useVendor } from "../VendorContext";
+import { useVendor } from "@/app/context/VendorContext";
 
 export default function ProfileModal({ onClose, onOpenServices }) {
-  /* ================= URL PARAMS ================= */
-  const searchParams = useSearchParams();
-  const vendorContext = useVendor();
-  const vendorId = vendorContext?.vendorId || searchParams.get("vendorId");
-  const rootCategoryId = vendorContext?.categoryId || searchParams.get("rootCategoryId");
-  const vendorName = vendorContext?.businessName || searchParams.get("vendorName");
+  const { vendorInfo } = useVendor();
+  const vendorId = vendorInfo?.vendorId || vendorInfo?._id || null;
+  const rootCategoryId =
+    vendorInfo?.categoryId ||
+    vendorInfo?.category?._id ||
+    vendorInfo?.rootCategoryId ||
+    null;
+  const vendorName = vendorInfo?.businessName || vendorInfo?.vendor?.businessName || "";
 
   /* ================= STATE ================= */
   const [opening, setOpening] = useState(false);
-
+const [openingGallery, setOpeningGallery] = useState(false);
   const [showHomeLocation, setShowHomeLocation] = useState(false);
   const [showBusinessLocations, setShowBusinessLocations] = useState(false);
   const [showBusinessHours, setShowBusinessHours] = useState(false);
@@ -84,7 +85,7 @@ useEffect(() => {
   if (!vendorId) return;
 
   // 🔥 Clear old vendor cache
-  localStorage.removeItem("userData");
+  // Keep userData to preserve login state.
 }, [vendorId]);
 
 
@@ -253,7 +254,6 @@ const statusCounts = enquiries.reduce(
   </div>
 )}
 
-
         <hr />
 
         <h4 className="section-title">MY PRICES</h4>
@@ -269,6 +269,23 @@ const statusCounts = enquiries.reduce(
           <span>My Services</span>
           {opening ? <span className="row-loader" /> : <span className="active-badge">ACTIVE</span>}
         </div>
+        <div
+  className="profile-row clickable"
+  onClick={() => {
+    if (openingGallery) return;
+    setOpeningGallery(true);
+
+    // open gallery page / modal
+    onOpenServices("gallery");
+  }}
+>
+  <span>My Gallery</span>
+  {openingGallery ? (
+    <span className="row-loader" />
+  ) : (
+    <span className="active-badge">ACTIVE</span>
+  )}
+</div>
 
         <hr />
 
@@ -387,3 +404,5 @@ const statusCounts = enquiries.reduce(
     </div>
   );
 }
+
+

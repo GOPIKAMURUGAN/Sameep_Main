@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useVendor } from "./VendorContext";
+import { useVendor } from "@/app/context/VendorContext";
 
 export default function VendorTitleUpdater() {
   const vendor = useVendor();

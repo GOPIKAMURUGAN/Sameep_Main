@@ -4,6 +4,7 @@ import "./globals.css";
 import BootstrapClient from "./BootstrapClient";
 import Footer from "./Footer/Footer";
 import VendorClientShell from "./VendorClientShell";
+import { VendorProvider } from "./context/VendorContext";
 
 export const metadata = { title: "" };
 
@@ -64,14 +65,13 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <BootstrapClient />
-
-        {/* ✅ EVERYTHING INSIDE CONTEXT */}
-        <VendorClientShell vendor={vendorContext}>
-          {children}
-          <Footer /> {/* ✅ FIXED */}
-        </VendorClientShell>
-
+        <VendorProvider vendor={vendorContext}>
+          <BootstrapClient />
+          <VendorClientShell>
+            {children}
+            <Footer />
+          </VendorClientShell>
+        </VendorProvider>
       </body>
     </html>
   );

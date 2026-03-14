@@ -17,7 +17,11 @@
   max-width: 1100px;
   margin: auto;
 }
-
+.contact-info a{
+  color: #FFD27D !important;
+  text-decoration: none;
+  font-weight: 600;
+}
 /* ============================================================
    TITLES – GOLD & CENTERED
 ============================================================ */

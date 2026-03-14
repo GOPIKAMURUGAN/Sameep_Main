@@ -4,14 +4,24 @@ export const dynamic = "force-dynamic";
 import AdvantageSection from "../About/About";
 import RootsSection from "../Root/RootSection";
 import { useEffect, useState, useMemo } from "react";
-import { useVendor } from "../VendorContext";
+import { useVendor } from "../context/VendorContext";
 import "./Explore.css";
+import "./ExploreInline.css";
 import HeroSection from "../Hero/Hero";
 import { API_BASE_URL } from "../../config";
 // adjust path if needed: ../config or ../../config
 import { Suspense } from "react";
 import ResourceButton from "./components/ResourceButton";
-
+import ProfileDashboard from "../components/dashboard/ProfileDashboard";
+import MyStylists from "../components/dashboard/MyStylist";
+import PackagesPortal from "../PackagesPortal/PackagesPortal";
+import VendorGalleryModal from "../components/gallery/VendorGalleryModal";
+import TodayRevenue from "../components/dashboard/TodayRevenue";
+import MonthRevenue from "../components/dashboard/MonthRevenue";
+import YearRevenue from "../components/dashboard/YearRevenue";
+import CustomerSearch from "../components/dashboard/CustomerSearch";
+import LoyaltySettings from "../components/dashboard/LoyaltySettings";
+import SubscriptionDashboard from "../components/dashboard/SubscriptionDashboard";
 import { useSearchParams } from "next/navigation";
 // import { useLoginPopup } from "./LoginPopupContext";
 
@@ -119,45 +129,16 @@ function TermsList({ terms }) {
 
 
 
-function ServiceCard({ data, sectionName, openLogin }) {
-	   
-			  
-			  
-				
-				
-		 
-	
-
-  // ================= LOYALTY STATES =================
-  const [loadingRule, setLoadingRule] = useState(false);
-  const [savingRule, setSavingRule] = useState(false);
-  const [saveMessage, setSaveMessage] = useState("");
-
-  const [isEnabled, setIsEnabled] = useState(false);
-  const [percentPer100, setPercentPer100] = useState(0);
-  const [expiryDays, setExpiryDays] = useState(0);
-
-
-const [viewMode, setViewMode] = useState("preview");
-const [cartItems, setCartItems] = useState([]);
-const [cartOpen, setCartOpen] = useState(false);
-
-const [mobile, setMobile] = useState("");
-const [otp, setOtp] = useState("");
-const [otpSent, setOtpSent] = useState(false);
-const [loadingOtp, setLoadingOtp] = useState(false);
-
-const [isMobile, setIsMobile] = useState(false);
+function ServiceCard({ data, sectionName, openLogin, addToCart }) {
+  const [selectedMain, setSelectedMain] = useState(
+    data.defaultMain || data.options?.[0]?.label || null
+  );
+  const [selectedSub, setSelectedSub] = useState(data.defaultSub || null);
 
   const showTitle =
     !!data.title &&
-    (
-
-      !sectionName ||
-      data.title.trim().toLowerCase() !==
-      sectionName.trim().toLowerCase()
-    );
-
+    (!sectionName ||
+      data.title.trim().toLowerCase() !== sectionName.trim().toLowerCase());
 
   const formatPrice = (n) => {
     const price = Number(n || 0);
@@ -165,103 +146,16 @@ const [isMobile, setIsMobile] = useState(false);
     return `₹${price.toLocaleString("en-IN")}`;
   };
 
-										
-												
-																			   
-
-
-  if (data.simple) {
-    return (
-      <div className="ws-card">
-        {showTitle && <h3 className="ws-title">{data.title}</h3>}
-<div
-  className="ws-media"
- 
->
-  {data.offerText ? (
-    <div className="offer-banner offer-blast">
-      {data.offerText}
-    </div>
-  ) : (
-    data.img && <img src={data.img} alt={data.title} />
-  )}
-</div>
-
-        {/* ✅ PRICE FIRST */}
-        <div className="ws-price">
-          {!data.offerText && formatPrice(data.base)}
-        </div>
-
-
-
-
-        {/* ✅ TERMS AFTER PRICE */}
-        <TermsList terms={data.terms} />
-        {data.packagesIncludes && (
-  <div className="ws-package-box">
-    <div className="ws-package-title">Package Includes</div>
-
-    <ul className="ws-package-list">
-      {String(data.packagesIncludes || "")
-  .split(",")
-  .filter(Boolean)
-  .map((pkg, i) => (
-          <li key={i}>
-            <span className="ws-check">✓</span>
-            {pkg.trim()}
-          </li>
-        ))}
-    </ul>
-  </div>
-)}
-
-        <div className="ws-actions">
-          <button
-            className="btn-primary"
-					 
-			 
-								   
-            onClick={() =>
-              openLogin({
-                serviceName: data.title,   
-                price: data.base,
-                terms: data.terms?.join(", ") || "",
-                attributes: {},
-																	  
-                categoryPath: [sectionName].filter(Boolean),
-                categoryIds: [],
-              })
-            }
-          >
-            Enroll Now
-          </button>
-			
-
-
-
-
-
-        </div>
-      </div>
-    );
-  }
-
-
-
-  // ---------------- NORMAL CARD ----------------
-  const [selectedMain, setSelectedMain] = useState(null);
-  const [selectedSub, setSelectedSub] = useState(null);
-
+  
   useEffect(() => {
     setSelectedMain(data.defaultMain || data.options?.[0]?.label || null);
     setSelectedSub(data.defaultSub || null);
-  }, [data.defaultMain, data.defaultSub]);
+  }, [data.defaultMain, data.defaultSub, data.options]);
 
   useEffect(() => {
     if (!selectedMain) return;
 
-    const main = data.options?.find(o => o.label === selectedMain);
-
+    const main = data.options?.find((option) => option.label === selectedMain);
     if (!main) return;
 
     if (main.subOptions?.length) {
@@ -269,78 +163,160 @@ const [isMobile, setIsMobile] = useState(false);
         b.price < a.price ? b : a
       );
       setSelectedSub(cheapest.label);
-    } else {
-      setSelectedSub(null);
+      return;
     }
+
+    setSelectedSub(null);
   }, [selectedMain, data.options]);
 
   const total = useMemo(() => {
     let sum = 0;
-    const main = data.options?.find(o => o.label === selectedMain);
+    const main = data.options?.find((option) => option.label === selectedMain);
 
     if (main) sum += main.price || 0;
 
-    const sub = main?.subOptions?.find(s => s.label === selectedSub);
+    const sub = main?.subOptions?.find((option) => option.label === selectedSub);
     if (sub) sum += sub.price || 0;
 
     return sum || data.base;
   }, [data, selectedMain, selectedSub]);
 
   const selectedPackagesIncludes = useMemo(() => {
-  if (!selectedMain) return "";
+    if (!selectedMain) return "";
 
-  const main = data.options?.find(o => o.label === selectedMain);
-  if (!main) return "";
+    const main = data.options?.find((option) => option.label === selectedMain);
+    if (!main) return "";
 
-  // ⭐ if subOption selected
-  if (selectedSub && main.subOptions?.length) {
-    const sub = main.subOptions.find(s => s.label === selectedSub);
-    return sub?.packagesIncludes || "";
-  }
+    if (selectedSub && main.subOptions?.length) {
+      const sub = main.subOptions.find((option) => option.label === selectedSub);
+      return sub?.packagesIncludes || "";
+    }
 
-  // ⭐ otherwise main option
-  return main.packagesIncludes || "";
-}, [data.options, selectedMain, selectedSub]);
+    return main.packagesIncludes || "";
+  }, [data.options, selectedMain, selectedSub]);
 
   const dynamicImg = useMemo(() => {
     if (!selectedMain) return data.img || null;
-    const main = data.options?.find(o => o.label === selectedMain);
 
+    const main = data.options?.find((option) => option.label === selectedMain);
     if (selectedSub && main?.subOptions?.length) {
-      const sub = main.subOptions.find(s => s.label === selectedSub);
+      const sub = main.subOptions.find((option) => option.label === selectedSub);
       if (sub?.imageUrl) return sub.imageUrl;
     }
 
     return main?.imageUrl || data.img || null;
   }, [data, selectedMain, selectedSub]);
+
   const selectedOfferText = useMemo(() => {
     if (!selectedMain) return data.offerText || "";
 
-    const main = data.options?.find(o => o.label === selectedMain);
+    const main = data.options?.find((option) => option.label === selectedMain);
     if (!main) return data.offerText || "";
 
     if (selectedSub && main.subOptions?.length) {
-      const sub = main.subOptions.find(s => s.label === selectedSub);
+      const sub = main.subOptions.find((option) => option.label === selectedSub);
       return sub?.offerText || main.offerText || data.offerText || "";
     }
 
     return main.offerText || data.offerText || "";
   }, [data, selectedMain, selectedSub]);
+
   const selectedTerms = useMemo(() => {
     if (!selectedMain) return [];
 
-    const main = data.options?.find(o => o.label === selectedMain);
+    const main = data.options?.find((option) => option.label === selectedMain);
     if (!main) return [];
 
-    // Sub-option selected → use its terms
     if (selectedSub && main.subOptions?.length) {
-      const sub = main.subOptions.find(s => s.label === selectedSub);
+      const sub = main.subOptions.find((option) => option.label === selectedSub);
       return sub?.terms || [];
     }
 
-    // Otherwise main option terms
     return main.terms || [];
   }, [data.options, selectedMain, selectedSub]);
+
+  const handleSimpleAddToCart = () => {
+    const categoryPath = [sectionName, data.title].filter(Boolean);
+    const serviceId = data.id || data._id || data.categoryId || data.title;
+    const serviceName = data.title;
+
+    addToCart(
+      {
+        _id: serviceId,
+        categoryId: serviceId,
+        name: serviceName,
+        price: Number(data.base) || 0,
+      },
+      categoryPath,
+      []
+    );
+  };
+
+ const handleConfiguredAddToCart = () => {
+  const categoryPath = [sectionName, selectedMain, selectedSub].filter(Boolean);
+
+  const serviceId = data.id || data._id || data.categoryId;
+
+  const serviceName =
+    selectedSub || selectedMain || data.title;
+
+  addToCart(
+    {
+      _id: serviceId,
+      categoryId: serviceId,
+      name: serviceName,
+      price: Number(total) || 0,
+    },
+    categoryPath,
+    []
+  );
+};
+
+  if (data.simple) {
+    return (
+      <div className="ws-card">
+        {showTitle && <h3 className="ws-title">{data.title}</h3>}
+        <div className="ws-media">
+          {data.offerText ? (
+            <div className="offer-banner offer-blast">
+              {data.offerText}
+            </div>
+          ) : (
+            data.img && <img src={data.img} alt={data.title} />
+          )}
+        </div>
+
+        <div className="ws-price">
+          {!data.offerText && formatPrice(data.base)}
+        </div>
+
+        <TermsList terms={data.terms} />
+
+        {data.packagesIncludes && (
+          <div className="ws-package-box">
+            <div className="ws-package-title">Package Includes</div>
+            <ul className="ws-package-list">
+              {String(data.packagesIncludes || "")
+                .split(",")
+                .filter(Boolean)
+                .map((pkg, i) => (
+                  <li key={i}>
+                    <span className="ws-check">✓</span>
+                    {pkg.trim()}
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="ws-actions">
+          <button className="btn-primary" onClick={handleSimpleAddToCart}>
+            Add to Cart
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="ws-card">
@@ -348,48 +324,33 @@ const [isMobile, setIsMobile] = useState(false);
 
       {sectionName &&
         data.title?.trim().toLowerCase() !==
-        sectionName.trim().toLowerCase() && (
-          <h4 className="ws-mobile-category">
-            {sectionName}
-          </h4>
+          sectionName.trim().toLowerCase() && (
+          <h4 className="ws-mobile-category">{sectionName}</h4>
         )}
 
+      <div className="ws-media" key={selectedOfferText || dynamicImg}>
+        {selectedOfferText ? (
+          <div className="offer-banner offer-confetti">
+            {selectedOfferText}
+          </div>
+        ) : (
+          dynamicImg && <img src={dynamicImg} alt={data.title} />
+        )}
+      </div>
 
-
-   <div
-  className="ws-media"
-  key={selectedOfferText || dynamicImg}
->
-  {selectedOfferText ? (
-    <div className="offer-banner offer-confetti">
-      {selectedOfferText}
-    </div>
-  ) : (
-    dynamicImg && <img src={dynamicImg} alt={data.title} />
-  )}
-</div>
       {!selectedOfferText && (
-        <div className="ws-price">
-          {formatPrice(total)}
-        </div>
+        <div className="ws-price">{formatPrice(total)}</div>
       )}
-
 
       <div className="ws-subhead">Select Service</div>
 
-
-
-
-
       <div className="ws-chips">
-        {data.options?.map(opt => (
+        {data.options?.map((opt) => (
           <Chip
             key={opt.label}
             active={selectedMain === opt.label}
             onClick={() =>
-              setSelectedMain(
-                selectedMain === opt.label ? null : opt.label
-              )
+              setSelectedMain(selectedMain === opt.label ? null : opt.label)
             }
           >
             {opt.label}
@@ -398,87 +359,56 @@ const [isMobile, setIsMobile] = useState(false);
       </div>
 
       {selectedMain &&
-        data.options?.find(o => o.label === selectedMain)?.subOptions?.length > 0 && (
+        data.options?.find((option) => option.label === selectedMain)?.subOptions
+          ?.length > 0 && (
           <div className="ws-subsection">
-            <div className="ws-subhead small">
-              Choose {selectedMain} Type
-            </div>
+            <div className="ws-subhead small">Choose {selectedMain} Type</div>
             <div className="ws-chips">
               {data.options
-                .find(o => o.label === selectedMain)
-                .subOptions.map(s => (
+                .find((option) => option.label === selectedMain)
+                .subOptions.map((subOption) => (
                   <Chip
-                    key={s.label}
-                    active={selectedSub === s.label}
+                    key={subOption.label}
+                    active={selectedSub === subOption.label}
                     onClick={() =>
                       setSelectedSub(
-                        selectedSub === s.label ? null : s.label
+                        selectedSub === subOption.label ? null : subOption.label
                       )
                     }
                   >
-                    {s.label}
+                    {subOption.label}
                   </Chip>
                 ))}
             </div>
           </div>
         )}
-      {/* ✅ TERMS MOVED BELOW SELECT SERVICE */}
+
       <TermsList terms={selectedTerms} />
+
       {selectedPackagesIncludes && (
-  <div className="ws-package-box">
-    <div className="ws-package-title">Package Includes</div>
-
-    <ul className="ws-package-list">
-      {String(selectedPackagesIncludes || "")
-  .split(",")
-  .filter(Boolean)
-  .map((pkg, i) => (
-          <li key={i}>
-            <span className="ws-check">✓</span>
-            {pkg.trim()}
-          </li>
-        ))}
-    </ul>
-  </div>
-)}
-
+        <div className="ws-package-box">
+          <div className="ws-package-title">Package Includes</div>
+          <ul className="ws-package-list">
+            {String(selectedPackagesIncludes || "")
+              .split(",")
+              .filter(Boolean)
+              .map((pkg, i) => (
+                <li key={i}>
+                  <span className="ws-check">✓</span>
+                  {pkg.trim()}
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
 
       <div className="ws-actions">
-        <button
-									   
-				   
-						   
-          className="btn-primary"
-          onClick={() =>
-            openLogin({
-              serviceName: data.title,
-              price: total,
-              terms: selectedTerms?.join(", ") || "",
-
-              attributes: {
-                mainOption: selectedMain,
-                subOption: selectedSub,
-              },
-
-              // ⭐ FIXED CATEGORY PATH
-              categoryPath: [
-                sectionName,          // Hair
-                selectedMain,         // Hair Spa
-                selectedSub,          // Relaxing
-              ].filter(Boolean),
-
-              categoryIds: [], // keep empty if you don’t map ids yet
-            })
-          }
-        >
-          Enroll Now
+        <button className="btn-primary" onClick={handleConfiguredAddToCart}>
+          Add to Cart
         </button>
-
       </div>
-
     </div>
   );
-
 }
 
 
@@ -668,7 +598,6 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
           offerText: level1.offerText || ""
         };
       }
-
       let minPrice = Infinity;
       let defaultMain = null;
       let defaultSub = null;
@@ -794,21 +723,27 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
 // --------------------------------------------------
 // MAIN Explore Page
 // --------------------------------------------------
-function ExploreContent({ onReady }) {
+function ExploreContent({ onReady, onOpenServices }) {
   // ================= CART + BILLING STATES =================
   const [cartItems, setCartItems] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const cartTotal = cartItems.reduce((a, b) => a + (b.total || 0), 0);
-  const [resources, setResources] = useState([]);
-  // ================= LOYALTY STATES (FIX ERROR) =================
-  const [loadingRule, setLoadingRule] = useState(false);
-  const [savingRule, setSavingRule] = useState(false);
-  const [saveMessage, setSaveMessage] = useState("");
+  const cartTotal = cartItems.reduce(
+    (sum, item) => sum + (Number(item.price) || 0) * (Number(item.qty) || 0),
+    0
+  );
 
-  const [isEnabled, setIsEnabled] = useState(false);
+const [discountAmount, setDiscountAmount] = useState(0);
+const [discountPercent, setDiscountPercent] = useState(0);
+const [discountMode, setDiscountMode] = useState(null); // "amount" | "percent"
+const [appliedDiscount, setAppliedDiscount] = useState(0);
+const [showDiscountPopup, setShowDiscountPopup] = useState(false);
+
+
+  const [resources, setResources] = useState([]);
   const [percentPer100, setPercentPer100] = useState(0);
   const [expiryDays, setExpiryDays] = useState(0);
   const [ruleLoaded, setRuleLoaded] = useState(false);
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
 
 
   const [customerMobile, setCustomerMobile] = useState("");
@@ -825,6 +760,9 @@ function ExploreContent({ onReady }) {
   const [customerValidated, setCustomerValidated] = useState(false);
   const [loyaltyLoaded, setLoyaltyLoaded] = useState(true);
   const [processingBill, setProcessingBill] = useState(false);
+  const [showBillSuccess, setShowBillSuccess] = useState(false);
+  const [billType, setBillType] = useState("customer");
+  const [billSuccessMessage, setBillSuccessMessage] = useState("");
 
 
   const [vendorLoaded, setVendorLoaded] = useState(false);
@@ -837,10 +775,43 @@ function ExploreContent({ onReady }) {
   const [loadingOtp, setLoadingOtp] = useState(false);
 
   const [showLogin, setShowLogin] = useState(false);
+  const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(false);
   const [viewMode, setViewMode] = useState("preview");
+  const [activeRevenueTab, setActiveRevenueTab] = useState("today");
+  const [showOptions, setShowOptions] = useState(false);
+  const [openServices, setOpenServices] = useState(false);
+  const [serviceType, setServiceType] = useState(null);
+  const [serviceLoading, setServiceLoading] = useState(false);
 																  
 																		
-														   
+						  
+const finalTotal = Math.max(cartTotal - appliedDiscount, 0);
+
+  const applyDiscount = () => {
+    let nextDiscount = 0;
+
+    if (discountMode === "amount") {
+      const safeAmount = Math.min(
+        Math.max(Number(discountAmount) || 0, 0),
+        cartTotal
+      );
+      if (safeAmount !== discountAmount) {
+        setDiscountAmount(safeAmount);
+      }
+      nextDiscount = safeAmount;
+    } else if (discountMode === "percent") {
+      const safePercent = Math.min(
+        Math.max(Number(discountPercent) || 0, 0),
+        100
+      );
+      if (safePercent !== discountPercent) {
+        setDiscountPercent(safePercent);
+      }
+      nextDiscount = Math.floor((cartTotal * safePercent) / 100);
+    }
+
+    setAppliedDiscount(nextDiscount);
+  };
   // ================= MENU TREE (TEMP SAFE STATE) =================
   const [menuTree, setMenuTree] = useState([]);
 										 
@@ -851,6 +822,8 @@ function ExploreContent({ onReady }) {
   const [selectedAttributes, setSelectedAttributes] = useState({});
   const [selectedCategoryPath, setSelectedCategoryPath] = useState([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
+  const [menuSearch, setMenuSearch] = useState("");
+  const [pricingRefreshNonce, setPricingRefreshNonce] = useState(0);
   // ================= MOBILE DETECTION =================
   const [isMobile, setIsMobile] = useState(false);
 
@@ -863,6 +836,19 @@ function ExploreContent({ onReady }) {
     window.addEventListener("resize", checkMobile);
 
     return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  const checkLogin = () => {
+    // Customer login is tracked via `authToken`. `token` is used elsewhere for vendor/admin auth.
+    const token = localStorage.getItem("authToken");
+    setIsCustomerLoggedIn(Boolean(token && token.length > 10));
+  };
+
+  useEffect(() => {
+    checkLogin();
+
+    window.addEventListener("storage", checkLogin);
+    return () => window.removeEventListener("storage", checkLogin);
   }, []);
 
   const openLogin = (serviceData) => {
@@ -878,7 +864,21 @@ function ExploreContent({ onReady }) {
     setShowLogin(true);
   };
 
-  const closeLogin = () => setShowLogin(false);
+  const closeLogin = () => {
+    setShowLogin(false);
+    checkLogin();
+  };
+
+  const customerLogout = () => {
+    localStorage.removeItem("authToken");
+    setIsCustomerLoggedIn(false);
+    setCustomerId(null);
+    setCustomerMobile("");
+    setMobile("");
+    setAvailablePoints(0);
+    setRedeemPoints(0);
+    setEarnPoints(0);
+  };
 
 
   const toAnchor = (label) =>
@@ -903,13 +903,37 @@ function ExploreContent({ onReady }) {
     vendorInfo?._id ||
     vendorInfo?.vendor?._id ||
     null;
+  const galleryRowId =
+    vendorInfo?.galleryRowId ||
+    vendorInfo?.rowId ||
+    vendorInfo?.rows?.[0]?._id ||
+    "default";
   const rootCategoryId =
     queryRootCategoryId ||
     vendorInfo?.categoryId ||
     vendorInfo?.category?._id ||
     vendorInfo?.rootCategoryId ||
     null;
-  const canGenerateBill = cartItems.length > 0 && !!vendorId;
+const canGenerateBill =
+  cartItems.length > 0 &&
+  !!vendorId &&
+  !showOtpInput &&
+  !processingBill;
+  const handleOpenServices = (type) => {
+    if (typeof onOpenServices === "function") {
+      onOpenServices(type);
+      return;
+    }
+
+    if (type !== "packages" && type !== "gallery") {
+      console.warn("Unsupported local dashboard service action", { type });
+      return;
+    }
+
+    setServiceLoading(type === "packages");
+    setServiceType(type);
+    setOpenServices(true);
+  };
   const verifyOtp = async () => {
     if (!otp || otp.length < 4) {
       alert("Enter valid OTP");
@@ -946,6 +970,7 @@ function ExploreContent({ onReady }) {
       // ⭐ Save token
       if (data?.token) {
         localStorage.setItem("authToken", data.token);
+        setIsCustomerLoggedIn(true);
       }
 
       // ⭐ CUSTOMER ID FROM BACKEND
@@ -1087,9 +1112,15 @@ function ExploreContent({ onReady }) {
     if (!billingId || !otp) return;
 
     try {
+       setVerifyingOtp(true);
+      const vendorToken = localStorage.getItem("token");
+
       await fetch(`${API_BASE_URL}/api/billing/verify-otp`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(vendorToken ? { Authorization: `Bearer ${vendorToken}` } : {}),
+        },
         body: JSON.stringify({
           billingId,
           otp,
@@ -1098,7 +1129,10 @@ function ExploreContent({ onReady }) {
 
       const completeRes = await fetch(`${API_BASE_URL}/api/billing/complete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(vendorToken ? { Authorization: `Bearer ${vendorToken}` } : {}),
+        },
         body: JSON.stringify({
           billingId,
           paymentMode: "CASH",
@@ -1107,6 +1141,10 @@ function ExploreContent({ onReady }) {
 
       const completeData = await completeRes.json();
       if (completeData?.success) {
+        setBillSuccessMessage(
+          "OTP verified successfully and the bill generated."
+        );
+        setShowBillSuccess(true);
         setCartItems([]);
         setCustomerMobile("");
         setAvailablePoints(0);
@@ -1114,6 +1152,8 @@ function ExploreContent({ onReady }) {
         setCustomerId(null);
         setBillingId(null);
         setEarnPoints(0);
+        setMenuSearch("");
+        resetBillingState(); 
       }
 
       setShowOtpInput(false);
@@ -1122,6 +1162,9 @@ function ExploreContent({ onReady }) {
     } catch (err) {
       console.error(err);
     }
+     finally {
+    setVerifyingOtp(false); // ✅ stop loader
+  }
   };
 
 
@@ -1161,6 +1204,11 @@ function ExploreContent({ onReady }) {
     return images.slice(0, 5);
   }
   const [heroImages, setHeroImages] = useState([]);
+  const [vendorGalleryImages, setVendorGalleryImages] = useState([]);
+  const mergedHeroImages = useMemo(
+    () => [...new Set([...heroImages, ...vendorGalleryImages])],
+    [heroImages, vendorGalleryImages]
+  );
 
 
 
@@ -1281,7 +1329,7 @@ function ExploreContent({ onReady }) {
       }
     }
     load();
-  }, [vendorId, rootCategoryId]);
+  }, [vendorId, rootCategoryId, pricingRefreshNonce]);
 
   useEffect(() => {
     if (!rootCategoryId) return;
@@ -1309,6 +1357,26 @@ function ExploreContent({ onReady }) {
         console.error("Failed loading resources", err);
       });
   }, [vendorId]);
+
+  useEffect(() => {
+    if (!vendorInfo?.resources) return;
+    setResources(Array.isArray(vendorInfo.resources) ? vendorInfo.resources : []);
+  }, [vendorInfo?.resources]);
+
+  useEffect(() => {
+    if (!vendorId) return;
+
+    fetch(`${API_BASE_URL}/api/dummy-vendors/${vendorId}`)
+      .then((res) => res.json())
+      .then((vendor) => {
+        if (!vendor?.rowImages) return;
+
+        const images = Object.values(vendor.rowImages).flat();
+        setVendorGalleryImages(images);
+      })
+      .catch((err) => console.error("Vendor gallery fetch failed", err));
+  }, [vendorId]);
+
   useEffect(() => {
     if (vendorLoaded && dataLoaded) {
       onReady?.();
@@ -1368,8 +1436,10 @@ function ExploreContent({ onReady }) {
 
         if (!res.ok) {
           console.warn("No loyalty rule found for vendor yet");
-          setIsEnabled(false);
           setExpiryDays(0);
+          setPercentPer100(0);
+          setEarnPoints(0);
+          setLoyaltyEnabled(false);
           return;
         }
 
@@ -1377,14 +1447,26 @@ function ExploreContent({ onReady }) {
 
 
         if (data?.success && data?.data) {
-          setPercentPer100(data?.data?.earn?.percentPer100 ?? 0);
-          setExpiryDays(data?.data?.expiry?.expiryDays ?? 0);
+          const enabled = data?.data?.isEnabled === true;
+          setLoyaltyEnabled(enabled);
+
+          if (enabled) {
+            setPercentPer100(data?.data?.earn?.percentPer100 ?? 0);
+            setExpiryDays(data?.data?.expiry?.expiryDays ?? 0);
+          } else {
+            setPercentPer100(0);
+            setEarnPoints(0);
+          }
         } else {
           setPercentPer100(0);
+          setEarnPoints(0);
+          setLoyaltyEnabled(false);
         }
       } catch (err) {
         console.error("Failed to load vendor rule", err);
         setPercentPer100(0);
+        setEarnPoints(0);
+        setLoyaltyEnabled(false);
       } finally {
         setRuleLoaded(true);
       }
@@ -1400,14 +1482,14 @@ function ExploreContent({ onReady }) {
       return;
     }
 
-    if (!percentPer100 || !cartTotal) {
+    if (!loyaltyEnabled || !percentPer100 || !cartTotal) {
       setEarnPoints(0);
       return;
     }
 
     const pts = Math.floor((cartTotal / 100) * percentPer100);
     setEarnPoints(pts);
-  }, [cartTotal, percentPer100, ruleLoaded]);
+  }, [cartTotal, percentPer100, ruleLoaded, loyaltyEnabled]);
 
   useEffect(() => {
     if (!customerMobile || customerMobile.length !== 10) return;
@@ -1419,45 +1501,8 @@ function ExploreContent({ onReady }) {
     return () => clearTimeout(handle);
   }, [customerMobile, vendorId]);
 
-  useEffect(() => {
-    if (viewMode !== "loyalty" || !vendorId) return;
 
-    let cancelled = false;
-    const fetchRule = async () => {
-      try {
-        setLoadingRule(true);
-        const res = await fetch(
-          `${API_BASE_URL}/api/loyalty/vendor-rule/${encodeURIComponent(vendorId)}`
-        );
-        if (!res.ok) throw new Error("Failed to load loyalty rule");
-        const data = await res.json();
-        if (cancelled) return;
-
-        if (data?.success && data?.data) {
-          const rule = data.data;
-          if (typeof rule.isEnabled === "boolean") setIsEnabled(rule.isEnabled);
-          if (typeof rule?.earn?.percentPer100 === "number") {
-            setPercentPer100(rule.earn.percentPer100);
-          }
-          if (typeof rule?.expiry?.expiryDays === "number") {
-            setExpiryDays(rule.expiry.expiryDays);
-          }
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error("Failed to fetch loyalty rule", err);
-        }
-      } finally {
-        if (!cancelled) setLoadingRule(false);
-      }
-    };
-
-    fetchRule();
-    return () => {
-      cancelled = true;
-    };
-  }, [viewMode, vendorId]);
-
+  /*
   const saveLoyaltyRule = async () => {
     if (!vendorId) return;
 
@@ -1497,6 +1542,7 @@ function ExploreContent({ onReady }) {
       setSavingRule(false);
     }
   };
+  */
 
   async function fetchWallet(cId) {
     if (!cId || !vendorId) return;
@@ -1560,10 +1606,12 @@ function ExploreContent({ onReady }) {
   const addToCart = (node, nodePath = [], categoryPathIds = []) => {
     setCartItems(prev => {
       const safePathIds = (categoryPathIds || []).filter(Boolean);
-      const existing = prev.find(i => i.itemId === node._id);
+      const itemId = node._id || node.id || node.categoryId;
+      const categoryId = node.categoryId || node._id || node.id;
+      const existing = prev.find(i => i.itemId === itemId);
       if (existing) {
         return prev.map(i => {
-          if (i.itemId !== node._id) return i;
+          if (i.itemId !== itemId) return i;
           const qty = i.qty + 1;
           return { ...i, qty, total: i.price * qty };
         });
@@ -1571,8 +1619,8 @@ function ExploreContent({ onReady }) {
       return [
         ...prev,
         {
-          itemId: node.categoryId || node._id,
-          categoryId: node.categoryId || node._id,
+          itemId,
+          categoryId,
 
           name: node.name,
           price: node.price,
@@ -1584,7 +1632,7 @@ function ExploreContent({ onReady }) {
           parentId: node.parentId || null,
           rootCategoryId: rootCategoryId || node.rootCategoryId || null,
           nodePath,
-          categoryPathIds: safePathIds.length ? safePathIds : [node._id],
+          categoryPathIds: safePathIds.length ? safePathIds : [categoryId],
         },
       ];
     });
@@ -1592,6 +1640,10 @@ function ExploreContent({ onReady }) {
   const clearCart = () => {
     setCartItems([]);
     setRedeemPoints(0);
+    setDiscountAmount(0);
+    setDiscountPercent(0);
+    setAppliedDiscount(0);
+    setDiscountMode(null);
   };
 
   const resetBillingState = () => {
@@ -1605,6 +1657,10 @@ function ExploreContent({ onReady }) {
     setBillingId(null);
     setShowOtpInput(false);
     setOtp("");
+    setDiscountAmount(0);
+    setDiscountPercent(0);
+    setAppliedDiscount(0);
+    setDiscountMode(null);
 
     // optional safety
     localStorage.removeItem("ynot_cart");
@@ -1623,10 +1679,15 @@ function ExploreContent({ onReady }) {
     try {
       setProcessingBill(true);
 
+      const vendorToken = localStorage.getItem("token");
+
       // STEP 1 - Create billing session
       const createRes = await fetch(`${API_BASE_URL}/api/billing/create`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(vendorToken ? { Authorization: `Bearer ${vendorToken}` } : {}),
+        },
         body: JSON.stringify({
           vendorId,
           customerId: customerId || null,
@@ -1646,16 +1707,46 @@ function ExploreContent({ onReady }) {
       setBillingId(newBillingId);
 
       // STEP 2 - Update cart with hierarchy fields
+      const discountFactor =
+        cartTotal > 0 ? (cartTotal - appliedDiscount) / cartTotal : 1;
+      const billingCartItems = cartItems.map((item) => {
+        const originalTotal =
+          Number(item.total) ||
+          Number(item.price) * Number(item.qty || 1);
+        const discountedPrice = Math.round((item.price || 0) * discountFactor);
+
+
+      return {
+  itemId: item.itemId,
+  categoryId: item.categoryId,
+  name: item.name,
+  price: discountedPrice,
+  qty: Number(item.qty) || 1,
+  total: discountedPrice * (item.qty || 1),
+          resourceId: item.resourceId || null,
+          resourceName: item.resourceName || "",
+          parentId: item.parentId || null,
+          rootCategoryId: item.rootCategoryId || null,
+          nodePath: item.nodePath || [],
+          categoryPathIds: item.categoryPathIds || [],
+        };
+      });
+const billingSubtotal = cartTotal;
+const billingDiscount = appliedDiscount;
+const billingFinalTotal = Math.max(billingSubtotal - billingDiscount, 0);
       const updateRes = await fetch(`${API_BASE_URL}/api/billing/update`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(vendorToken ? { Authorization: `Bearer ${vendorToken}` } : {}),
+        },
         body: JSON.stringify({
           billingId: newBillingId,
-          cartItems,
+          cartItems: billingCartItems,
         }),
       });
 
-      const updateData = await updateRes.json();
+      const updateData = await updateRes.json().catch(() => null);
       if (!updateData?.success) {
         alert(updateData?.message || "Billing update failed");
         return;
@@ -1665,7 +1756,10 @@ function ExploreContent({ onReady }) {
         // STEP 3 - Request OTP for redemption
         const otpRes = await fetch(`${API_BASE_URL}/api/billing/request-otp`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(vendorToken ? { Authorization: `Bearer ${vendorToken}` } : {}),
+          },
           body: JSON.stringify({
             billingId: newBillingId,
             redeemPoints,
@@ -1685,7 +1779,10 @@ function ExploreContent({ onReady }) {
       // STEP 3 - Complete billing
       const completeRes = await fetch(`${API_BASE_URL}/api/billing/complete`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(vendorToken ? { Authorization: `Bearer ${vendorToken}` } : {}),
+        },
         body: JSON.stringify({
           billingId: newBillingId,
           paymentMode: "CASH",
@@ -1698,8 +1795,12 @@ function ExploreContent({ onReady }) {
         return;
       }
 
+      const isWalkIn = !customerMobile;
+      setBillType(isWalkIn ? "walkin" : "customer");
+      setBillSuccessMessage("");
+      setMenuSearch("");
+      setShowBillSuccess(true);
       resetBillingState();
-      alert(completeData?.message || "Bill generated successfully");
     } catch (err) {
       console.error(err);
       alert("Server error while billing");
@@ -1762,18 +1863,42 @@ function ExploreContent({ onReady }) {
     return "menu-sub";
   };
 
-  const menuStyleForClass = (cls) => {
-    if (cls === "menu-root") {
-      return { color: "#e6c37a", fontWeight: 700, fontSize: 20 };
-    }
-    if (cls === "menu-category") {
-      return { color: "#e6c37a", fontWeight: 600 };
-    }
-    if (cls === "menu-sub") {
-      return { color: "#d8b46a" };
-    }
-    return { color: "#ffffff" };
+  const filterMenuNodes = (nodes, query) => {
+    if (!Array.isArray(nodes)) return [];
+
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return nodes;
+
+    return nodes.reduce((acc, node) => {
+      if (!node || typeof node !== "object") return acc;
+
+      const name = String(node.name || node.title || "").toLowerCase();
+      const filteredChildren = Array.isArray(node.children)
+        ? filterMenuNodes(node.children, normalizedQuery)
+        : [];
+      const hasPrice = node.price !== undefined && node.price !== null;
+      const matchesSelf = name.includes(normalizedQuery);
+
+      if (matchesSelf || filteredChildren.length > 0) {
+        acc.push({
+          ...node,
+          children: filteredChildren,
+        });
+        return acc;
+      }
+
+      if (hasPrice && matchesSelf) {
+        acc.push(node);
+      }
+
+      return acc;
+    }, []);
   };
+
+  const filteredMenuTree = useMemo(
+    () => filterMenuNodes(menuTree, menuSearch),
+    [menuTree, menuSearch]
+  );
 
   const renderMenuNodes = (nodes, depth = 0, path = [], pathIds = []) => {
     if (!Array.isArray(nodes) || nodes.length === 0) return null;
@@ -1794,30 +1919,16 @@ function ExploreContent({ onReady }) {
         return (
           <div
             key={`${depth}-leaf-${name}-${idx}`}
-            style={{
-              marginLeft: depth * 16,
-              marginBottom: 4,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              ...menuStyleForClass(cls),
-            }}
+            className={`menu-tree-leaf-row menu-depth-indent-${Math.min(depth, 6)} ${cls}`}
           >
-            <span style={{ flex: 1 }}>{name}</span>
-            <span style={{ minWidth: 90, textAlign: "right" }}>
+            <span className="menu-tree-leaf-name">{name}</span>
+            <span className="menu-tree-leaf-price">
               ₹ {node.price}
             </span>
             <button
+              className="menu-tree-add-btn"
               type="button"
               onClick={() => addToCart(node, newPath, newPathIds)}
-              style={{
-                minWidth: 70,
-                textAlign: "right",
-                color: "rgba(255,255,255,0.5)",
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-              }}
             >
               [+ Add]
             </button>
@@ -1829,17 +1940,13 @@ function ExploreContent({ onReady }) {
       if (!hasChildren) return null;
 
       const cls = menuClassForDepth(depth, false);
-      const headingStyle = {
-        marginBottom: 6,
-        ...menuStyleForClass(cls),
-      };
 
       return (
         <div
           key={`${depth}-node-${name}-${idx}`}
-          style={{ marginBottom: 16 }}
+          className="menu-tree-node-block"
         >
-          <div style={{ ...headingStyle, marginLeft: depth * 14 }}>
+          <div className={`menu-tree-heading menu-depth-heading-${Math.min(depth, 6)} ${cls}`}>
             {name}
           </div>
           <div>{renderMenuNodes(node.children, depth + 1, newPath, newPathIds)}</div>
@@ -1847,7 +1954,7 @@ function ExploreContent({ onReady }) {
       );
     });
   };
-
+const [verifyingOtp, setVerifyingOtp] = useState(false);
   const categoryHome = category?.homePopup || {};
 
   const heroTagline =
@@ -1867,6 +1974,38 @@ function ExploreContent({ onReady }) {
 
   const heroButton2 =
     categoryHome?.button2Label?.trim() || "";
+
+  useEffect(() => {
+    const rule = vendorInfo?.loyaltyRule;
+    if (!rule) return;
+
+    const enabled = rule?.isEnabled === true;
+    setLoyaltyEnabled(enabled);
+
+    if (enabled) {
+      setPercentPer100(rule?.earn?.percentPer100 ?? 0);
+      setExpiryDays(rule?.expiry?.expiryDays ?? 0);
+    } else {
+      setPercentPer100(0);
+      setEarnPoints(0);
+    }
+
+    setRuleLoaded(true);
+  }, [vendorInfo?.loyaltyRule]);
+  useEffect(() => {
+  if (!discountMode) return;
+
+  if (discountMode === "amount") {
+    const safeAmount = Math.min(discountAmount, cartTotal);
+    setAppliedDiscount(safeAmount);
+  }
+
+  if (discountMode === "percent") {
+    const safePercent = Math.min(discountPercent, 100);
+    const discount = Math.floor((cartTotal * safePercent) / 100);
+    setAppliedDiscount(discount);
+  }
+}, [cartTotal]);
 
   return (
     <>
@@ -1947,8 +2086,149 @@ function ExploreContent({ onReady }) {
 
       }
       {/* ✅ HERO SECTION */}
+      {showDiscountPopup && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.65)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 3000,
+          }}
+          onClick={() => setShowDiscountPopup(false)}
+        >
+          <div
+            style={{
+              width: "min(90vw, 420px)",
+              background: "#111",
+              border: "1px solid #333",
+              borderRadius: 10,
+              padding: 16,
+              color: "#fff",
+              boxShadow: "0 12px 40px rgba(0, 0, 0, 0.4)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 10, color: "#F5D97A" }}>
+              Apply Discount
+            </div>
+            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <input
+                  type="radio"
+                  name="discountType"
+                  value="amount"
+                  checked={discountMode === "amount"}
+                  onChange={() => {
+                    setDiscountMode("amount");
+                    setDiscountPercent(0);
+                    setAppliedDiscount(0);
+                  }}
+                />
+                Discount Amount
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <input
+                  type="radio"
+                  name="discountType"
+                  value="percent"
+                  checked={discountMode === "percent"}
+                  onChange={() => {
+                    setDiscountMode("percent");
+                    setDiscountAmount(0);
+                    setAppliedDiscount(0);
+                  }}
+                />
+                Discount %
+              </label>
+            </div>
+            {discountMode === "amount" && (
+              <input
+                type="number"
+                placeholder="Enter discount amount"
+                value={discountAmount || ""}
+                min={0}
+                max={cartTotal}
+                onChange={(e) =>
+                  setDiscountAmount(Math.max(Number(e.target.value) || 0, 0))
+                }
+                style={{
+                  width: "100%",
+                  background: "#111",
+                  border: "1px solid #444",
+                  padding: "10px",
+                  borderRadius: "8px",
+                  color: "#fff",
+                  marginTop: "10px",
+                }}
+              />
+            )}
+            {discountMode === "percent" && (
+              <input
+                type="number"
+                placeholder="Enter discount %"
+                value={discountPercent || ""}
+                min={0}
+                max={100}
+                onChange={(e) =>
+                  setDiscountPercent(
+                    Math.min(Math.max(Number(e.target.value) || 0, 0), 100)
+                  )
+                }
+                style={{
+                  width: "100%",
+                  background: "#111",
+                  border: "1px solid #444",
+                  padding: "10px",
+                  borderRadius: "8px",
+                  color: "#fff",
+                  marginTop: "10px",
+                }}
+              />
+            )}
+            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+              <button
+                onClick={() => setShowDiscountPopup(false)}
+                style={{
+                  flex: 1,
+                  background: "#222",
+                  border: "1px solid #555",
+                  padding: "10px",
+                  borderRadius: "8px",
+                  color: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!discountMode) return;
+                  applyDiscount();
+                  setShowDiscountPopup(false);
+                }}
+                disabled={!discountMode}
+                style={{
+                  flex: 1,
+                  background: discountMode ? "#222" : "#1a1a1a",
+                  border: "1px solid #555",
+                  padding: "10px",
+                  borderRadius: "8px",
+                  color: "#fff",
+                  cursor: discountMode ? "pointer" : "not-allowed",
+                  opacity: discountMode ? 1 : 0.6,
+                }}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
        <HeroSection
-        images={heroImages}
+        images={mergedHeroImages}
 
         // ⭐ GOOGLE (vendor API)
         googleRating={vendorInfo?.googlePlace?.rating}
@@ -1971,134 +2251,262 @@ function ExploreContent({ onReady }) {
 
       {/* ✅ EXISTING EXPLORE CONTENT */}
       <section id="categories" className="women-styling">
+        {/* CATEGORY NAVIGATION */}
+<div className="category-nav">
+  {orderedCategories.map((section) => (
+    <button
+      key={section.sectionName}
+      className="category-nav-btn"
+      onClick={() => {
+        const el = document.getElementById(
+          `cat-${toAnchor(section.sectionName)}`
+        );
+        if (el) {
+          el.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }
+      }}
+    >
+      {section.sectionName}
+    </button>
+  ))}
+</div>
+        <div
+          className={`explore-preview-layout ${
+            !isMobile && cartItems.length > 0 ? "has-cart" : "no-cart"
+          }`}
+        >
+          <div className="explore-preview-main">
 
-        {/* 🔹 NORMAL SECTIONS */}
-        {sectionsWithHeading.map(section => (
-          <div
-            key={section.sectionName}
-            id={`cat-${toAnchor(section.sectionName)}`}
-          // 🔥 THIS IS KEY
-          >
-            <h2
-              id={`cat-${toAnchor(section.sectionName)}`}
-              className="ws-heading"
-            >
-              {section.sectionName}
-            </h2>
-
-
-
-            <div className="ws-grid">
-              {section.cards.map((c, index) => (
-                <ServiceCard
-                  key={`${section.sectionName}-${c.id || c.title}-${index}`}
-
-                  data={c}
-                  sectionName={section.sectionName}
-                  openLogin={openLogin}
-                />
-								 
-              ))}
-
-            </div>
-          </div>
-        ))}
-
-
-        {/* 🔹 FLAT GRID (NO HEADINGS) */}
-        {cardsWithoutHeading.length > 0 && (
-          <div className="ws-grid">
-            {cardsWithoutHeading.map((c, index) => (
-              <div key={`flat-${c.id || c.title}-${index}`} className="ws-card-wrapper">
-                {/* 🔹 SHOW HEADING INSTEAD OF CARD TITLE */}
-			   
+            {/* 🔹 NORMAL SECTIONS */}
+            {sectionsWithHeading.map(section => (
+              <div
+                key={section.sectionName}
+                id={`cat-${toAnchor(section.sectionName)}`}
+              >
                 <h2
-                  id={`cat-${toAnchor(c.title)}`}
-                  className="ws-heading small"
+                  id={`cat-${toAnchor(section.sectionName)}`}
+                  className="ws-heading"
                 >
-                  {c.title}
+                  {section.sectionName}
                 </h2>
-                <ServiceCard
-                  key={c.id}
-                  data={c}
-                  sectionName={c.title}
-                  openLogin={openLogin}
-                />
+
+                <div className="ws-grid">
+                  {section.cards.map((c, index) => (
+                    <ServiceCard
+                      key={`${section.sectionName}-${c.id || c.title}-${index}`}
+                      data={c}
+                      sectionName={section.sectionName}
+                      openLogin={openLogin}
+                      addToCart={addToCart}
+                    />
+                  ))}
+                </div>
               </div>
-            ))}						  
+            ))}
+
+            {/* 🔹 FLAT GRID (NO HEADINGS) */}
+            {cardsWithoutHeading.length > 0 && (
+              <div className="ws-grid">
+                {cardsWithoutHeading.map((c, index) => (
+                  <div key={`flat-${c.id || c.title}-${index}`} className="ws-card-wrapper">
+                    <h2
+                      id={`cat-${toAnchor(c.title)}`}
+                      className="ws-heading small"
+                    >
+                      {c.title}
+                    </h2>
+                    <ServiceCard
+                      key={c.id}
+                      data={c}
+                      sectionName={c.title}
+                      openLogin={openLogin}
+                      addToCart={addToCart}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+
+          {!isMobile && cartItems.length > 0 && (
+            <aside className="explore-cart-sidebar">
+              <div className="explore-cart-widget">
+                <div className="explore-cart-widget-title">Selected Items</div>
+
+                {cartItems.map((item, index) => (
+                  <div
+                    key={`${item.itemId || item.name}-${index}`}
+                    className="explore-cart-widget-item"
+                  >
+                    <div className="explore-cart-widget-head">
+                      <div className="explore-cart-widget-name">{item.name}</div>
+                      <div className="explore-cart-widget-price">₹ {item.total}</div>
+                    </div>
+
+                    <div className="explore-cart-widget-controls">
+                      <button
+                        type="button"
+                        className="explore-cart-widget-btn"
+                        onClick={() => decreaseQty(item.itemId)}
+                      >
+                        -
+                      </button>
+                      <span className="explore-cart-widget-qty">{item.qty}</span>
+                      <button
+                        type="button"
+                        className="explore-cart-widget-btn"
+                        onClick={() => increaseQty(item.itemId)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+              {/* NOT LOGGED IN */}
+
+{/* LOGGED IN */}
+{/* NOT LOGGED IN */}
+{/* BEFORE LOGIN */}
+{!isCustomerLoggedIn && cartItems.length > 0 && (
+  <div className="explore-cart-cashback-card">
+    {loyaltyEnabled && (
+      <div className="explore-cart-cashback-left">
+        <div className="explore-cart-cashback-icon">🎉</div>
+
+        <div className="explore-cart-cashback-text">
+          <div className="explore-cart-cashback-title">
+            Congratulations!
+          </div>
+
+          <div className="explore-cart-cashback-copy">
+            You are eligible for cashback. Login to view.
+          </div>
+        </div>
+      </div>
+    )}
+    <div className="explore-cart-cashback-actions">
+      {loyaltyEnabled && (
+        <button
+          className="explore-cart-login-btn"
+          onClick={() => openLogin()}
+        >
+          Login
+        </button>
+      )}
+      <button
+        className="explore-cart-go-btn"
+        onClick={() => setViewMode("menu")}
+      >
+        Go to Cart
+      </button>
+    </div>
+  </div>
+)}
+
+{/* AFTER LOGIN */}
+{isCustomerLoggedIn && cartItems.length > 0 && (
+  <div className="explore-cart-reward-card">
+    <div className="explore-cart-cashback-icon">🎁</div>
+
+    <div className="explore-cart-reward-text">
+      {loyaltyEnabled && earnPoints > 0 && (
+        <div className="explore-cart-reward-title">
+          You will earn <strong>{earnPoints}</strong> points
+        </div>
+      )}
+
+      <button
+        className="explore-cart-go-btn"
+        onClick={() => setViewMode("menu")}
+      >
+        Go to Cart
+      </button>
+      <button
+        className="explore-cart-logout-btn"
+        onClick={customerLogout}
+      >
+        Logout
+      </button>
+    </div>
+  </div>
+)}
+
+                <div className="explore-cart-widget-total">
+                  <span>Total</span>
+                  <span>₹ {cartTotal}</span>
+                </div>
+              </div>
+            </aside>
+          )}
+        </div>
       </section>
+      {isMobile && viewMode !== "menu" && cartItems.length > 0 && (
+        <button
+          type="button"
+          className="explore-mobile-cart-fab"
+          onClick={() => setViewMode("menu")}
+        >
+          <span className="explore-mobile-cart-count">{cartItems.length}</span>
+          <span className="explore-mobile-cart-label">Cart</span>
+          <span className="explore-mobile-cart-total">₹ {cartTotal}</span>
+        </button>
+      )}
       {category?.whyUs && (
         <AdvantageSection whyUs={category.whyUs} />
       )}
       <RootsSection about={category?.about} />
       {viewMode === "menu" && (
         <div>
-          {hrCategory && hrCategory.enableHumanResources && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                marginBottom: "12px",
-              }}
-            >
-              <ResourceButton
-                vendorId={vendorId}
-                label={hrCategory.humanResourceLabel || "Manage Resources"}
-              />
-            </div>
-          )}
-
           <div className="menuContainer">
-            <div
-              style={{
-                position: "fixed",
-                inset: 0,
-                background: "rgba(8, 8, 8, 0.96)",
-                color: "#f3f3f3",
-                zIndex: 2000,
-                overflowY: "auto",
-                padding: "24px",
-                textAlign: "left",
-              }}
-            >
-          <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>Menu</div>
-            <button
-              type="button"
-              onClick={() => {
-                resetBillingState();
-                setViewMode("preview");
-              }}
-              style={{
-                marginLeft: "auto",
-                background: "transparent",
-                border: "1px solid rgba(255,255,255,0.2)",
-                color: "#f3f3f3",
-                padding: "6px 10px",
-                borderRadius: 6,
-                cursor: "pointer",
-              }}
-            >
-              Close
-            </button>
+            <div className="menu-overlay-shell">
+          <div className="menu-overlay-header">
+            <div className="menu-overlay-title">Menu</div>
+            <div className="menu-overlay-actions">
+              {hrCategory && hrCategory.enableHumanResources && (
+                <ResourceButton
+                  vendorId={vendorId}
+                  label={hrCategory.humanResourceLabel || "Manage Resources"}
+                  floating={false}
+                  className="menu-overlay-resource-btn"
+                />
+              )}
+              <button
+                className="menu-overlay-close-btn"
+                type="button"
+                onClick={() => {
+                  setMenuSearch("");
+                  resetBillingState();
+                  setViewMode("preview");
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              width: "100%",
-              alignItems: "flex-start",
-            }}
-          >
-            <div style={{ flex: 1, paddingRight: isMobile ? 0 : "320px" }}>
-              {menuTree.length === 0 ? (
-                <div>No services available</div>
+          <div className="menu-overlay-layout">
+            <div className={`menu-overlay-main ${isMobile ? "mobile" : "desktop"}`}>
+              <div className="menu-search-wrap">
+                <input
+                  className="menu-search-input"
+                  type="text"
+                  value={menuSearch}
+                  onChange={(e) => setMenuSearch(e.target.value)}
+                  placeholder="Search services..."
+                />
+              </div>
+              {filteredMenuTree.length === 0 ? (
+                <div className="menu-empty-search">
+                  {menuSearch ? "No matching services found." : "No services available"}
+                </div>
               ) : (
-                <div>
+                <div className="menu-tree-wrap">
                   {renderMenuNodes(
-                    menuTree,
+                    filteredMenuTree,
                     0,
                     [],
                     rootCategoryId ? [rootCategoryId] : []
@@ -2107,15 +2515,9 @@ function ExploreContent({ onReady }) {
               )}
             </div>
             {!isMobile && (
-              <div
-                style={{
-                  width: "300px",
-                  position: "sticky",
-                  top: "80px",
-                  marginLeft: "20px",
-                }}
-              >
+              <div className="menu-cart-rail">
                 <div
+                  className="menu-cart-panel"
                   style={{
                     width: "100%",
                     maxHeight: "75vh",
@@ -2145,7 +2547,11 @@ function ExploreContent({ onReady }) {
                           }}
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                            <span style={{ flex: 1 }}>{item.name}</span>
+                            <span style={{ flex: 1 }}>
+                              {item.nodePath && item.nodePath.length
+                                ? item.nodePath.join(" - ")
+                                : item.name}
+                            </span>
                             <span style={{ minWidth: 80, textAlign: "right" }}>
                               ₹ {item.total}
                             </span>
@@ -2208,7 +2614,14 @@ function ExploreContent({ onReady }) {
                             </div>
                           </div>
                           <div style={{ marginTop: 8 }}>
-                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+                            <div
+                              style={{
+                                fontSize: 13,
+                                color: "#F5D97A",
+                                fontWeight: 500,
+                                marginBottom: 4,
+                              }}
+                            >
                               Stylist
                             </div>
                             <select
@@ -2242,35 +2655,88 @@ function ExploreContent({ onReady }) {
                           borderTop: "1px solid rgba(245, 217, 122, 0.25)",
                           paddingTop: 10,
                           marginTop: 8,
-                          fontWeight: 700,
                           color: "#F5D97A",
-                          display: "flex",
-                          justifyContent: "space-between",
                         }}
                       >
-                        <span>Total</span>
-                        <span>₹ {cartTotal}</span>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
+                          <span>Subtotal</span>
+                          <span>₹ {cartTotal}</span>
+                        </div>
+                        {appliedDiscount > 0 && (
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              fontWeight: 600,
+                              color: "rgba(245, 217, 122, 0.75)",
+                              marginTop: 4,
+                            }}
+                          >
+                            <span>Discount</span>
+                            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              -₹ {appliedDiscount}
+                            
+                            </span>
+                          </div>
+                        )}
+                        {appliedDiscount > 0 && (
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              fontWeight: 700,
+                              marginTop: 6,
+                            }}
+                          >
+                            <span>Final Total</span>
+                            <span>₹ {finalTotal}</span>
+                          </div>
+                        )}
                       </div>
-                      {earnPoints > 0 && (
+                      {loyaltyEnabled && earnPoints > 0 && (
                         <div style={{ marginTop: 6 }}>
                           You will earn: {earnPoints} points
                         </div>
                       )}
-                      <button
-                        onClick={clearCart}
-                        style={{
-                          width: "100%",
-                          background: "#222",
-                          border: "1px solid #555",
-                          padding: "10px",
-                          borderRadius: "8px",
-                          color: "#fff",
-                          marginTop: "10px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Clear Cart
-                      </button>
+                      <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
+                        <button
+                          onClick={clearCart}
+                          style={{
+                            flex: 1,
+                            background: "#222",
+                            border: "1px solid #555",
+                            padding: "10px",
+                            borderRadius: "8px",
+                            color: "#fff",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Clear Cart
+                        </button>
+                        <button
+  onClick={() => {
+    if (appliedDiscount > 0) {
+      setDiscountAmount(0);
+      setDiscountPercent(0);
+      setAppliedDiscount(0);
+      setDiscountMode(null);
+    } else {
+      setShowDiscountPopup(true);
+    }
+  }}
+  style={{
+    flex: 1,
+    background: appliedDiscount > 0 ? "#4a1a1a" : "#222",
+    border: "1px solid #555",
+    padding: "10px",
+    borderRadius: "8px",
+    color: "#fff",
+    cursor: "pointer",
+  }}
+>
+  {appliedDiscount > 0 ? "Clear Discount" : "Discount"}
+</button>
+                      </div>
                       <div
                         style={{
                           borderTop: "1px solid #333",
@@ -2317,75 +2783,85 @@ function ExploreContent({ onReady }) {
                             }}
                           />
                         </div>
-                        <div style={{ fontSize: "13px", color: "#aaa", marginTop: 6 }}>
-                          Available Points: {availablePoints}
-                        </div>
-                        {!customerMobile && (
-                          <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
-                            Walk-in billing — no loyalty points will be applied
-                          </div>
-                        )}
-                        {verifyingCustomer && (
-                          <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
-                            Checking customer...
-                          </div>
-                        )}
-                        {availablePoints > 0 && (
-                          <div style={{ marginTop: 8 }}>
-                            <div style={{ fontSize: "12px", color: "#aaa" }}>
-                              Redeem Points
+                        {loyaltyEnabled && (
+                          <>
+                            <div style={{ fontSize: "13px", color: "#aaa", marginTop: 6 }}>
+                              Available Points: {availablePoints}
                             </div>
-                            <input
-                              type="number"
-                              value={redeemPoints}
-                              min={0}
-                              max={availablePoints}
-                              onChange={(e) => setRedeemPoints(Number(e.target.value))}
-                              style={{
-                                width: "100%",
-                                background: "#111",
-                                border: "1px solid #444",
-                                padding: "10px",
-                                borderRadius: "8px",
-                                color: "#fff",
-                                marginTop: "6px",
-                              }}
-                            />
-                          </div>
-                        )}
-                        {showOtpInput && (
-                          <div style={{ marginTop: 10 }}>
-                            <input
-                              placeholder="Enter OTP"
-                              value={otp}
-                              onChange={(e) => setOtp(e.target.value)}
-                              style={{
-                                width: "100%",
-                                background: "#111",
-                                border: "1px solid #444",
-                                padding: "10px",
-                                borderRadius: "8px",
-                                color: "#fff",
-                              }}
-                            />
-                          </div>
-                        )}
-                        {showOtpInput && (
-                          <button
-                            onClick={handleVerifyOtp}
-                            style={{
-                              marginTop: "10px",
-                              width: "100%",
-                              background: "#222",
-                              border: "1px solid #555",
-                              padding: "10px",
-                              borderRadius: "8px",
-                              color: "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Verify OTP
-                          </button>
+                            {!customerMobile && (
+                              <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
+                                Walk-in billing — no loyalty points will be applied
+                              </div>
+                            )}
+                            {verifyingCustomer && (
+                              <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
+                                Checking customer...
+                              </div>
+                            )}
+                            {availablePoints > 0 && (
+                              <div style={{ marginTop: 8 }}>
+                                <div style={{ fontSize: "12px", color: "#aaa" }}>
+                                  Redeem Points
+                                </div>
+                                <input
+                                  type="number"
+                                  value={redeemPoints}
+                                  min={0}
+                                  max={availablePoints}
+                                 onChange={(e) => {
+  const value = Number(e.target.value) || 0;
+  const safeValue = Math.min(Math.max(value, 0), availablePoints);
+  setRedeemPoints(safeValue);
+}}
+                                  style={{
+                                    width: "100%",
+                                    background: "#111",
+                                    border: "1px solid #444",
+                                    padding: "10px",
+                                    borderRadius: "8px",
+                                    color: "#fff",
+                                    marginTop: "6px",
+                                  }}
+                                />
+                              </div>
+                            )}
+                            {showOtpInput && (
+                              <div style={{ marginTop: 10 }}>
+                                <input
+                                  placeholder="Enter OTP"
+                                  value={otp}
+                                  onChange={(e) => setOtp(e.target.value)}
+                                  style={{
+                                    width: "100%",
+                                    background: "#111",
+                                    border: "1px solid #444",
+                                    padding: "10px",
+                                    borderRadius: "8px",
+                                    color: "#fff",
+                                  }}
+                                />
+                              </div>
+                            )}
+                            {showOtpInput && (
+                              <button
+  onClick={handleVerifyOtp}
+  disabled={verifyingOtp}
+  style={{
+    marginTop: "10px",
+    width: "100%",
+    background: "#222",
+    border: "1px solid #555",
+    padding: "10px",
+    borderRadius: "8px",
+    color: "#fff",
+    cursor: verifyingOtp ? "not-allowed" : "pointer",
+    opacity: verifyingOtp ? 0.7 : 1,
+  }}
+>
+  {verifyingOtp ? "Verifying..." : "Verify OTP"}
+</button>
+                            )}
+                          </>
                         )}
                           <button
                             onClick={handleGenerateBill}
@@ -2403,7 +2879,7 @@ function ExploreContent({ onReady }) {
                             }}
                             disabled={!canGenerateBill}
                           >
-                            Generate Bill
+                          {processingBill ? "Generating..." : "Generate Bill"}
                           </button>
                       </div>
                     </>
@@ -2416,6 +2892,7 @@ function ExploreContent({ onReady }) {
           {isMobile && (
             <>
               <div
+                className="menu-mobile-cart-pill"
                 onClick={() => setCartOpen(true)}
                 style={{
                   position: "fixed",
@@ -2436,6 +2913,7 @@ function ExploreContent({ onReady }) {
 
               {cartOpen && (
                 <div
+                  className="menu-mobile-cart-sheet"
                   style={{
                     position: "fixed",
                     bottom: 0,
@@ -2450,13 +2928,17 @@ function ExploreContent({ onReady }) {
                     zIndex: 4000,
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: "#F5D97A" }}>
+                  <div className="menu-mobile-cart-head" style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+                    <div className="menu-cart-title" style={{ fontSize: 16, fontWeight: 700, color: "#F5D97A" }}>
                       Cart
                     </div>
                     <button
+                      className="menu-overlay-close-btn"
                       type="button"
-                      onClick={() => setCartOpen(false)}
+                      onClick={() => {
+                        setCartOpen(false);
+                        setMenuSearch("");
+                      }}
                       style={{
                         marginLeft: "auto",
                         background: "transparent",
@@ -2494,7 +2976,11 @@ function ExploreContent({ onReady }) {
                             }}
                           >
                             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                              <span style={{ flex: 1 }}>{item.name}</span>
+                              <span style={{ flex: 1 }}>
+                                {item.nodePath && item.nodePath.length
+                                  ? item.nodePath.join(" - ")
+                                  : item.name}
+                              </span>
                               <span style={{ minWidth: 80, textAlign: "right" }}>
                                 ₹ {item.total}
                               </span>
@@ -2557,7 +3043,14 @@ function ExploreContent({ onReady }) {
                               </div>
                             </div>
                             <div style={{ marginTop: 8 }}>
-                              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  color: "#F5D97A",
+                                  fontWeight: 500,
+                                  marginBottom: 4,
+                                }}
+                              >
                                 Stylist
                               </div>
                               <select
@@ -2591,35 +3084,88 @@ function ExploreContent({ onReady }) {
                             borderTop: "1px solid rgba(245, 217, 122, 0.25)",
                             paddingTop: 10,
                             marginTop: 8,
-                            fontWeight: 700,
                             color: "#F5D97A",
-                            display: "flex",
-                            justifyContent: "space-between",
                           }}
                         >
-                          <span>Total</span>
-                          <span>₹ {cartTotal}</span>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
+                            <span>Subtotal</span>
+                            <span>₹ {cartTotal}</span>
+                          </div>
+                          {appliedDiscount > 0 && (
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                fontWeight: 600,
+                                color: "rgba(245, 217, 122, 0.75)",
+                                marginTop: 4,
+                              }}
+                            >
+                              <span>Discount</span>
+                              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                -₹ {appliedDiscount}
+                              
+                              </span>
+                            </div>
+                          )}
+                          {appliedDiscount > 0 && (
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                fontWeight: 700,
+                                marginTop: 6,
+                              }}
+                            >
+                              <span>Final Total</span>
+                              <span>₹ {finalTotal}</span>
+                            </div>
+                          )}
                         </div>
-                        {earnPoints > 0 && (
+                        {loyaltyEnabled && earnPoints > 0 && (
                           <div style={{ marginTop: 6 }}>
                             You will earn: {earnPoints} points
                           </div>
                         )}
-                        <button
-                          onClick={clearCart}
-                          style={{
-                            width: "100%",
-                            background: "#222",
-                            border: "1px solid #555",
-                            padding: "10px",
-                            borderRadius: "8px",
-                            color: "#fff",
-                            marginTop: "10px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Clear Cart
-                        </button>
+                        <div style={{ marginTop: "10px", display: "flex", gap: 10 }}>
+                          <button
+                            onClick={clearCart}
+                            style={{
+                              flex: 1,
+                              background: "#222",
+                              border: "1px solid #555",
+                              padding: "10px",
+                              borderRadius: "8px",
+                              color: "#fff",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Clear Cart
+                          </button>
+                         <button
+  onClick={() => {
+    if (appliedDiscount > 0) {
+      setDiscountAmount(0);
+      setDiscountPercent(0);
+      setAppliedDiscount(0);
+      setDiscountMode(null);
+    } else {
+      setShowDiscountPopup(true);
+    }
+  }}
+  style={{
+    flex: 1,
+    background: appliedDiscount > 0 ? "#4a1a1a" : "#222",
+    border: "1px solid #555",
+    padding: "10px",
+    borderRadius: "8px",
+    color: "#fff",
+    cursor: "pointer",
+  }}
+>
+  {appliedDiscount > 0 ? "Clear Discount" : "Discount"}
+</button>
+                        </div>
                         <div
                           style={{
                             borderTop: "1px solid #333",
@@ -2666,75 +3212,81 @@ function ExploreContent({ onReady }) {
                               }}
                             />
                           </div>
-                          <div style={{ fontSize: "13px", color: "#aaa" }}>
-                            Available Points: {availablePoints}
-                          </div>
-                          {!customerMobile && (
-                            <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
-                              Walk-in billing — no loyalty points will be applied
-                            </div>
-                          )}
-                          {verifyingCustomer && (
-                            <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
-                              Checking customer...
-                            </div>
-                          )}
-                          {availablePoints > 0 && (
-                            <div style={{ marginTop: 8 }}>
-                              <div style={{ fontSize: "12px", color: "#aaa" }}>
-                                Redeem Points
+                          {loyaltyEnabled && (
+                            <>
+                              <div style={{ fontSize: "13px", color: "#aaa" }}>
+                                Available Points: {availablePoints}
                               </div>
-                              <input
-                                type="number"
-                                value={redeemPoints}
-                                min={0}
-                                max={availablePoints}
-                                onChange={(e) => setRedeemPoints(Number(e.target.value))}
-                                style={{
-                                  width: "100%",
-                                  background: "#111",
-                                  border: "1px solid #444",
-                                  padding: "10px",
-                                  borderRadius: "8px",
-                                  color: "#fff",
-                                  marginTop: "6px",
-                                }}
-                              />
-                            </div>
-                          )}
-                          {showOtpInput && (
-                            <div style={{ marginTop: 10 }}>
-                              <input
-                                placeholder="Enter OTP"
-                                value={otp}
-                                onChange={(e) => setOtp(e.target.value)}
-                                style={{
-                                  width: "100%",
-                                  background: "#111",
-                                  border: "1px solid #444",
-                                  padding: "10px",
-                                  borderRadius: "8px",
-                                  color: "#fff",
-                                }}
-                              />
-                            </div>
-                          )}
-                          {showOtpInput && (
-                            <button
-                              onClick={handleVerifyOtp}
-                              style={{
-                                marginTop: "10px",
-                                width: "100%",
-                                background: "#222",
-                                border: "1px solid #555",
-                                padding: "10px",
-                                borderRadius: "8px",
-                                color: "#fff",
-                                cursor: "pointer",
-                              }}
-                            >
-                              Verify OTP
-                            </button>
+                              {!customerMobile && (
+                                <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
+                                  Walk-in billing — no loyalty points will be applied
+                                </div>
+                              )}
+                              {verifyingCustomer && (
+                                <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
+                                  Checking customer...
+                                </div>
+                              )}
+                              {availablePoints > 0 && (
+                                <div style={{ marginTop: 8 }}>
+                                  <div style={{ fontSize: "12px", color: "#aaa" }}>
+                                    Redeem Points
+                                  </div>
+                                  <input
+                                    type="number"
+                                    value={redeemPoints}
+                                    min={0}
+                                    max={availablePoints}
+                                    onChange={(e) => setRedeemPoints(Number(e.target.value))}
+                                    style={{
+                                      width: "100%",
+                                      background: "#111",
+                                      border: "1px solid #444",
+                                      padding: "10px",
+                                      borderRadius: "8px",
+                                      color: "#fff",
+                                      marginTop: "6px",
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              {showOtpInput && (
+                                <div style={{ marginTop: 10 }}>
+                                  <input
+                                    placeholder="Enter OTP"
+                                    value={otp}
+                                    onChange={(e) => setOtp(e.target.value)}
+                                    style={{
+                                      width: "100%",
+                                      background: "#111",
+                                      border: "1px solid #444",
+                                      padding: "10px",
+                                      borderRadius: "8px",
+                                      color: "#fff",
+                                    }}
+                                  />
+                                </div>
+                              )}
+                              {showOtpInput && (
+                                <button
+  onClick={handleVerifyOtp}
+  disabled={verifyingOtp}
+  style={{
+    marginTop: "10px",
+    width: "100%",
+    background: "#222",
+    border: "1px solid #555",
+    padding: "10px",
+    borderRadius: "8px",
+    color: "#fff",
+    cursor: verifyingOtp ? "not-allowed" : "pointer",
+    opacity: verifyingOtp ? 0.7 : 1,
+  }}
+>
+  {verifyingOtp ? "Verifying..." : "Verify OTP"}
+</button>
+                              )}
+                            </>
                           )}
                           <button
                             onClick={handleGenerateBill}
@@ -2752,7 +3304,7 @@ function ExploreContent({ onReady }) {
                             }}
                             disabled={!canGenerateBill}
                           >
-                            Generate Bill
+                           {processingBill ? "Generating..." : "Generate Bill"}
                           </button>
                         </div>
                       </>
@@ -2768,6 +3320,15 @@ function ExploreContent({ onReady }) {
       )}
 
       {viewMode === "loyalty" && (
+        <LoyaltySettings
+          vendorId={vendorId}
+          rootCategoryId={rootCategoryId}
+          onBack={() => setViewMode("new-dashboard")}
+          onClose={() => setViewMode("preview")}
+        />
+      )}
+
+      {false && viewMode === "loyalty" && (
         <div
           style={{
             position: "fixed",
@@ -2887,74 +3448,375 @@ function ExploreContent({ onReady }) {
           </div>
       )}
 
+      {viewMode === "new-dashboard" && (
+        <div className="new-dashboard-overlay">
+          <div className="new-dashboard-shell">
+            <div className="new-dashboard-header">
+              <div className="new-dashboard-title">
+                New Dashboard
+              </div>
+              <button
+                className="new-dashboard-close-btn"
+                type="button"
+                onClick={() => setViewMode("preview")}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="new-dashboard-grid">
+              <div
+                className="new-dashboard-card new-dashboard-card-action"
+                onClick={() => setViewMode("profile-dashboard")}
+              >
+                <div className="new-dashboard-card-title">
+                  Profile
+                </div>
+                <div className="new-dashboard-card-desc">
+                  Open profile management cards.
+                </div>
+              </div>
+              {[
+                {
+                  title: "Prices",
+                  description: "Review service rates and pricing updates.",
+                  onClick: () => handleOpenServices("packages"),
+                },
+                {
+                  title: "Revenues",
+                  description: "Track sales, billing totals, and earnings.",
+                  onClick: () => {
+                    setActiveRevenueTab("today");
+                    setViewMode("revenue-dashboard");
+                  },
+                },
+                {
+                  title: "My Stylists",
+                  description: `View and manage ${resources.length} stylist records.`,
+                  onClick: () => setViewMode("stylists-dashboard"),
+                },
+                {
+                  title: "Loyalty",
+                  description: "Configure loyalty rules, earning, and expiry settings.",
+                  onClick: () => setViewMode("loyalty"),
+                },
+                {
+  title: "Subscription",
+  description: "Manage your subscription plan and billing.",
+  onClick: () => setViewMode("subscription-dashboard"),
+},
+              ].map((card) => (
+                <div
+                  key={card.title}
+                  className={`new-dashboard-card ${card.onClick ? "new-dashboard-card-action" : ""}`}
+                  onClick={card.onClick}
+                  role={card.onClick ? "button" : undefined}
+                  tabIndex={card.onClick ? 0 : undefined}
+                  onKeyDown={
+                    card.onClick
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            card.onClick();
+                          }
+                        }
+                      : undefined
+                  }
+                >
+                  <div className="new-dashboard-card-title">
+                    {card.title}
+                  </div>
+                  <div className="new-dashboard-card-desc">
+                    {card.description}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewMode === "profile-dashboard" && (
+        <div className="new-dashboard-overlay">
+          <div className="new-dashboard-shell">
+            <div className="new-dashboard-header">
+              <div className="new-dashboard-title">
+                Profile Dashboard
+              </div>
+              <button
+                className="new-dashboard-close-btn"
+                type="button"
+                onClick={() => setViewMode("preview")}
+              >
+                Close
+              </button>
+            </div>
+
+            <ProfileDashboard
+              vendorInfo={vendorInfo}
+              categorySocials={hrCategory?.socialHandle ?? null}
+              onBack={() => setViewMode("new-dashboard")}
+              onOpenServices={handleOpenServices}
+            />
+          </div>
+        </div>
+      )}
+
+      {viewMode === "revenue-dashboard" && (
+        <div className="new-dashboard-overlay">
+          <div className="new-dashboard-shell">
+            <div className="new-dashboard-header">
+              <button
+                className="new-dashboard-nav-btn"
+                type="button"
+                onClick={() => setViewMode("new-dashboard")}
+              >
+                Back
+              </button>
+              <div className="new-dashboard-title">
+                Revenue Dashboard
+              </div>
+              <button
+                className="new-dashboard-close-btn"
+                type="button"
+                onClick={() => setViewMode("preview")}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="new-dashboard-grid">
+              {[
+                {
+                  title: "Today's Revenue",
+                  description: "Check the total revenue collected for today.",
+                  key: "today",
+                },
+                {
+                  title: "This Month Revenue",
+                  description: "Review the running revenue total for this month.",
+                  key: "month",
+                },
+                {
+                  title: "This Year Revenue",
+                  description: "Track total revenue generated in this year.",
+                  key: "year",
+                },
+                {
+                  title: "Customer Search",
+                  description: "Find customers and inspect their billing history.",
+                  key: "customer",
+                },
+              ].map((card) => (
+                <div
+                  key={card.title}
+                  className={`new-dashboard-card new-dashboard-card-action ${
+                    activeRevenueTab === card.key ? "active" : ""
+                  }`}
+                  onClick={() => setActiveRevenueTab(card.key)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setActiveRevenueTab(card.key);
+                    }
+                  }}
+                >
+                  <div className="new-dashboard-card-title">
+                    {card.title}
+                  </div>
+                  <div className="new-dashboard-card-desc">
+                    {card.description}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {activeRevenueTab && (
+              <div className="revenue-data-container">
+                {activeRevenueTab === "today" && (
+                  <TodayRevenue vendorId={vendorId} embedded />
+                )}
+
+                {activeRevenueTab === "month" && (
+                  <MonthRevenue vendorId={vendorId} />
+                )}
+
+                {activeRevenueTab === "year" && (
+                  <YearRevenue vendorId={vendorId} />
+                )}
+
+                {activeRevenueTab === "customer" && (
+                  <CustomerSearch vendorId={vendorId} />
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {viewMode === "stylists-dashboard" && (
+        <div className="new-dashboard-overlay">
+          <div className="new-dashboard-shell">
+            <div className="new-dashboard-header">
+              <div className="new-dashboard-title">
+                My Stylists
+              </div>
+              <button
+                className="new-dashboard-close-btn"
+                type="button"
+                onClick={() => setViewMode("new-dashboard")}
+              >
+                Close
+              </button>
+            </div>
+
+            <MyStylists vendorId={vendorId} />
+          </div>
+        </div>
+      )}
+      {viewMode === "subscription-dashboard" && (
+  <div className="new-dashboard-overlay">
+    <div className="new-dashboard-shell">
+
+      <div className="new-dashboard-header">
+        <button
+          className="new-dashboard-nav-btn"
+          onClick={() => setViewMode("new-dashboard")}
+        >
+          Back
+        </button>
+
+        <div className="new-dashboard-title">
+          Subscription
+        </div>
+
+        <button
+          className="new-dashboard-close-btn"
+          onClick={() => setViewMode("preview")}
+        >
+          Close
+        </button>
+      </div>
+
+      <SubscriptionDashboard
+        vendorId={vendorId}
+        onBack={() => setViewMode("new-dashboard")}
+      />
+
+    </div>
+  </div>
+)}
+
+      {openServices && serviceType === "packages" && (
+        <PackagesPortal
+          onLoaded={() => setServiceLoading(false)}
+          onPricingUpdated={() => setPricingRefreshNonce((prev) => prev + 1)}
+          onClose={() => {
+            setOpenServices(false);
+            setServiceType(null);
+            setServiceLoading(false);
+          }}
+        />
+      )}
+
+      {openServices && serviceType === "gallery" && (
+        <VendorGalleryModal
+          vendorId={vendorId}
+          rowId={galleryRowId}
+          onClose={() => {
+            setOpenServices(false);
+            setServiceType(null);
+            setServiceLoading(false);
+          }}
+        />
+      )}
+
+      {serviceLoading && (
+        <div className="profile-loader-overlay">
+          <div className="profile-loader-spinner" />
+        </div>
+      )}
+
       <button
+        className="quick-actions-toggle-btn"
         type="button"
-        onClick={() => setViewMode("menu")}
-        style={{
-          position: "fixed",
-          right: 20,
-          bottom: 90,
-          padding: "12px 18px",
-          borderRadius: 999,
-          border: "none",
-          cursor: "pointer",
-          background: "linear-gradient(135deg, #E6BF6A, #CFA94E)",
-          color: "#0B0B0D",
-          fontWeight: 900,
-          boxShadow:
-            "0 6px 14px rgba(255, 200, 110, 0.35), 0 0 18px rgba(255, 190, 120, 0.35)",
-          zIndex: 1000,
-        }}
+        onClick={() => setShowOptions((prev) => !prev)}
       >
-        Menu
+        Options
       </button>
- <button
+      {showOptions && (
+        <div className="quick-actions-panel">
+          <button
+            className="quick-action-btn"
+            type="button"
+            onClick={() => {
+              setViewMode("menu");
+              setShowOptions(false);
+            }}
+          >
+            Menu
+          </button>
+          <button
+        className="quick-action-btn"
         type="button"
         onClick={() => {
           if (vendorId) {
             window.location.href = `/dashboard?vendorId=${vendorId}`;
           }
         }}
-        style={{
-          position: "fixed",
-          right: 20,
-          bottom: 210,
-          padding: "12px 18px",
-          borderRadius: 999,
-          border: "1px solid #e6c37a",
-          cursor: "pointer",
-          background: "#111",
-          color: "#e6c37a",
-          fontWeight: 900,
-          boxShadow:
-            "0 6px 14px rgba(255, 200, 110, 0.15), 0 0 18px rgba(255, 190, 120, 0.2)",
-          zIndex: 1000,
-        }}
       >
         Dashboard 📊
       </button>
 
       <button
+        className="quick-action-btn"
         type="button"
-        onClick={() => setViewMode("loyalty")}
-        style={{
-          position: "fixed",
-          right: 20,
-          bottom: 150,
-          padding: "12px 18px",
-          borderRadius: 999,
-          border: "1px solid #e6c37a",
-          cursor: "pointer",
-          background: "#111",
-          color: "#e6c37a",
-          fontWeight: 900,
-          boxShadow:
-            "0 6px 14px rgba(255, 200, 110, 0.15), 0 0 18px rgba(255, 190, 120, 0.2)",
-          zIndex: 1000,
+        onClick={() => {
+          setViewMode("new-dashboard");
+          setShowOptions(false);
+        }}
+      >
+        New-Dashboard
+      </button>
+
+      <button
+        className="quick-action-btn"
+        type="button"
+        onClick={() => {
+          setViewMode("loyalty");
+          setShowOptions(false);
         }}
       >
         Loyalty ⚙️
       </button>
+        </div>
+      )}
+
+      {showBillSuccess && (
+        <div className="bill-success-overlay">
+          <div className="bill-success-modal">
+            <div className="bill-success-icon">✓</div>
+            <div className="bill-success-title">Bill Generated</div>
+            <div className="bill-success-text">
+              {billSuccessMessage ||
+                (billType === "walkin"
+                  ? "Walk-in bill generated successfully."
+                  : "Customer bill generated successfully.")}
+            </div>
+            <button
+              className="bill-success-btn"
+              onClick={() => {
+                setShowBillSuccess(false);
+                setBillSuccessMessage("");
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
 
     </>
   );
@@ -2963,11 +3825,14 @@ function ExploreContent({ onReady }) {
 // --------------------------------------------------
 // ✅ MAIN Explore Page with Suspense wrapper
 // --------------------------------------------------
-export default function Explore({ onReady }) {
+export default function Explore({ onReady, onOpenServices }) {
   return (
 
     <Suspense fallback={<div>Loading...</div>}>
-      <ExploreContent onReady={onReady} />
+      <ExploreContent
+        onReady={onReady}
+        onOpenServices={onOpenServices}
+      />
     </Suspense>
   );
 }

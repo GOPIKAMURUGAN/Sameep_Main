@@ -1,7 +1,7 @@
 "use client";
 import "./Contact.css";
 import { FaPhoneAlt, FaMapMarkerAlt, FaClock } from "react-icons/fa";
-import { useVendor } from "../VendorContext";
+import { useVendor } from "@/app/context/VendorContext";
 
 export default function ContactSection() {
   const { vendorInfo } = useVendor() || {};

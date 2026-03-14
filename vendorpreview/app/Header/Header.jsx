@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSessionGuard } from "../Login/useSessionGuard";
 import "./Header.css";
 
-import { useVendor } from "../VendorContext";
+import { useVendor } from "@/app/context/VendorContext";
 import Login from "../Login/Login";
 import ProfileModal from "../Profile/Profile";
 import Portal from "../Portal/Portal";

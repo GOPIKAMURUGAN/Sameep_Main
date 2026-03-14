@@ -23,20 +23,30 @@
 /* ============================================================
    BRAND
 ============================================================ */
+/* ============================================================
+   BRAND (AUTO SHRINK TEXT – NO ELLIPSIS)
+============================================================ */
+
 .navbar-brand {
   color: #FFD27D !important;
-  font-size: 28px;
+
   font-weight: 900;
 
   text-shadow: 0 0 10px rgba(255, 215, 130, 0.55);
+
+  /* auto shrink text */
+  font-size: clamp(18px, 2vw, 28px);
+
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+
+  line-height: 1.1;
+  word-break: break-word;
+
+  max-width: 60vw;
 }
 
-.navbar-brand {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 
 .navbar-brand:hover {
@@ -281,4 +291,40 @@
     margin: 10px 0 0 0;
     padding: 10px 16px;
   }
+}
+
+/* ============================================================
+   MOBILE BRAND TEXT SHRINK (NO DOTS)
+============================================================ */
+@media (max-width: 768px) {
+
+  .navbar-brand {
+    white-space: normal;       /* allow wrapping */
+    overflow: visible;
+    text-overflow: unset;
+
+    /* shrink font automatically */
+    font-size: clamp(16px, 4vw, 26px);
+
+    line-height: 1.1;
+
+    max-width: 70vw;           /* prevent overlap with menu */
+    word-break: break-word;
+  }
+
+}
+/* ============================================================
+   MOBILE NAVBAR TOGGLER RIGHT ALIGN
+============================================================ */
+@media (max-width: 768px) {
+
+  .custom-navbar {
+    display: flex;
+    align-items: center;
+  }
+
+  .navbar-toggler {
+    margin-left: auto; /* pushes toggle to the right */
+  }
+
 }

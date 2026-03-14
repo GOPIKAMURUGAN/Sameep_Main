@@ -1,30 +1,49 @@
 "use client";
+import "./BusinessLocation.css";
+import { useEffect, useState } from "react";
 
-import { useState } from "react";
+const INPUT_COUNT = 5;
+
+function buildLocationInputs(values = []) {
+  return [...values, ...Array(INPUT_COUNT).fill("")].slice(0, INPUT_COUNT);
+}
+
+function normalizeLocations(values = []) {
+  return values.map((value) => value.trim()).filter(Boolean);
+}
 
 export default function BusinessLocationsModal({
   vendorId,
   initialLocations = [],
   onClose,
+  onSaved,
 }) {
-  const [locations, setLocations] = useState(
-    [...initialLocations, "", "", "", "", ""].slice(0, 5)
+  const [locations, setLocations] = useState(() =>
+    buildLocationInputs(initialLocations)
+  );
+  const [savedLocations, setSavedLocations] = useState(() =>
+    buildLocationInputs(initialLocations)
   );
 
   const [savingIndex, setSavingIndex] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
 
+  useEffect(() => {
+    setLocations(buildLocationInputs(initialLocations));
+    setSavedLocations(buildLocationInputs(initialLocations));
+  }, [initialLocations]);
+
   const saveToBackend = async (updatedLocations, index) => {
     try {
       if (!vendorId) return alert("Vendor ID missing");
 
-      const cleaned = updatedLocations.map(v => v.trim());
+      const cleaned = normalizeLocations(updatedLocations);
 
       setSavingIndex(index);
       const token = localStorage.getItem("token");
 
-      await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dummy-vendors/${vendorId}`,
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dummy-vendors/${vendorId}/location`,
         {
           method: "PUT",
           headers: {
@@ -32,38 +51,58 @@ export default function BusinessLocationsModal({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            location: {
-              nearbyLocations: cleaned,
-            },
+            address: "",
+            lat: null,
+            lng: null,
+            nearbyLocations: cleaned,
           }),
         }
       );
+
+      if (!response.ok) {
+        throw new Error("Failed to update locations");
+      }
+
+      setLocations(buildLocationInputs(cleaned));
+      setSavedLocations(buildLocationInputs(cleaned));
+      setEditingIndex(null);
+      onSaved?.(cleaned);
     } catch (err) {
       console.error(err);
-      alert("Failed to save");
+      alert(err.message || "Failed to save locations");
     } finally {
       setSavingIndex(null);
     }
   };
 
   const handleChange = (i, val) => {
-    const copy = [...locations];
-    copy[i] = val;
-    setLocations(copy);
+    setLocations((currentLocations) => {
+      const nextLocations = [...currentLocations];
+      nextLocations[i] = val;
+      return nextLocations;
+    });
   };
 
   const handleSave = async (i) => {
-    if (!locations[i].trim()) return;
-    await saveToBackend(locations, i);
-    setEditingIndex(null);
+    const trimmedValue = locations[i].trim();
+    if (!trimmedValue) return;
+
+    const savedValue = (savedLocations[i] || "").trim();
+    if (trimmedValue === savedValue) {
+      setEditingIndex(null);
+      return;
+    }
+
+    const nextLocations = [...locations];
+    nextLocations[i] = trimmedValue;
+    await saveToBackend(nextLocations, i);
   };
 
   const handleDelete = async (i) => {
-    const copy = [...locations];
-    copy[i] = "";
-    setLocations(copy);
-    await saveToBackend(copy, i);
-    setEditingIndex(null);
+    const nextLocations = [...locations];
+    nextLocations[i] = "";
+    setLocations(nextLocations);
+    await saveToBackend(nextLocations, i);
   };
 
   return (
@@ -73,7 +112,12 @@ export default function BusinessLocationsModal({
 
         {locations.map((loc, i) => {
           const isEditing = editingIndex === i;
-          const hasValue = loc.trim();
+          const trimmedValue = loc.trim();
+          const savedValue = (savedLocations[i] || "").trim();
+          const canSave =
+            Boolean(trimmedValue) &&
+            trimmedValue !== savedValue &&
+            savingIndex !== i;
 
           return (
             <div key={i} className="nearby-row">
@@ -87,13 +131,13 @@ export default function BusinessLocationsModal({
 
               <button
                 className="nearby-save"
-                disabled={savingIndex === i || !hasValue}
+                disabled={!canSave}
                 onClick={() => handleSave(i)}
               >
                 {savingIndex === i ? "Saving..." : "Save"}
               </button>
 
-              {isEditing && hasValue && (
+              {isEditing && Boolean(trimmedValue) && (
                 <button
                   className="nearby-delete"
                   disabled={savingIndex === i}

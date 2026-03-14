@@ -1,0 +1,321 @@
+/* ================= OVERLAY ================= */
+
+.loyalty-settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+
+/* ================= MAIN CONTAINER ================= */
+
+.loyalty-settings-shell {
+  width: 920px;
+  max-width: 95%;
+  max-height: 92vh;
+  overflow-y: auto;
+
+  background: #0c0c0f;
+  border: 1px solid rgba(230,195,122,0.25);
+  border-radius: 16px;
+
+  box-shadow:
+    0 20px 40px rgba(0,0,0,0.6),
+    inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+
+
+/* ================= HEADER ================= */
+
+.loyalty-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 18px 22px;
+  border-bottom: 1px solid rgba(230,195,122,0.15);
+}
+
+.loyalty-settings-title-wrap {
+  text-align: center;
+  flex: 1;
+}
+
+.loyalty-settings-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #e6c37a;
+}
+
+.loyalty-settings-subtitle {
+  font-size: 15px;
+  margin-top: 4px;
+  color: rgba(255,255,255,0.65);
+}
+
+.loyalty-settings-nav-btn,
+.loyalty-settings-close-btn {
+  background: transparent;
+  border: 1px solid rgba(230,195,122,0.35);
+  color: #e6c37a;
+  padding: 7px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: 0.25s;
+}
+
+.loyalty-settings-nav-btn:hover,
+.loyalty-settings-close-btn:hover {
+  background: rgba(230,195,122,0.15);
+}
+
+
+/* ================= PANEL ================= */
+
+.loyalty-settings-panel {
+  padding: 24px;
+}
+
+
+/* ================= GRID ================= */
+
+.loyalty-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.85fr) minmax(260px, 1.2fr) minmax(260px, 1.2fr);
+  gap: 18px;
+}
+
+
+/* ================= CARD ================= */
+
+.loyalty-settings-card {
+  background: linear-gradient(180deg, #121217, #0c0c10);
+  border: 1px solid rgba(230,195,122,0.18);
+  border-radius: 14px;
+  padding: 20px;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.loyalty-settings-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(230,195,122,0.4);
+  box-shadow: 0 14px 26px rgba(0,0,0,0.28);
+}
+
+.loyalty-settings-card-wide {
+  grid-column: span 1;
+}
+
+
+/* ================= LABEL ================= */
+
+.loyalty-settings-label {
+  font-size: 16px;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 12px;
+}
+
+
+/* ================= INPUT ================= */
+
+.loyalty-settings-input {
+  width: 100%;
+  padding: 14px 16px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.loyalty-settings-input:focus {
+  outline: none;
+  border-color: #e6c37a;
+  box-shadow: 0 0 0 2px rgba(230,195,122,0.15);
+}
+
+.loyalty-input-wrapper {
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  background: #0f0f12;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.loyalty-input-wrapper:focus-within {
+  border-color: #e6c37a;
+  box-shadow: 0 0 0 2px rgba(230,195,122,0.15);
+}
+
+.loyalty-input-prefix {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  align-self: stretch;
+  padding: 0 16px;
+  background: rgba(230,195,122,0.12);
+  color: #e6c37a;
+  font-size: 16px;
+  font-weight: 700;
+  border-right: 1px solid rgba(230,195,122,0.16);
+}
+
+.loyalty-input-wrapper .loyalty-settings-input {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding-left: 16px;
+}
+
+.loyalty-settings-help {
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  margin-top: 8px;
+}
+
+
+/* ================= TOGGLE ================= */
+
+.loyalty-settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.loyalty-settings-toggle-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+
+
+/* ===== SMALL TOGGLE ===== */
+
+.loyalty-settings-switch {
+  position: relative;
+  width: 52px;
+  height: 28px;
+}
+
+.loyalty-settings-switch input {
+  display: none;
+}
+
+.loyalty-settings-switch-track {
+  position: absolute;
+  inset: 0;
+  background: #2a2a2a;
+  border-radius: 999px;
+  transition: background 0.25s ease;
+}
+
+.loyalty-settings-switch-thumb {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  background: #fff;
+  border-radius: 50%;
+  top: 3px;
+  left: 3px;
+  transition: transform 0.25s ease, background 0.25s ease;
+}
+
+.loyalty-settings-switch input:checked + .loyalty-settings-switch-track {
+  background: #1fa85b;
+}
+
+.loyalty-settings-switch input:checked
+  + .loyalty-settings-switch-track
+  .loyalty-settings-switch-thumb {
+  transform: translateX(24px);
+  background: #ffffff;
+}
+
+/* ================= MESSAGE ================= */
+
+.loyalty-settings-message {
+  margin-top: 18px;
+  font-size: 15px;
+  color: #7de3a6;
+}
+
+
+/* ================= ACTIONS ================= */
+
+.loyalty-settings-actions {
+  margin-top: 22px;
+  display: flex;
+  gap: 12px;
+}
+
+.loyalty-settings-save-btn {
+  background: #e6c37a;
+  border: none;
+  padding: 13px 20px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.loyalty-settings-save-btn:hover {
+  background: #f2d890;
+}
+
+.loyalty-settings-secondary-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 13px 20px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.loyalty-settings-secondary-btn:hover {
+  border-color: #e6c37a;
+}
+
+
+/* ================= STATES ================= */
+
+.loyalty-settings-state {
+  padding: 40px;
+  text-align: center;
+  color: rgba(255,255,255,0.7);
+}
+
+
+/* ================= RESPONSIVE ================= */
+
+@media (max-width: 700px) {
+
+  .loyalty-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .loyalty-settings-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .loyalty-settings-card-wide {
+    grid-column: span 1;
+  }
+
+  .loyalty-settings-actions {
+    flex-direction: column;
+  }
+
+}

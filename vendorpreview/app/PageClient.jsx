@@ -10,7 +10,7 @@ import About from "./About/About";
 import Contact from "./Contact/Contact";
 import Portal from "./Portal/Portal";
 import ScrollToTop from "./components/ScrollToTop";
-import { useVendor } from "./VendorContext";
+import { useVendor } from "@/app/context/VendorContext";
 
 function PageContent() {
   const vendor = useVendor(); // SSR vendor

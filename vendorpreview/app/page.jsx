@@ -25,7 +25,10 @@ const toAnchor = (label) =>
 export default function Home() {
   const [loading, setLoading] = useState(true);
   const [checkingSession, setCheckingSession] = useState(true);
-  const [sessionAllowed, setSessionAllowed] = useState(false);
+  const [sessionAllowed, setSessionAllowed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return Boolean(localStorage.getItem("authToken"));
+  });
 
 
 useEffect(() => {
@@ -33,9 +36,17 @@ useEffect(() => {
 
   const checkSession = async () => {
     const token = localStorage.getItem("authToken");
+    const user = localStorage.getItem("userData");
+    const parsedUser = user ? JSON.parse(user) : null;
 
     // no session → allow public view
     if (!token) {
+      setSessionAllowed(true);
+      setCheckingSession(false);
+      return;
+    }
+
+    if (parsedUser?.isAdmin) {
       setSessionAllowed(true);
       setCheckingSession(false);
       return;
@@ -53,14 +64,15 @@ useEffect(() => {
 
       if (res.ok) {
         setSessionAllowed(true);
-      } else {
-        // ❌ invalid session
+      } else if (res.status === 401 || res.status === 403) {
         localStorage.removeItem("authToken");
         localStorage.removeItem("userData");
         setSessionAllowed(false);
+      } else {
+        setSessionAllowed(Boolean(localStorage.getItem("authToken")));
       }
     } catch {
-      setSessionAllowed(false);
+      setSessionAllowed(Boolean(localStorage.getItem("authToken")));
     } finally {
       setCheckingSession(false);
     }
@@ -120,3 +132,5 @@ if (!sessionAllowed) {
     </div>
   );
 }
+
+

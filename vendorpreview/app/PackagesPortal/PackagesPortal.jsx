@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import "../PackagesPortal/PackagesPortal.css";
-import { useVendor } from "../VendorContext";
+import "./PackagesPortal.css";
+import { useVendor } from "@/app/context/VendorContext";
 function fetchWithAuth(url, options = {}) {
   const token = localStorage.getItem("authToken");
 
@@ -181,7 +181,7 @@ function normalizeTree(node) {
     children: (node.children || []).map(normalizeTree),
   };
 }
-export default function PackagesPortal({ onClose, onLoaded }) {
+export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) {
   const { vendorInfo } = useVendor();
   const vendorId = vendorInfo?.vendorId || vendorInfo?._id || null;
   const rootCategoryId =
@@ -410,6 +410,7 @@ if (missingLeafIds.length) {
     }
 
     setRootNodes([...rootNodes]);
+    await onPricingUpdated?.();
     setShowActivateModal(false);
     setPendingService(null);
     setPendingServiceId(null);
@@ -420,16 +421,17 @@ if (missingLeafIds.length) {
     if (aActive === bActive) return 0;
     return aActive ? -1 : 1;
   });
-  async function updateService(service, status) {
-    await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
+async function updateService(service, status) {
+  await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
       method: "PUT",
       body: JSON.stringify({
         vendorPriceNodeId: service._id,
         price: Number(service.price),
         pricingStatus: status   // ⭐ use param
       })
-    });
-  }
+  });
+  await onPricingUpdated?.();
+}
 
   const shouldUseVirtualParents =
     categoryChildren.length > 0 && serviceChildren.length > 0;
@@ -559,11 +561,10 @@ if (missingLeafIds.length) {
         showEditModal && editingService && (
           <Modal title="Edit Service" onClose={() => setShowEditModal(false)}>
 
-            <label className="modal-label">Terms</label>
+            {allTerms.length > 0 && (
+              <>
+                <label className="modal-label">Terms</label>
 
-            {allTerms.length === 0 ? (
-              <p className="empty-terms">No terms available for this service</p>
-            ) : (
               <div className="terms-checkbox-list">
                 {allTerms.map(term => (
                   <label key={term} className="term-checkbox">
@@ -577,6 +578,7 @@ if (missingLeafIds.length) {
                   </label>
                 ))}
               </div>
+              </>
             )}
             {isFreeTextEnabled(categoryTree, editingService.categoryId) ? (
               <>
@@ -617,6 +619,7 @@ if (missingLeafIds.length) {
                 });
 
                 setRootNodes([...rootNodes]);
+                await onPricingUpdated?.();
                 setShowEditModal(false);
               }}
             >
@@ -649,12 +652,10 @@ if (missingLeafIds.length) {
               </>
             )}
 
-            <label className="modal-label">Terms</label>
+            {allTerms.length > 0 && (
+              <>
+                <label className="modal-label">Terms</label>
 
-            {allTerms.length === 0 ? (
-
-              <p className="empty-terms">No terms available for this service</p>
-            ) : (
               <div className="terms-checkbox-list">
                 {allTerms.map(term => (
 
@@ -672,6 +673,7 @@ if (missingLeafIds.length) {
 
                 ))}
               </div>
+              </>
             )}
 
             <button
@@ -687,14 +689,12 @@ if (missingLeafIds.length) {
   );
 }
 /* ================= SERVICE CARD ================= */
-function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }){
-
+function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }) {
   const terms = parseTerms(service.terms);
   const packagesIncludes = parseTerms(service.packagesIncludes);
 
   return (
     <div className={`service-card ${isActive ? "active-card" : "inactive-card"}`}>
-
       <div className="service-top">
         <img
           src={service.imageUrl || "/placeholder.png"}
@@ -704,42 +704,42 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }){
         <div className="service-info">
           <h4>{service.name}</h4>
 
-          {/* TERMS */}
           {terms.length > 0 && (
             <ul className="service-terms">
-              {terms.map((t, i) => (
-                <li key={i}>• {t}</li>
+              {terms.map((term, index) => (
+                <li key={index}>✓ {term}</li>
               ))}
             </ul>
           )}
-          {/* ⭐ PACKAGES INCLUDES */}
+
           {packagesIncludes.length > 0 && (
-  <div className="service-includes">
-    <div className="includes-title">Includes</div>
-    <ul className="service-packages">
-      {packagesIncludes.map((pkg, i) => (
-        <li key={i}>✓ {pkg}</li>
-      ))}
-    </ul>
-  </div>
-)}
+            <div className="service-includes">
+              <div className="includes-title">Includes</div>
+              <ul className="service-packages">
+                {packagesIncludes.map((pkg, index) => (
+                  <li key={index}>✓ {pkg}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {service.offerText && (
             <p className="offer-text">{service.offerText}</p>
           )}
         </div>
-        <div className="service-right">
-          <span className="price">₹{service.price}</span>
-
-          {isActive && onEdit && (
-            <span className="edit" onClick={onEdit}>
-              Edit
-            </span>
-          )}
-        </div>
       </div>
 
-      {/* ⭐ THIS WAS MISSING */}
-      <div className="service-bottom right">
+      <div className="service-right">
+        <span className="price">Rs {service.price}</span>
+
+        {isActive && onEdit && (
+          <span className="edit" onClick={onEdit}>
+            Edit
+          </span>
+        )}
+      </div>
+
+      <div className="service-bottom">
         <label className="switch">
           <input
             type="checkbox"
@@ -751,7 +751,6 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }){
           </span>
         </label>
       </div>
-
     </div>
   );
 }

@@ -1,0 +1,230 @@
+.revenue-panel {
+  padding: 24px;
+  border: 1px solid rgba(230, 195, 122, 0.2);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(10, 10, 12, 0.96), rgba(24, 20, 12, 0.92));
+  color: #f5f2ea;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.3);
+}
+
+.revenue-panel-header {
+  margin-bottom: 18px;
+}
+
+.revenue-panel-title {
+  color: #f5d97a;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.revenue-panel-subtitle {
+  margin-top: 6px;
+  color: rgba(245, 242, 234, 0.72);
+  font-size: 14px;
+}
+
+.revenue-panel-loading,
+.revenue-panel-empty {
+  padding: 28px;
+  border-radius: 18px;
+  border: 1px solid rgba(230, 195, 122, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(245, 242, 234, 0.74);
+}
+
+.revenue-panel-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.revenue-panel-stat-card {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(230, 195, 122, 0.18);
+  background: linear-gradient(180deg, rgba(230, 195, 122, 0.1), rgba(255, 255, 255, 0.03));
+}
+
+.revenue-panel-stat-label {
+  font-size: 12px;
+  color: rgba(245, 242, 234, 0.62);
+}
+
+.revenue-panel-stat-value {
+  margin-top: 8px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #e6c37a;
+}
+
+.revenue-panel-section {
+  margin-top: 22px;
+}
+
+.revenue-panel-section-title {
+  margin-bottom: 12px;
+  color: #f5d97a;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.revenue-panel-list {
+  display: grid;
+  gap: 12px;
+}
+
+.revenue-panel-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(230, 195, 122, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.revenue-panel-list-main {
+  font-weight: 700;
+}
+
+.revenue-panel-list-sub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: rgba(245, 242, 234, 0.68);
+}
+
+.revenue-panel-list-value {
+  color: #e6c37a;
+  font-weight: 700;
+}
+
+.revenue-panel-search-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.revenue-panel-phone-input {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.revenue-panel-phone-prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid rgba(230, 195, 122, 0.2);
+  border-right: 0;
+  border-radius: 14px 0 0 14px;
+  background: rgba(230, 195, 122, 0.1);
+  color: #e6c37a;
+  font-weight: 700;
+}
+
+.revenue-panel-input {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(230, 195, 122, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f5f2ea;
+  outline: none;
+}
+
+.revenue-panel-input::placeholder {
+  color: rgba(245, 242, 234, 0.45);
+}
+
+.revenue-panel-input-phone {
+  border-radius: 0 14px 14px 0;
+}
+
+.revenue-panel-button {
+  padding: 12px 18px;
+  border: 1px solid rgba(230, 195, 122, 0.34);
+  border-radius: 14px;
+  background: rgba(230, 195, 122, 0.14);
+  color: #f5f2ea;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.revenue-panel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.revenue-panel-customer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.revenue-panel-customer-card {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(230, 195, 122, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.revenue-panel-customer-label {
+  font-size: 12px;
+  color: rgba(245, 242, 234, 0.62);
+}
+
+.revenue-panel-customer-value {
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.revenue-panel-month-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.revenue-panel-month-card {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(230, 195, 122, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.revenue-panel-month-card.active {
+  border-color: rgba(230, 195, 122, 0.7);
+  background: rgba(230, 195, 122, 0.1);
+}
+
+.revenue-panel-month-name {
+  font-size: 13px;
+  color: rgba(245, 242, 234, 0.72);
+}
+
+.revenue-panel-month-revenue {
+  margin-top: 8px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #e6c37a;
+}
+
+.revenue-panel-month-meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(245, 242, 234, 0.62);
+}
+
+@media (max-width: 640px) {
+  .revenue-panel {
+    padding: 18px;
+  }
+
+  .revenue-panel-title {
+    font-size: 22px;
+  }
+}

@@ -84,7 +84,31 @@ exports.getVendorSubscription = async (req, res) => {
       .populate("planId")
       .lean();
 
-    return res.json({ success: true, data: subscription });
+    if (!subscription) {
+      return res.status(404).json({
+        success: false,
+        message: "Vendor subscription not found",
+      });
+    }
+
+    const wallet = await VendorWallet.findOne({ vendorId }).lean();
+
+    return res.json({
+      success: true,
+      data: {
+        vendorId: subscription.vendorId,
+        plan: subscription.planId,
+        subscription: {
+          startDate: subscription.startDate,
+          expiryDate: subscription.expiryDate,
+          active: subscription.active,
+        },
+        wallet: {
+          whatsappBalance: wallet?.whatsappBalance || 0,
+          otpBalance: wallet?.otpBalance || 0,
+        },
+      },
+    });
   } catch (err) {
     console.error("Get vendor subscription error:", err);
     return res.status(500).json({

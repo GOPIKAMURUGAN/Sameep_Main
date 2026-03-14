@@ -10,7 +10,21 @@
   align-items: center;
   z-index: 9999;
 }
+.phone-input-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
+.country-code-select {
+  width: 90px;
+  flex: 0 0 90px;
+}
+
+.phone-number-input {
+  width: 180px;
+  flex: 0 0 180px; /* prevents stretching */
+}
 /* ================= MODAL ================= */
 .category-modal {
   width: 460px;
@@ -2857,4 +2871,42 @@ flex: 0 1 auto;
   to {
     transform: rotate(360deg);
   }
+}
+.phone-input-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.country-code-select {
+  width: 90px;
+  flex: 0 0 90px;
+}
+
+.phone-number-input {
+  width: 180px;
+  flex: 0 0 180px; /* prevents stretching */
+}
+
+.country-code-select {
+  width: 110px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #d4af37;
+  background: #111;
+  color: white;
+  font-size: 14px;
+}
+
+.verify-title{
+  font-size:16px;
+  margin-bottom:16px;
+  color:#fff;
+}
+
+.field-label{
+  font-size:13px;
+  margin-top:10px;
+  margin-bottom:4px;
+  color:#bbb;
 }

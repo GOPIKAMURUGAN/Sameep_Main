@@ -30,7 +30,7 @@ export default function ChooseCategoryModal({ onClose }) {
 
   const [elapsed, setElapsed] = useState(0);
   const [vendorId, setVendorId] = useState(null);
-  const [serviceAreas, setServiceAreas] = useState(null);
+const [serviceAreas, setServiceAreas] = useState(null);										 
 
   const [businessQuery, setBusinessQuery] = useState("");
   const [googleResults, setGoogleResults] = useState([]);
@@ -49,6 +49,14 @@ export default function ChooseCategoryModal({ onClose }) {
   const [captcha, setCaptcha] = useState("");
   const [captchaInput, setCaptchaInput] = useState(["", "", "", ""]);
   const [captchaError, setCaptchaError] = useState("");
+  const [manualBusinessName, setManualBusinessName] = useState("");
+  const [manualPhone, setManualPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("91");
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [mobile, setMobile] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [loadingOtp, setLoadingOtp] = useState(false);
 
 
 
@@ -164,10 +172,12 @@ export default function ChooseCategoryModal({ onClose }) {
 
 
 
-  const normalizePhone = (phone) => {
-    if (!phone) return "";
-    return phone.replace(/\D/g, "").replace(/^91/, "");
-  };
+const normalizePhone = (phone) => {
+  const digits = String(phone || "")
+    .replace(/\D/g, "")
+    .trim();
+  return digits.slice(-10);
+};
   const openingHoursText = Array.isArray(selectedBusiness?.openingHoursText)
     ? selectedBusiness.openingHoursText
     : [];
@@ -264,8 +274,8 @@ export default function ChooseCategoryModal({ onClose }) {
         phone: cleanPhone,
 
 
-        businessName: selectedBusiness?.name || "",
-        contactName: selectedBusiness?.name || "",
+        businessName: selectedBusiness?.name || manualBusinessName || "",
+        contactName: selectedBusiness?.name || manualBusinessName || "",
         categoryId: selected?._id,
 
         status: "Registered",
@@ -374,7 +384,9 @@ export default function ChooseCategoryModal({ onClose }) {
     CONNECT: 28,
     GOOGLE_SEARCH: 42,
     GOOGLE_RESULTS: 56,
+    VERIFY_PHONE_FORM: 63,
     VERIFY_PHONE: 70,
+    VERIFY_OTP: 75,
     SUCCESS: 85,
     TRUST_QUESTIONS: 92,
     SERVICES_SELECT: 100,
@@ -486,10 +498,10 @@ export default function ChooseCategoryModal({ onClose }) {
         [],
 
       internationalPhoneNumber:
-        data.place?.internationalPhoneNumber || "",
+        normalizePhone(data.place?.internationalPhoneNumber || ""),
     });
 
-
+    setIsEditingInfo(false);
     setStep("VERIFY_PHONE");
   };
 
@@ -498,7 +510,16 @@ export default function ChooseCategoryModal({ onClose }) {
   const handleBack = () => {
     if (step === "SERVICES_SELECT") setStep("SUCCESS");
     else if (step === "SUCCESS") setStep("VERIFY_PHONE");
-    else if (step === "VERIFY_PHONE") setStep("GOOGLE_RESULTS");
+    else if (step === "VERIFY_OTP") {
+      setOtpSent(false);
+      setOtp("");
+      setStep("VERIFY_PHONE");
+    }
+    else if (step === "VERIFY_PHONE") {
+      setIsEditingInfo(false);
+      setStep(selectedSearchBusiness ? "GOOGLE_RESULTS" : "VERIFY_PHONE_FORM");
+    }
+    else if (step === "VERIFY_PHONE_FORM") setStep("CONNECT");
     else if (step === "GOOGLE_RESULTS") setStep("GOOGLE_SEARCH");
     else if (step === "GOOGLE_SEARCH") setStep("CONNECT");
     else if (step === "CONNECT") {
@@ -514,6 +535,121 @@ export default function ChooseCategoryModal({ onClose }) {
     selectedBusiness?.internationalPhoneNumber ||
     selectedBusiness?.phone ||
     "";
+
+  const handleBusinessInfoChange = (field, value) => {
+    setSelectedBusiness((prev) => ({
+      ...(prev || {}),
+      [field]: value,
+    }));
+  };
+
+  const handleSaveBusinessInfo = () => {
+    const name = selectedBusiness?.name?.trim() || "";
+    const phone = normalizePhone(selectedBusiness?.internationalPhoneNumber || "");
+
+    if (!name) {
+      alert("Business name is required");
+      return;
+    }
+
+    if (!phone || phone.length !== 10) {
+      alert("Please enter a valid 10 digit phone number");
+      return;
+    }
+
+    setSelectedBusiness((prev) => ({
+      ...(prev || {}),
+      name,
+      internationalPhoneNumber: phone,
+    }));
+    setIsEditingInfo(false);
+  };
+
+  const requestOtp = async (phoneOverride = "") => {
+    const rawMobile =
+      phoneOverride ||
+      selectedBusiness?.internationalPhoneNumber ||
+      selectedBusiness?.phone ||
+      manualPhone ||
+      mobile;
+    const normalizedMobile = normalizePhone(rawMobile);
+
+    if (!normalizedMobile || normalizedMobile.length !== 10) {
+      alert("Enter valid mobile number");
+      return;
+    }
+
+    try {
+      setLoadingOtp(true);
+      setMobile(normalizedMobile);
+      const res = await fetch(`${API_BASE_URL}/api/customers/request-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          countryCode,
+          phone: normalizedMobile,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "OTP request failed");
+        return;
+      }
+
+      setOtpSent(true);
+      setStep("VERIFY_OTP");
+    } catch (err) {
+      console.error(err);
+      alert("Server error");
+    } finally {
+      setLoadingOtp(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (!otp || otp.length < 4) {
+      alert("Enter valid OTP");
+      return;
+    }
+
+    const normalizedPhone = normalizePhone(mobile);
+    if (!normalizedPhone || normalizedPhone.length !== 10) {
+      alert("Please enter a valid 10 digit phone number");
+      return;
+    }
+
+    try {
+      setLoadingOtp(true);
+      const res = await fetch(`${API_BASE_URL}/api/customers/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          countryCode,
+          phone: normalizedPhone,
+          otp,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data?.message || "OTP verification failed");
+        return;
+      }
+
+      if (data?.token) {
+        localStorage.setItem("authToken", data.token);
+      }
+
+      setOtpSent(false);
+      await handleContinueWithoutOtp();
+    } catch (err) {
+      console.error(err);
+      alert("Server error");
+    } finally {
+      setLoadingOtp(false);
+    }
+  };
 
   return (
     <div className="modal-overlay">
@@ -610,8 +746,85 @@ export default function ChooseCategoryModal({ onClose }) {
             </button>
 
 
-            <button className="phone-btn" onClick={() => setStep("VERIFY_PHONE")}>
+            <button className="phone-btn" onClick={() => setStep("VERIFY_PHONE_FORM")}>
               Continue with Mobile Number
+            </button>
+          </div>
+        )}
+
+        {/* ================= VERIFY PHONE FORM ================= */}
+        {step === "VERIFY_PHONE_FORM" && (
+          <div className="verify-phone-section">
+            <p><b>Continue with Mobile Number</b></p>
+
+            <input
+              className="google-input"
+              placeholder="Business Name"
+              value={manualBusinessName}
+              onChange={(e) => setManualBusinessName(e.target.value)}
+            />
+
+            <div className="phone-input-group">
+              <select
+                className="country-code-select"
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+              >
+                <option value="91">🇮🇳 +91</option>
+                <option value="1">🇺🇸 +1</option>
+                <option value="44">🇬🇧 +44</option>
+                <option value="61">🇦🇺 +61</option>
+                <option value="971">🇦🇪 +971</option>
+              </select>
+
+              <input
+                className="google-input phone-number-input"
+                placeholder="Mobile Number"
+               value={manualPhone}
+onChange={(e) =>
+  setManualPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
+}
+              
+              />
+            </div>
+
+            <button
+              className="otp-btn"
+              onClick={async () => {
+                const cleanBusinessName = manualBusinessName.trim();
+                const cleanPhone = normalizePhone(String(manualPhone));
+
+                if (!cleanBusinessName) {
+                  alert("Business name is required");
+                  return;
+                }
+
+                if (!cleanPhone || cleanPhone.length !== 10) {
+                  alert("Please enter a valid 10 digit phone number");
+                  return;
+                }
+
+                setSelectedBusiness((prev) => ({
+                  ...(prev || {}),
+                  name: cleanBusinessName,
+                  internationalPhoneNumber: cleanPhone,
+                  phone: cleanPhone,
+                  placeId: prev?.placeId || "",
+                  address: prev?.address || "",
+                  location: {
+                    lat: prev?.location?.lat ?? null,
+                    lng: prev?.location?.lng ?? null,
+                  },
+                  rating: prev?.rating ?? null,
+                  userRatingsTotal: prev?.userRatingsTotal ?? 0,
+                  types: Array.isArray(prev?.types) ? prev.types : [],
+                }));
+
+                setMobile(cleanPhone);
+                await requestOtp(cleanPhone);
+              }}
+            >
+              Send OTP
             </button>
           </div>
         )}
@@ -709,43 +922,89 @@ export default function ChooseCategoryModal({ onClose }) {
         {/* ================= VERIFY PHONE ================= */}
         {step === "VERIFY_PHONE" && selectedBusiness && (
           <div className="verify-phone-section">
-
-            {/* BUSINESS NAME */}
-            <p><b>{selectedBusiness.name}</b></p>
-
-            {/* ADDRESS */}
-            <p>{selectedBusiness.address}</p>
-
-            {/* ⭐ RATING */}
-            {rating !== undefined && (
-              <p>
-                <b>Rating:</b> ⭐ {rating}
-                {totalReviews !== undefined && ` (${totalReviews} reviews)`}
-              </p>
-            )}
-
-            {/* 📍 LAT / LNG */}
-            {latitude && longitude && (
-              <p>
-                <b>Latitude:</b> {latitude}<br />
-                <b>Longitude:</b> {longitude}
-              </p>
-            )}
-
-            {/* 📞 PHONE (if exists later) */}
-            <p>
-              <b>Phone:</b> {phoneNumber || "Not available"}
+            <p className="verify-title">
+              Please Confirm your business name and mobile number
             </p>
 
-            <button className="otp-btn" disabled={!phoneNumber}>
-              Send OTP
+						   
+											 
+
+							  
+									  
+				 
+										   
+																			
+				  
+			  
+
+            <label className="field-label">Business Name</label>
+            <input
+              className="google-input"
+              placeholder="Business Name"
+              value={selectedBusiness?.name || ""}
+              onChange={(e) =>
+                handleBusinessInfoChange("name", e.target.value)
+              }
+            />
+
+            <label className="field-label">Mobile Number</label>
+            <div className="phone-input-group">
+              <select
+                className="country-code-select"
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+              >
+                <option value="91">+91</option>
+             
+              </select>
+
+              <input
+                className="google-input phone-number-input"
+                placeholder="Mobile Number"
+                value={selectedBusiness?.internationalPhoneNumber || ""}
+                  onChange={(e) =>
+                    handleBusinessInfoChange(
+                      "internationalPhoneNumber",
+                    e.target.value.replace(/\D/g, "").slice(0, 10)
+                    )
+                  }
+                />
+            </div>
+
+            <button
+              className="otp-btn"
+              onClick={() =>
+                requestOtp(
+                  selectedBusiness?.internationalPhoneNumber ||
+                  selectedBusiness?.phone ||
+                  ""
+                )
+              }
+              disabled={loadingOtp}
+            >
+              {loadingOtp ? "Please wait..." : "Send OTP"}
             </button>
+          </div>
+        )}
 
-            <button className="bypass-btn" onClick={handleContinueWithoutOtp}>
-              Continue without OTP
+        {/* ================= VERIFY OTP ================= */}
+        {step === "VERIFY_OTP" && (
+          <div className="verify-phone-section">
+            <p><b>Enter OTP</b></p>
+            <input
+              className="google-input"
+              placeholder="Enter OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            />
+
+            <button
+              className="otp-btn"
+              onClick={verifyOtp}
+              disabled={!otpSent || loadingOtp}
+            >
+              {loadingOtp ? "Please wait..." : "Verify OTP"}
             </button>
-
-
           </div>
         )}
 
@@ -920,11 +1179,13 @@ export default function ChooseCategoryModal({ onClose }) {
                   }),
                 });
 
-                setServiceAreas({
+					 setServiceAreas({
                   primaryLocality: data.primaryLocality,
                   targetAreas: data.targetAreas,
-                });
-
+                });			 
+														
+												
+			
                 // ✅ Move to services selection
                 setStep("SERVICES_SELECT");
               } catch (err) {

@@ -3,7 +3,7 @@
 import "./Footer.css";
 import { useEffect, useState } from "react";
 import { FaPhoneAlt, FaMapMarkerAlt } from "react-icons/fa";
-import { useVendor } from "../VendorContext";
+import { useVendor } from "@/app/context/VendorContext";
 import { SOCIAL_ICONS } from "../Icons/SocialIcons";
 
 const PAGE_SECTIONS = {

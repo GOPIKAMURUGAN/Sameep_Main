@@ -1,7 +1,7 @@
 "use client";
 
 import "./Load.css";
-import { useVendor } from "../VendorContext";
+import { useVendor } from "@/app/context/VendorContext";
 
 const Loader = () => {
   const { vendorInfo } = useVendor();
