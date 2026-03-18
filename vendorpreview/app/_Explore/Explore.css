@@ -103,52 +103,6 @@
   font-weight: 700;
 }
 
-.explore-cart-cashback-card {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  gap: 12px;
-  margin: 10px 0 14px;
-  padding: 16px;
-  border: 1px solid rgba(245, 217, 122, 0.42);
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(44, 31, 13, 0.58), rgba(22, 18, 13, 0.72));
-}
-
-.explore-cart-cashback-icon {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  font-size: 20px;
-}
-
-.explore-cart-cashback-title {
-  color: #f5d97a;
-  font-size: 15px;
-  font-weight: 800;
-}
-
-.explore-cart-cashback-copy {
-  margin-top: 4px;
-  color: #ececec;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.explore-cart-login-btn {
-  width: 100%;
-  margin-bottom: 18px;
-  padding: 14px 16px;
-  border: 1px solid rgba(245, 217, 122, 0.42);
-  border-radius: 16px;
-  background: rgba(34, 26, 15, 0.9);
-  color: #f5d97a;
-  font-size: 15px;
-  font-weight: 800;
-  cursor: pointer;
-}
 
 .explore-cart-widget-total {
   display: flex;
@@ -1324,4 +1278,132 @@ margin-left: 15px;
 
 .leaf-sidebar::-webkit-scrollbar-thumb:hover {
   background: rgba(28, 27, 27, 0.7);
+}
+
+
+.login-btn-secondary {
+  flex: 1;
+  background: transparent;
+  border: 1px solid #d4a94f;
+  color: #d4a94f;
+  padding: 12px;
+  border-radius: 30px;
+  cursor: pointer;
+}
+
+.login-btn-secondary:hover {
+  background: rgba(212,169,79,0.1);
+}
+
+
+
+
+
+.vendor-login-overlay {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 16px;
+            }
+            .vendor-login-modal {
+              width: 100%;
+              max-width: 400px;
+              padding: 24px;
+              border-radius: 12px;
+              background: rgba(15, 15, 20, 0.96);
+              color: #fff;
+              border: 1px solid rgba(255, 215, 100, 0.35);
+              box-shadow:
+                0 0 30px rgba(255, 195, 70, 0.25),
+                0 0 60px rgba(255, 180, 50, 0.15);
+              display: flex;
+              flex-direction: column;
+              gap: 12px;
+            }
+            .vendor-login-title {
+              font-size: 20px;
+              margin: 0 0 4px 0;
+              text-align: left;
+              color: #ffd575;
+            }
+            .vendor-login-row {
+              display: flex;
+              gap: 12px;
+              align-items: center;
+            }
+            .vendor-login-code {
+              flex: 0 0 64px;
+              height: 44px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              border-radius: 8px;
+              border: 1px solid #c29e49;
+              background: rgba(30, 30, 30, 0.8);
+              font-weight: 600;
+              font-size: 14px;
+              color: #ffd575;
+            }
+            .vendor-login-input {
+              width: 100%;
+              padding: 12px;
+              height: 44px;
+              border-radius: 8px;
+              border: 1px solid #c29e49;
+              font-size: 14px;
+              outline: none;
+              background: rgba(30, 30, 30, 0.85);
+              color: #fff;
+            }
+            .vendor-login-input:focus {
+              border-color: #ffd575;
+              box-shadow: 0 0 0 2px rgba(255, 213, 117, 0.2);
+            }
+            .vendor-login-btn {
+              width: 100%;
+              padding: 12px;
+              border-radius: 8px;
+              border: 1px solid transparent;
+              font-weight: 600;
+              cursor: pointer;
+              transition: transform 0.15s ease, box-shadow 0.15s ease;
+            }
+            .vendor-login-btn:hover {
+              transform: translateY(-1px);
+              box-shadow: 0 6px 14px rgba(255, 200, 110, 0.35);
+            }
+            .vendor-login-btn-primary {
+              background: linear-gradient(135deg, #ffd27d, #e5b759);
+              color: #0b0b0d;
+              border-color: #c29e49;
+            }
+            .vendor-login-btn-secondary {
+              background: transparent;
+              color: #f5d97a;
+              border-color: #f5d97a;
+            }
+            .vendor-login-checkbox {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-top: 4px;
+              font-size: 14px;
+              color: #e3c886;
+            }
+          .login-input-row {
+  display: flex;
+  gap: 10px;
+}
+
+.login-code {
+  width: 90px;
+  background: #111;
+  border: 1px solid #444;
+  color: #fff;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.vendor-login-input {
+  flex: 1;
 }

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 
 import AdvantageSection from "../About/About";
 import RootsSection from "../Root/RootSection";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useVendor } from "../context/VendorContext";
 import "./Explore.css";
 import "./ExploreInline.css";
@@ -23,6 +23,7 @@ import CustomerSearch from "../components/dashboard/CustomerSearch";
 import LoyaltySettings from "../components/dashboard/LoyaltySettings";
 import SubscriptionDashboard from "../components/dashboard/SubscriptionDashboard";
 import { useSearchParams } from "next/navigation";
+import { useSessionGuard } from "../Login/useSessionGuard";
 // import { useLoginPopup } from "./LoginPopupContext";
 
 const toAnchor = (label) =>
@@ -50,7 +51,6 @@ function buildFreeTextMapFromTree(nodes) {
   nodes.forEach(walk);
   return map;
 }
-
 function buildPackagesMapFromTree(nodes) {
   const map = {};
 
@@ -146,7 +146,7 @@ function ServiceCard({ data, sectionName, openLogin, addToCart }) {
     return `₹${price.toLocaleString("en-IN")}`;
   };
 
-  
+
   useEffect(() => {
     setSelectedMain(data.defaultMain || data.options?.[0]?.label || null);
     setSelectedSub(data.defaultSub || null);
@@ -252,25 +252,25 @@ function ServiceCard({ data, sectionName, openLogin, addToCart }) {
     );
   };
 
- const handleConfiguredAddToCart = () => {
-  const categoryPath = [sectionName, selectedMain, selectedSub].filter(Boolean);
+  const handleConfiguredAddToCart = () => {
+    const categoryPath = [sectionName, selectedMain, selectedSub].filter(Boolean);
 
-  const serviceId = data.id || data._id || data.categoryId;
+    const serviceId = data.id || data._id || data.categoryId;
 
-  const serviceName =
-    selectedSub || selectedMain || data.title;
+    const serviceName =
+      selectedSub || selectedMain || data.title;
 
-  addToCart(
-    {
-      _id: serviceId,
-      categoryId: serviceId,
-      name: serviceName,
-      price: Number(total) || 0,
-    },
-    categoryPath,
-    []
-  );
-};
+    addToCart(
+      {
+        _id: serviceId,
+        categoryId: serviceId,
+        name: serviceName,
+        price: Number(total) || 0,
+      },
+      categoryPath,
+      []
+    );
+  };
 
   if (data.simple) {
     return (
@@ -318,24 +318,29 @@ function ServiceCard({ data, sectionName, openLogin, addToCart }) {
     );
   }
 
+
   return (
     <div className="ws-card">
       {showTitle && <h3 className="ws-title">{data.title}</h3>}
 
       {sectionName &&
         data.title?.trim().toLowerCase() !==
-          sectionName.trim().toLowerCase() && (
+        sectionName.trim().toLowerCase() && (
           <h4 className="ws-mobile-category">{sectionName}</h4>
         )}
 
       <div className="ws-media" key={selectedOfferText || dynamicImg}>
-        {selectedOfferText ? (
-          <div className="offer-banner offer-confetti">
-            {selectedOfferText}
-          </div>
-        ) : (
-          dynamicImg && <img src={dynamicImg} alt={data.title} />
-        )}
+       <div className="ws-media">
+  {dynamicImg && (
+    <img src={dynamicImg} alt={data.title} />
+  )}
+
+  {selectedOfferText && (
+    <div className="offer-banner offer-confetti">
+      {selectedOfferText}
+    </div>
+  )}
+</div>
       </div>
 
       {!selectedOfferText && (
@@ -446,11 +451,12 @@ function collectLeafTerms(node) {
   return [...new Set(terms)].slice(0, 3);
 }
 
-function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
+function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
   const getName = (node) =>
     nameMap?.[node?.categoryId] || node?.name || "";
 
   const result = tree.map(level0 => {
+    const children = level0.children || [];
 
 
     /* =====================================================
@@ -458,11 +464,7 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
 ===================================================== */
     if (
       level0.isLeaf &&
-      level0.pricingStatus === "Active" &&
-      (
-        !level0.offerText ||
-        freeTextMap?.[level0.categoryId] === true
-      )
+      level0.pricingStatus === "Active"
     ) {
       return {
         sectionName: getName(level0),
@@ -475,7 +477,7 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
           simple: true,
           terms: normalizeTerms(level0.terms || ""),
           offerText: level0.offerText || "",
-          packagesIncludes:packagesMap[level0.categoryId] || ""
+          packagesIncludes: packagesMap[level0.categoryId] || ""
         }]
       };
     }
@@ -483,44 +485,6 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
     /* =====================================================
        ✅ CASE 0 — LEVEL0 ITSELF IS A LEAF
        ===================================================== */
-    /* =====================================================
-   🔥 OFFER SECTION SUPPORT
-   If this level0 is "Offers", create cards directly
-===================================================== */
-    if (getName(level0).toLowerCase() === "offers") {
-
-      const offerCards = (level0.children || [])
-        .filter(c =>
-          freeTextMap?.[c.categoryId] === true &&                 // ✅ NEW CHECK
-          typeof c.offerText === "string" &&
-          c.offerText.trim() !== ""
-        )
-        .map(c => ({
-          id: c.categoryId,
-          title: getName(c),
-          img: imageMap[c.categoryId] || null,
-
-          // ⭐ IMPORTANT FIX
-          simple: true,
-
-          // offer cards don't use pricing logic
-          base: 0,
-          options: [],
-          terms: [],
-
-          // ⭐ THIS IS WHAT UI WILL DISPLAY
-          offerText: c.offerText || ""
-        }));
-
-      if (!offerCards.length) return null;
-
-      return {
-        sectionName: getName(level0),
-        cards: offerCards
-      };
-    }
-
-    const children = level0.children || [];
 
     /* =====================================================
        🟡 LOGIC 1 — GROUP ONLY IF ALL CHILDREN ARE LEAVES
@@ -528,11 +492,7 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
        ===================================================== */
     const activeLeaves = children.filter(c =>
       c.isLeaf &&
-      c.pricingStatus === "Active" &&
-      (
-        !c.offerText ||                       // normal service
-        freeTextMap?.[c.categoryId] === true // allow offer only when enabled
-      )
+      c.pricingStatus === "Active"
     );
     const allChildrenAreLeaves =
       children.length &&
@@ -548,12 +508,12 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
 
         return {
           label: getName(c).trim(),
-								   
+
           price,
           imageUrl: imageMap[c.categoryId] || null,
           terms: normalizeTerms(c.terms || ""),
           offerText: c.offerText || "",
-            packagesIncludes: packagesMap?.[c.categoryId] || "", 
+          packagesIncludes: packagesMap?.[c.categoryId] || "",
           subOptions: []
         };
       });
@@ -581,11 +541,7 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
       /* ---------- LEVEL1 IS DIRECT LEAF ---------- */
       if (
         level1.isLeaf &&
-        level1.pricingStatus === "Active" &&
-        (
-          !level1.offerText ||                 // normal services
-          freeTextMap?.[level1.categoryId] === true   // offer only when allowed
-        )
+        level1.pricingStatus === "Active"
       ) {
         return {
           id: level1.categoryId,
@@ -602,7 +558,10 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
       let defaultMain = null;
       let defaultSub = null;
       const options = [];
-      let cardOfferText = "";
+      let cardOfferText =
+        typeof level1.offerText === "string" && level1.offerText.trim() !== ""
+          ? level1.offerText.trim()
+          : "";
       (level1.children || []).forEach(level2 => {
 
         /* ---------- LEVEL2 IS LEAF ---------- */
@@ -612,17 +571,16 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
           // ⭐ OFFER ONLY NODE → still create an option
           if (
             level2.offerText &&
-            !level2.price &&
-            freeTextMap?.[level2.categoryId] === true   // ✅ ADD THIS
+            !level2.price
           ) {
             options.push({
               label: getName(level2).trim(),
-											
+
               price: 0,
               imageUrl: imageMap[level2.categoryId] || null,
               terms: normalizeTerms(level2.terms || ""),
               offerText: level2.offerText || "",
-               packagesIncludes: packagesMap?.[level2.categoryId] || "",
+              packagesIncludes: packagesMap?.[level2.categoryId] || "",
               subOptions: []
             });
 
@@ -630,12 +588,12 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
           }
           options.push({
             label: getName(level2).trim(),
-										  
+
             price,
             imageUrl: imageMap[level2.categoryId] || null,
             terms: normalizeTerms(level2.terms || ""),
             offerText: level2.offerText || "",
-             packagesIncludes: packagesMap?.[level2.categoryId] || "",
+            packagesIncludes: packagesMap?.[level2.categoryId] || "",
             subOptions: []
           });
 
@@ -651,11 +609,7 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
           const subOptions = level2.children
             .filter(c =>
               c.isLeaf &&
-              c.pricingStatus === "Active" &&
-              (
-                !c.offerText ||                          // normal service
-                freeTextMap?.[c.categoryId] === true    // allow offer only when enabled
-              )
+              c.pricingStatus === "Active"
             )
             .map(c => {
               const price = Number(c.price) || 0;
@@ -668,12 +622,12 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
 
               return {
                 label: getName(c).trim(),
-										 
+
                 price,
                 imageUrl: imageMap[c.categoryId] || null,
                 terms: normalizeTerms(c.terms || ""),
                 offerText: c.offerText || "",
-                  packagesIncludes: packagesMap[c.categoryId] || ""
+                packagesIncludes: packagesMap[c.categoryId] || ""
               };
             });
 
@@ -724,6 +678,10 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap){
 // MAIN Explore Page
 // --------------------------------------------------
 function ExploreContent({ onReady, onOpenServices }) {
+  useSessionGuard();
+
+
+
   // ================= CART + BILLING STATES =================
   const [cartItems, setCartItems] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
@@ -732,11 +690,11 @@ function ExploreContent({ onReady, onOpenServices }) {
     0
   );
 
-const [discountAmount, setDiscountAmount] = useState(0);
-const [discountPercent, setDiscountPercent] = useState(0);
-const [discountMode, setDiscountMode] = useState(null); // "amount" | "percent"
-const [appliedDiscount, setAppliedDiscount] = useState(0);
-const [showDiscountPopup, setShowDiscountPopup] = useState(false);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [discountPercent, setDiscountPercent] = useState(0);
+  const [discountMode, setDiscountMode] = useState(null); // "amount" | "percent"
+  const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [showDiscountPopup, setShowDiscountPopup] = useState(false);
 
 
   const [resources, setResources] = useState([]);
@@ -776,17 +734,164 @@ const [showDiscountPopup, setShowDiscountPopup] = useState(false);
 
   const [showLogin, setShowLogin] = useState(false);
   const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(false);
-  const [viewMode, setViewMode] = useState("preview");
+  const [showSessionExpiredPopup, setShowSessionExpiredPopup] = useState(false);
+  const getStoredViewMode = () => {
+    if (typeof window === "undefined") return "preview";
+    const stored = localStorage.getItem("viewMode");
+    if (stored === "new-dashboard") return "preview";
+    return stored || "preview";
+  };
+  const [viewMode, setViewMode] = useState(getStoredViewMode);
+  const persistViewMode = (nextMode) => {
+    if (typeof window !== "undefined") {
+      if (nextMode === "new-dashboard") {
+        localStorage.removeItem("viewMode");
+      } else {
+        localStorage.setItem("viewMode", nextMode);
+      }
+    }
+    setViewMode(nextMode);
+  };
+
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setShowSessionExpiredPopup(true);
+      setShowVendorLogin(false);
+      setShowLogin(false);
+      setOpenServices(false);
+      setServiceType(null);
+      setServiceLoading(false);
+      persistViewMode("preview");
+    };
+
+    window.addEventListener("session-expired", handleSessionExpired);
+    return () =>
+      window.removeEventListener("session-expired", handleSessionExpired);
+  }, []);
+  const vendorIdRef = useRef(null);
   const [activeRevenueTab, setActiveRevenueTab] = useState("today");
   const [showOptions, setShowOptions] = useState(false);
   const [openServices, setOpenServices] = useState(false);
   const [serviceType, setServiceType] = useState(null);
   const [serviceLoading, setServiceLoading] = useState(false);
-																  
-																		
-						  
-const finalTotal = Math.max(cartTotal - appliedDiscount, 0);
 
+  const [showVendorLogin, setShowVendorLogin] = useState(false);
+  const [vendorMobile, setVendorMobile] = useState("");
+  const [vendorOtp, setVendorOtp] = useState("");
+  const [showVendorOtp, setShowVendorOtp] = useState(false);
+  const [loginAsAdmin, setLoginAsAdmin] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null);
+
+  const finalTotal = Math.max(cartTotal - appliedDiscount, 0);
+
+  const [showAdminPasscode, setShowAdminPasscode] = useState(false);
+  const [adminPasscode, setAdminPasscode] = useState("");
+
+  const handleVendorLogin = async () => {
+
+    const pageVendorPhone =
+      vendorInfo?.phone ||
+      vendorInfo?.mobile ||
+      vendorInfo?.businessPhone;
+
+    const clean = (num) => num?.replace(/\D/g, "").slice(-10);
+    if (clean(vendorMobile) !== clean(pageVendorPhone)) {
+      alert("This number is not the vendor phone");
+      return;
+    }
+
+    try {
+      const payload = {
+        countryCode: "91",
+        phone: vendorMobile,
+      };
+
+      const res = await fetch(`${API_BASE_URL}/api/customers/request-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        alert(data?.message || "Something went wrong");
+        return;
+      }
+
+      setShowVendorOtp(true);
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong");
+    }
+  };
+  const verifyVendorOtp = async () => {
+    try {
+      const deviceId =
+        localStorage.getItem("deviceId") || crypto.randomUUID();
+
+      localStorage.setItem("deviceId", deviceId);
+
+      const res = await fetch(`${API_BASE_URL}/api/customers/verify-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          countryCode: "91",
+          phone: vendorMobile,
+          otp: vendorOtp,
+          vendorId,
+          deviceId,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      console.log("VERIFY OTP RESPONSE:", data);
+
+      const alreadyVerified =
+        typeof data?.message === "string" &&
+        data.message.toLowerCase().includes("already verified");
+
+      const otpSuccess = data?.success || data?.token || alreadyVerified;
+      if (otpSuccess) {
+        localStorage.setItem("sessionDeviceId", deviceId);
+
+        if (data?.token) {
+          localStorage.setItem("vendorToken", data.token);
+        }
+        localStorage.setItem("vendorLoginTime", String(Date.now()));
+        localStorage.setItem("userType", "vendor");
+        if (vendorId) {
+          localStorage.setItem("vendorSessionVendorId", String(vendorId));
+        }
+        localStorage.removeItem("isAdminLogin");
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new Event("auth-changed"));
+
+      setShowVendorLogin(false);
+setShowVendorOtp(false);
+setLoginAsAdmin(false);
+setShowAdminPasscode(false);
+setAdminPasscode("");
+
+        if (pendingAction === "GENERATE_BILL") {
+          await handleGenerateBill();
+          setPendingAction(null);
+        } else {
+          persistViewMode("new-dashboard");
+        }
+        return;
+      }
+
+      alert(data?.message || "Something went wrong");
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong");
+    }
+  };
   const applyDiscount = () => {
     let nextDiscount = 0;
 
@@ -814,7 +919,7 @@ const finalTotal = Math.max(cartTotal - appliedDiscount, 0);
   };
   // ================= MENU TREE (TEMP SAFE STATE) =================
   const [menuTree, setMenuTree] = useState([]);
-										 
+
 
   const [selectedServiceName, setSelectedServiceName] = useState("");
   const [selectedPrice, setSelectedPrice] = useState(null);
@@ -826,7 +931,10 @@ const finalTotal = Math.max(cartTotal - appliedDiscount, 0);
   const [pricingRefreshNonce, setPricingRefreshNonce] = useState(0);
   // ================= MOBILE DETECTION =================
   const [isMobile, setIsMobile] = useState(false);
-
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("viewMode", viewMode);
+  }, [viewMode]);
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -837,11 +945,9 @@ const finalTotal = Math.max(cartTotal - appliedDiscount, 0);
 
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-
   const checkLogin = () => {
-    // Customer login is tracked via `authToken`. `token` is used elsewhere for vendor/admin auth.
     const token = localStorage.getItem("authToken");
-    setIsCustomerLoggedIn(Boolean(token && token.length > 10));
+    setIsCustomerLoggedIn(Boolean(token));
   };
 
   useEffect(() => {
@@ -871,6 +977,9 @@ const finalTotal = Math.max(cartTotal - appliedDiscount, 0);
 
   const customerLogout = () => {
     localStorage.removeItem("authToken");
+    localStorage.removeItem("token");
+    localStorage.removeItem("loginTime");
+    localStorage.removeItem("sessionHour");
     setIsCustomerLoggedIn(false);
     setCustomerId(null);
     setCustomerMobile("");
@@ -880,20 +989,12 @@ const finalTotal = Math.max(cartTotal - appliedDiscount, 0);
     setEarnPoints(0);
   };
 
-
-  const toAnchor = (label) =>
-    label
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-");
-
+const [showInvalidMobilePopup, setShowInvalidMobilePopup] = useState(false);
   const { vendorInfo, setVendorInfo } = useVendor();
 
-  const googleRating = vendorInfo?.googlePlace?.rating;
-  const googleReviews = vendorInfo?.googlePlace?.userRatingsTotal;
-  const googleMapsUrl = vendorInfo?.googlePlace?.mapsUrl;
   const [countryCode, setCountryCode] = useState("91");
+
+  const [verifyingPasscode, setVerifyingPasscode] = useState(false);
 
   const searchParams = useSearchParams();
   const queryRootCategoryId = searchParams.get("rootCategoryId");
@@ -914,11 +1015,19 @@ const finalTotal = Math.max(cartTotal - appliedDiscount, 0);
     vendorInfo?.category?._id ||
     vendorInfo?.rootCategoryId ||
     null;
-const canGenerateBill =
-  cartItems.length > 0 &&
-  !!vendorId &&
-  !showOtpInput &&
-  !processingBill;
+  const canGenerateBill =
+    cartItems.length > 0 &&
+    !!vendorId &&
+    !showOtpInput &&
+    !processingBill;
+  useEffect(() => {
+    if (pendingAction === "GENERATE_BILL") return;
+
+    const isAdmin = localStorage.getItem("isAdminLogin");
+    if (isAdmin === "true") {
+      setLoginAsAdmin(true);
+    }
+  }, [vendorId, pendingAction]);
   const handleOpenServices = (type) => {
     if (typeof onOpenServices === "function") {
       onOpenServices(type);
@@ -970,8 +1079,11 @@ const canGenerateBill =
       // ⭐ Save token
       if (data?.token) {
         localStorage.setItem("authToken", data.token);
+        localStorage.setItem("loginTime", String(Date.now())); // ⏱ save login time
         setIsCustomerLoggedIn(true);
       }
+      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new Event("auth-changed"));
 
       // ⭐ CUSTOMER ID FROM BACKEND
       const customerId =
@@ -1041,32 +1153,37 @@ const canGenerateBill =
 
 
   const requestOtp = async () => {
-    if (!mobile || mobile.length !== 10) {
-      alert("Enter valid mobile number");
-      return;
+   if (!mobile || mobile.length !== 10) {
+  setShowInvalidMobilePopup(true);
+  return;
     }
 
     try {
       setLoadingOtp(true);
 
-      const res = await fetch(
-        `${API_BASE_URL}/api/customers/request-otp`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            countryCode: countryCode,
-            phone: mobile,
-          }),
-        }
-      );
+      const otpUrl = `${API_BASE_URL.replace(/\/api\/?$/, "")}/api/customers/request-otp`;
+      const payload = {
+        countryCode: "91",
+        phone: mobile,
+      };
+      console.log("[OTP] request payload:", payload);
+      const res = await fetch(otpUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      console.log("[OTP] response:", {
+        status: res.status,
+        ok: res.ok,
+        data,
+      });
 
-      if (!res.ok) {
-        alert(data.message || "OTP request failed");
+      if (!res.ok || data?.success === false) {
+        alert(data?.message || "OTP request failed");
         return;
       }
 
@@ -1112,8 +1229,8 @@ const canGenerateBill =
     if (!billingId || !otp) return;
 
     try {
-       setVerifyingOtp(true);
-      const vendorToken = localStorage.getItem("token");
+      setVerifyingOtp(true);
+      const vendorToken = localStorage.getItem("vendorToken");
 
       await fetch(`${API_BASE_URL}/api/billing/verify-otp`, {
         method: "POST",
@@ -1153,7 +1270,7 @@ const canGenerateBill =
         setBillingId(null);
         setEarnPoints(0);
         setMenuSearch("");
-        resetBillingState(); 
+        resetBillingState();
       }
 
       setShowOtpInput(false);
@@ -1162,9 +1279,9 @@ const canGenerateBill =
     } catch (err) {
       console.error(err);
     }
-     finally {
-    setVerifyingOtp(false); // ✅ stop loader
-  }
+    finally {
+      setVerifyingOtp(false); // ✅ stop loader
+    }
   };
 
 
@@ -1210,8 +1327,75 @@ const canGenerateBill =
     [heroImages, vendorGalleryImages]
   );
 
+  const verifyAdminPasscode = async () => {
+    if (!adminPasscode) {
+      alert("Enter admin passcode");
+      return;
+    }
 
+    try {
+      setVerifyingPasscode(true);
+      const deviceId =
+        localStorage.getItem("deviceId") || crypto.randomUUID();
 
+      localStorage.setItem("deviceId", deviceId);
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/customers/admin-impersonate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            passcode: adminPasscode,
+            vendorId: vendorId, // ✅ FIXED
+            deviceId,
+          }),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      console.log("ADMIN RESPONSE:", data);
+
+      if (!res.ok) {
+        alert(data?.message || "Something went wrong");
+        return;
+      }
+
+      // ✅ SUCCESS
+      localStorage.setItem("isAdminLogin", "true");
+      localStorage.setItem("sessionDeviceId", deviceId);
+
+      if (data?.token) {
+        localStorage.setItem("vendorToken", data.token);
+      }
+      localStorage.setItem("vendorLoginTime", Date.now());
+      if (vendorId) {
+        localStorage.setItem("vendorSessionVendorId", String(vendorId));
+      }
+
+      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new Event("auth-changed"));
+
+      setLoginAsAdmin(false);
+      setShowAdminPasscode(false);
+      setShowVendorLogin(false);
+      setAdminPasscode("");
+
+      if (pendingAction === "GENERATE_BILL") {
+        await handleGenerateBill();
+        setPendingAction(null);
+      } else {
+        persistViewMode("new-dashboard");
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong");
+    } finally {
+      setVerifyingPasscode(false);
+    }
+  };
   const [finalCategories, setFinalCategories] = useState([]);
   const orderedCategories = useMemo(() => {
     const offers = [];
@@ -1231,10 +1415,10 @@ const canGenerateBill =
     return [...normal, ...offers]; // ✅ Offers always last
   }, [finalCategories]);
 
-								   
+
 
   useEffect(() => {
-											  
+
 
     if (!vendorId || !rootCategoryId) {
       setDataLoaded(true);
@@ -1243,7 +1427,7 @@ const canGenerateBill =
 
     async function load() {
       try {
-                const PRICING_API =
+        const PRICING_API =
           `${API_BASE_URL}/api/vendor-price-nodes/tree` +
           `?vendorId=${vendorId}` +
           `&rootCategoryId=${rootCategoryId}`;
@@ -1306,7 +1490,7 @@ const canGenerateBill =
         const invalidNodes = collectInvalidNodes(pricingData.tree);
 
 
-     
+
 
         setHeroImages(
           extractHeroImages(categoryTree, pricingData.tree)
@@ -1384,35 +1568,38 @@ const canGenerateBill =
   }, [vendorLoaded, dataLoaded, onReady]);
 
 
-  const cardsWithoutHeading = [];
-  const sectionsWithHeading = [];
+  const { cardsWithoutHeading, sectionsWithHeading } = useMemo(() => {
+    const cards = [];
+    const sections = [];
 
-  orderedCategories.forEach(section => {
+    orderedCategories.forEach(section => {
+      // ✅ FORCE OFFERS ALWAYS WITH HEADING
+      const isOfferSection =
+        section.sectionName?.toLowerCase() === "offers";
 
-    // ✅ FORCE OFFERS ALWAYS WITH HEADING
-    const isOfferSection =
-      section.sectionName?.toLowerCase() === "offers";
+      if (isOfferSection) {
+        sections.push(section);
+        return;
+      }
+      const hasSingleCard = section.cards.length === 1;
+      const singleCard = section.cards[0];
 
-    if (isOfferSection) {
-      sectionsWithHeading.push(section);
-      return;
-    }
-    const hasSingleCard = section.cards.length === 1;
-    const singleCard = section.cards[0];
+      const hideHeading =
+        hasSingleCard &&
+        section.sectionName.toLowerCase() !== "offers" &&
+        !singleCard.offerText?.trim() &&
+        singleCard.title?.trim().toLowerCase() ===
+        section.sectionName.trim().toLowerCase();
 
-    const hideHeading =
-      hasSingleCard &&
-      section.sectionName.toLowerCase() !== "offers" &&
-      !singleCard.offerText?.trim() &&
-      singleCard.title?.trim().toLowerCase() ===
-      section.sectionName.trim().toLowerCase();
+      if (hideHeading) {
+        cards.push(singleCard);
+      } else {
+        sections.push(section);
+      }
+    });
 
-    if (hideHeading) {
-      cardsWithoutHeading.push(singleCard);
-    } else {
-      sectionsWithHeading.push(section);
-    }
-  });
+    return { cardsWithoutHeading: cards, sectionsWithHeading: sections };
+  }, [orderedCategories]);
 
 
   useEffect(() => {
@@ -1491,16 +1678,16 @@ const canGenerateBill =
     setEarnPoints(pts);
   }, [cartTotal, percentPer100, ruleLoaded, loyaltyEnabled]);
 
-  useEffect(() => {
-    if (!customerMobile || customerMobile.length !== 10) return;
+useEffect(() => {
+  if (!customerMobile || customerMobile.length !== 10) return;
+  if (!vendorId) return; // ✅ FIX
 
-    const handle = setTimeout(() => {
-      verifyCustomer(customerMobile);
-    }, 500);
+  const handle = setTimeout(() => {
+    verifyCustomer(customerMobile);
+  }, 500);
 
-    return () => clearTimeout(handle);
-  }, [customerMobile, vendorId]);
-
+  return () => clearTimeout(handle);
+}, [customerMobile, vendorId]);
 
   /*
   const saveLoyaltyRule = async () => {
@@ -1667,8 +1854,21 @@ const canGenerateBill =
   };
 
   useEffect(() => {
+    // ONLY reset when switching vendor AND NOT in dashboard
+    const prevVendorId = vendorIdRef.current;
+    vendorIdRef.current = vendorId;
+
+    if (!vendorId || prevVendorId === vendorId) return;
+
+    const storedView = localStorage.getItem("viewMode");
+
+    if (viewMode === "new-dashboard" || storedView === "new-dashboard") return;
+
     resetBillingState();
-  }, [vendorId]);
+  }, [vendorId, viewMode]);
+  useEffect(() => {
+    console.log("VIEW MODE:", viewMode);
+  }, [viewMode]);
 
   async function handleGenerateBill() {
     if (!vendorId || !cartItems.length) {
@@ -1679,7 +1879,7 @@ const canGenerateBill =
     try {
       setProcessingBill(true);
 
-      const vendorToken = localStorage.getItem("token");
+      const vendorToken = localStorage.getItem("vendorToken");
 
       // STEP 1 - Create billing session
       const createRes = await fetch(`${API_BASE_URL}/api/billing/create`, {
@@ -1716,13 +1916,13 @@ const canGenerateBill =
         const discountedPrice = Math.round((item.price || 0) * discountFactor);
 
 
-      return {
-  itemId: item.itemId,
-  categoryId: item.categoryId,
-  name: item.name,
-  price: discountedPrice,
-  qty: Number(item.qty) || 1,
-  total: discountedPrice * (item.qty || 1),
+        return {
+          itemId: item.itemId,
+          categoryId: item.categoryId,
+          name: item.name,
+          price: discountedPrice,
+          qty: Number(item.qty) || 1,
+          total: discountedPrice * (item.qty || 1),
           resourceId: item.resourceId || null,
           resourceName: item.resourceName || "",
           parentId: item.parentId || null,
@@ -1731,9 +1931,9 @@ const canGenerateBill =
           categoryPathIds: item.categoryPathIds || [],
         };
       });
-const billingSubtotal = cartTotal;
-const billingDiscount = appliedDiscount;
-const billingFinalTotal = Math.max(billingSubtotal - billingDiscount, 0);
+      const billingSubtotal = cartTotal;
+      const billingDiscount = appliedDiscount;
+      const billingFinalTotal = Math.max(billingSubtotal - billingDiscount, 0);
       const updateRes = await fetch(`${API_BASE_URL}/api/billing/update`, {
         method: "POST",
         headers: {
@@ -1847,10 +2047,10 @@ const billingFinalTotal = Math.max(billingSubtotal - billingDiscount, 0);
       prev.map(item =>
         item.itemId === itemId
           ? {
-              ...item,
-              resourceId: resourceId || null,
-              resourceName: resource?.name || "",
-            }
+            ...item,
+            resourceId: resourceId || null,
+            resourceName: resource?.name || "",
+          }
           : item
       )
     );
@@ -1954,7 +2154,7 @@ const billingFinalTotal = Math.max(billingSubtotal - billingDiscount, 0);
       );
     });
   };
-const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
   const categoryHome = category?.homePopup || {};
 
   const heroTagline =
@@ -1993,19 +2193,19 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
     setRuleLoaded(true);
   }, [vendorInfo?.loyaltyRule]);
   useEffect(() => {
-  if (!discountMode) return;
+    if (!discountMode) return;
 
-  if (discountMode === "amount") {
-    const safeAmount = Math.min(discountAmount, cartTotal);
-    setAppliedDiscount(safeAmount);
-  }
+    if (discountMode === "amount") {
+      const safeAmount = Math.min(discountAmount, cartTotal);
+      setAppliedDiscount(safeAmount);
+    }
 
-  if (discountMode === "percent") {
-    const safePercent = Math.min(discountPercent, 100);
-    const discount = Math.floor((cartTotal * safePercent) / 100);
-    setAppliedDiscount(discount);
-  }
-}, [cartTotal]);
+    if (discountMode === "percent") {
+      const safePercent = Math.min(discountPercent, 100);
+      const discount = Math.floor((cartTotal * safePercent) / 100);
+      setAppliedDiscount(discount);
+    }
+  }, [cartTotal]);
 
   return (
     <>
@@ -2227,7 +2427,7 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
           </div>
         </div>
       )}
-       <HeroSection
+      <HeroSection
         images={mergedHeroImages}
 
         // ⭐ GOOGLE (vendor API)
@@ -2252,31 +2452,30 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
       {/* ✅ EXISTING EXPLORE CONTENT */}
       <section id="categories" className="women-styling">
         {/* CATEGORY NAVIGATION */}
-<div className="category-nav">
-  {orderedCategories.map((section) => (
-    <button
-      key={section.sectionName}
-      className="category-nav-btn"
-      onClick={() => {
-        const el = document.getElementById(
-          `cat-${toAnchor(section.sectionName)}`
-        );
-        if (el) {
-          el.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          });
-        }
-      }}
-    >
-      {section.sectionName}
-    </button>
-  ))}
-</div>
+        <div className="category-nav">
+          {orderedCategories.map((section) => (
+            <button
+              key={section.sectionName}
+              className="category-nav-btn"
+              onClick={() => {
+                const el = document.getElementById(
+                  `cat-${toAnchor(section.sectionName)}`
+                );
+                if (el) {
+                  el.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                }
+              }}
+            >
+              {section.sectionName}
+            </button>
+          ))}
+        </div>
         <div
-          className={`explore-preview-layout ${
-            !isMobile && cartItems.length > 0 ? "has-cart" : "no-cart"
-          }`}
+          className={`explore-preview-layout ${!isMobile && cartItems.length > 0 ? "has-cart" : "no-cart"
+            }`}
         >
           <div className="explore-preview-main">
 
@@ -2366,74 +2565,37 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
                   </div>
                 ))}
 
-              {/* NOT LOGGED IN */}
+                {/* NOT LOGGED IN */}
 
-{/* LOGGED IN */}
-{/* NOT LOGGED IN */}
-{/* BEFORE LOGIN */}
-{!isCustomerLoggedIn && cartItems.length > 0 && (
-  <div className="explore-cart-cashback-card">
-    {loyaltyEnabled && (
-      <div className="explore-cart-cashback-left">
-        <div className="explore-cart-cashback-icon">🎉</div>
+                {/* LOGGED IN */}
+                {/* NOT LOGGED IN */}
+                {/* BEFORE LOGIN */}
+             {cartItems.length > 0 && loyaltyEnabled && earnPoints > 0 && (
+                  <div className="explore-cart-cashback-card">
+                    <div className="explore-cart-cashback-left">
+                      <div className="explore-cart-cashback-icon">🎉</div>
 
-        <div className="explore-cart-cashback-text">
-          <div className="explore-cart-cashback-title">
-            Congratulations!
-          </div>
+                      <div className="explore-cart-cashback-text">
+                        <div className="explore-cart-cashback-title">
+                          Congratulations!
+                        </div>
 
-          <div className="explore-cart-cashback-copy">
-            You are eligible for cashback. Login to view.
-          </div>
-        </div>
-      </div>
-    )}
-    <div className="explore-cart-cashback-actions">
-      {loyaltyEnabled && (
-        <button
-          className="explore-cart-login-btn"
-          onClick={() => openLogin()}
-        >
-          Login
-        </button>
-      )}
-      <button
-        className="explore-cart-go-btn"
-        onClick={() => setViewMode("menu")}
-      >
-        Go to Cart
-      </button>
-    </div>
-  </div>
-)}
+                        <div className="explore-cart-cashback-copy">
+                          You will earn {earnPoints} points on this order
+                        </div>
+                      </div>
+                    </div>
 
-{/* AFTER LOGIN */}
-{isCustomerLoggedIn && cartItems.length > 0 && (
-  <div className="explore-cart-reward-card">
-    <div className="explore-cart-cashback-icon">🎁</div>
-
-    <div className="explore-cart-reward-text">
-      {loyaltyEnabled && earnPoints > 0 && (
-        <div className="explore-cart-reward-title">
-          You will earn <strong>{earnPoints}</strong> points
-        </div>
-      )}
-
-      <button
-        className="explore-cart-go-btn"
-        onClick={() => setViewMode("menu")}
-      >
-        Go to Cart
-      </button>
-      <button
-        className="explore-cart-logout-btn"
-        onClick={customerLogout}
-      >
-        Logout
-      </button>
-    </div>
-  </div>
-)}
+                    <div className="explore-cart-cashback-actions">
+                      <button
+                        className="explore-cart-go-btn"
+                        onClick={() => setViewMode("menu")}
+                      >
+                        Go to Cart
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="explore-cart-widget-total">
                   <span>Total</span>
@@ -2463,858 +2625,885 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
         <div>
           <div className="menuContainer">
             <div className="menu-overlay-shell">
-          <div className="menu-overlay-header">
-            <div className="menu-overlay-title">Menu</div>
-            <div className="menu-overlay-actions">
-              {hrCategory && hrCategory.enableHumanResources && (
+              <div className="menu-overlay-header">
+                <div className="menu-overlay-title">Menu</div>
+                <div className="menu-overlay-actions">
+                  {/* {hrCategory && hrCategory.enableHumanResources && (
                 <ResourceButton
                   vendorId={vendorId}
                   label={hrCategory.humanResourceLabel || "Manage Resources"}
                   floating={false}
                   className="menu-overlay-resource-btn"
                 />
-              )}
-              <button
-                className="menu-overlay-close-btn"
-                type="button"
-                onClick={() => {
-                  setMenuSearch("");
-                  resetBillingState();
-                  setViewMode("preview");
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-
-          <div className="menu-overlay-layout">
-            <div className={`menu-overlay-main ${isMobile ? "mobile" : "desktop"}`}>
-              <div className="menu-search-wrap">
-                <input
-                  className="menu-search-input"
-                  type="text"
-                  value={menuSearch}
-                  onChange={(e) => setMenuSearch(e.target.value)}
-                  placeholder="Search services..."
-                />
-              </div>
-              {filteredMenuTree.length === 0 ? (
-                <div className="menu-empty-search">
-                  {menuSearch ? "No matching services found." : "No services available"}
+              )} */}
+                  <button
+                    className="menu-overlay-close-btn"
+                    type="button"
+                    onClick={() => {
+                      setMenuSearch("");
+                      resetBillingState();
+                      setViewMode("preview");
+                    }}
+                  >
+                    Close
+                  </button>
                 </div>
-              ) : (
-                <div className="menu-tree-wrap">
-                  {renderMenuNodes(
-                    filteredMenuTree,
-                    0,
-                    [],
-                    rootCategoryId ? [rootCategoryId] : []
+              </div>
+
+              <div className="menu-overlay-layout">
+                <div className={`menu-overlay-main ${isMobile ? "mobile" : "desktop"}`}>
+                  <div className="menu-search-wrap">
+                    <input
+                      className="menu-search-input"
+                      type="text"
+                      value={menuSearch}
+                      onChange={(e) => setMenuSearch(e.target.value)}
+                      placeholder="Search services..."
+                    />
+                  </div>
+                  {filteredMenuTree.length === 0 ? (
+                    <div className="menu-empty-search">
+                      {menuSearch ? "No matching services found." : "No services available"}
+                    </div>
+                  ) : (
+                    <div className="menu-tree-wrap">
+                      {renderMenuNodes(
+                        filteredMenuTree,
+                        0,
+                        [],
+                        rootCategoryId ? [rootCategoryId] : []
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-            {!isMobile && (
-              <div className="menu-cart-rail">
-                <div
-                  className="menu-cart-panel"
-                  style={{
-                    width: "100%",
-                    maxHeight: "75vh",
-                    overflowY: "auto",
-                    background: "rgba(12, 10, 8, 0.95)",
-                    border: "1px solid rgba(245, 217, 122, 0.35)",
-                    borderRadius: 10,
-                    padding: "12px",
-                    color: "#f3f3f3",
-                  }}
-                >
-                  <div style={{ fontSize: 16, fontWeight: 700, color: "#F5D97A", marginBottom: 10 }}>
-                    Cart
-                  </div>
-                  {cartItems.length === 0 ? (
-                    <div style={{ color: "rgba(255,255,255,0.6)" }}>Empty</div>
-                  ) : (
-                    <>
-                      {cartItems.map((item, index) => (
-                        <div
-                          key={`${item.itemId || item.name}-${index}`}
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 6,
-                            marginBottom: 12,
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                            <span style={{ flex: 1 }}>
-                              {item.nodePath && item.nodePath.length
-                                ? item.nodePath.join(" - ")
-                                : item.name}
-                            </span>
-                            <span style={{ minWidth: 80, textAlign: "right" }}>
-                              ₹ {item.total}
-                            </span>
-                          </div>
-                          {item.resourceName ? (
-                            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
-                              Stylist: {item.resourceName}
+                {!isMobile && (
+                  <div className="menu-cart-rail">
+                    <div
+                      className="menu-cart-panel"
+                      style={{
+                        width: "100%",
+                        maxHeight: "75vh",
+                        overflowY: "auto",
+                        background: "rgba(12, 10, 8, 0.95)",
+                        border: "1px solid rgba(245, 217, 122, 0.35)",
+                        borderRadius: 10,
+                        padding: "12px",
+                        color: "#f3f3f3",
+                      }}
+                    >
+                      <div style={{ fontSize: 16, fontWeight: 700, color: "#F5D97A", marginBottom: 10 }}>
+                        Cart
+                      </div>
+                      {cartItems.length === 0 ? (
+                        <div style={{ color: "rgba(255,255,255,0.6)" }}>Empty</div>
+                      ) : (
+                        <>
+                          {cartItems.map((item, index) => (
+                            <div
+                              key={`${item.itemId || item.name}-${index}`}
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 6,
+                                marginBottom: 12,
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                                <span style={{ flex: 1 }}>
+                                  {item.nodePath && item.nodePath.length
+                                    ? item.nodePath.join(" - ")
+                                    : item.name}
+                                </span>
+                                <span style={{ minWidth: 80, textAlign: "right" }}>
+                                  ₹ {item.total}
+                                </span>
+                              </div>
+                              {item.resourceName ? (
+                                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+                                  Stylist: {item.resourceName}
+                                </div>
+                              ) : null}
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ minWidth: 40, color: "rgba(255,255,255,0.8)" }}>
+                                  x{item.qty}
+                                </span>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => increaseQty(item.itemId)}
+                                    style={{
+                                      width: 26,
+                                      height: 26,
+                                      borderRadius: 4,
+                                      border: "1px solid rgba(245, 217, 122, 0.35)",
+                                      background: "transparent",
+                                      color: "#F5D97A",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    +
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => decreaseQty(item.itemId)}
+                                    style={{
+                                      width: 26,
+                                      height: 26,
+                                      borderRadius: 4,
+                                      border: "1px solid rgba(245, 217, 122, 0.35)",
+                                      background: "transparent",
+                                      color: "#F5D97A",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    -
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeItem(item.itemId)}
+                                    style={{
+                                      width: 26,
+                                      height: 26,
+                                      borderRadius: 4,
+                                      border: "1px solid rgba(245, 217, 122, 0.35)",
+                                      background: "transparent",
+                                      color: "#F5D97A",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    🗑
+                                  </button>
+                                </div>
+                              </div>
+                              <div style={{ marginTop: 8 }}>
+                                <div
+                                  style={{
+                                    fontSize: 13,
+                                    color: "#F5D97A",
+                                    fontWeight: 500,
+                                    marginBottom: 4,
+                                  }}
+                                >
+                                  Stylist
+                                </div>
+                                <select
+                                  value={item.resourceId || ""}
+                                  onChange={(e) => updateItemStylist(item.itemId, e.target.value)}
+                                  style={{
+                                    width: "100%",
+                                    marginTop: 6,
+                                    background: "#111",
+                                    border: "1px solid #444",
+                                    color: "#fff",
+                                    padding: "8px",
+                                    borderRadius: 6,
+                                  }}
+                                >
+                                  <option value="">Select Stylist</option>
+                                  {resources
+                                    .filter((r) => r.status === "Active")
+                                    .map((r) => (
+                                      <option key={r._id} value={r._id}>
+                                        {r.name}
+                                      </option>
+                                    ))}
+                                </select>
+                              </div>
                             </div>
-                          ) : null}
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ minWidth: 40, color: "rgba(255,255,255,0.8)" }}>
-                              x{item.qty}
-                            </span>
-                            <div style={{ display: "flex", gap: 6 }}>
-                              <button
-                                type="button"
-                                onClick={() => increaseQty(item.itemId)}
-                                style={{
-                                  width: 26,
-                                  height: 26,
-                                  borderRadius: 4,
-                                  border: "1px solid rgba(245, 217, 122, 0.35)",
-                                  background: "transparent",
-                                  color: "#F5D97A",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                +
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => decreaseQty(item.itemId)}
-                                style={{
-                                  width: 26,
-                                  height: 26,
-                                  borderRadius: 4,
-                                  border: "1px solid rgba(245, 217, 122, 0.35)",
-                                  background: "transparent",
-                                  color: "#F5D97A",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                -
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => removeItem(item.itemId)}
-                                style={{
-                                  width: 26,
-                                  height: 26,
-                                  borderRadius: 4,
-                                  border: "1px solid rgba(245, 217, 122, 0.35)",
-                                  background: "transparent",
-                                  color: "#F5D97A",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                🗑
-                              </button>
+                          ))}
+                          <div
+                            className="cart-total"
+                            style={{
+                              borderTop: "1px solid rgba(245, 217, 122, 0.25)",
+                              paddingTop: 10,
+                              marginTop: 8,
+                              color: "#F5D97A",
+                            }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
+                              <span>Subtotal</span>
+                              <span>₹ {cartTotal}</span>
                             </div>
+                            {appliedDiscount > 0 && (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  fontWeight: 600,
+                                  color: "rgba(245, 217, 122, 0.75)",
+                                  marginTop: 4,
+                                }}
+                              >
+                                <span>Discount</span>
+                                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  -₹ {appliedDiscount}
+
+                                </span>
+                              </div>
+                            )}
+                            {appliedDiscount > 0 && (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  fontWeight: 700,
+                                  marginTop: 6,
+                                }}
+                              >
+                                <span>Final Total</span>
+                                <span>₹ {finalTotal}</span>
+                              </div>
+                            )}
                           </div>
-                          <div style={{ marginTop: 8 }}>
+                          {loyaltyEnabled && earnPoints > 0 && (
+                            <div style={{ marginTop: 6 }}>
+                              You will earn: {earnPoints} points
+                            </div>
+                          )}
+                          <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
+                            <button
+                              onClick={clearCart}
+                              style={{
+                                flex: 1,
+                                background: "#222",
+                                border: "1px solid #555",
+                                padding: "10px",
+                                borderRadius: "8px",
+                                color: "#fff",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Clear Cart
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (appliedDiscount > 0) {
+                                  setDiscountAmount(0);
+                                  setDiscountPercent(0);
+                                  setAppliedDiscount(0);
+                                  setDiscountMode(null);
+                                } else {
+                                  setShowDiscountPopup(true);
+                                }
+                              }}
+                              style={{
+                                flex: 1,
+                                background: appliedDiscount > 0 ? "#4a1a1a" : "#222",
+                                border: "1px solid #555",
+                                padding: "10px",
+                                borderRadius: "8px",
+                                color: "#fff",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {appliedDiscount > 0 ? "Clear Discount" : "Discount"}
+                            </button>
+                          </div>
+                          <div
+                            style={{
+                              borderTop: "1px solid #333",
+                              marginTop: "20px",
+                              paddingTop: "15px",
+                            }}
+                          >
+                            <label style={{ color: "#e6c37a", fontSize: "14px" }}>
+                              Customer Mobile
+                            </label>
                             <div
                               style={{
-                                fontSize: 13,
-                                color: "#F5D97A",
-                                fontWeight: 500,
-                                marginBottom: 4,
-                              }}
-                            >
-                              Stylist
-                            </div>
-                            <select
-                              value={item.resourceId || ""}
-                              onChange={(e) => updateItemStylist(item.itemId, e.target.value)}
-                              style={{
-                                width: "100%",
-                                marginTop: 6,
+                                display: "flex",
+                                alignItems: "center",
                                 background: "#111",
                                 border: "1px solid #444",
-                                color: "#fff",
-                                padding: "8px",
-                                borderRadius: 6,
+                                borderRadius: "8px",
+                                overflow: "hidden",
+                                marginTop: "6px",
+                                marginBottom: "10px",
                               }}
                             >
-                              <option value="">Select Stylist</option>
-                              {resources
-                                .filter((r) => r.status === "Active")
-                                .map((r) => (
-                                  <option key={r._id} value={r._id}>
-                                    {r.name}
-                                  </option>
-                                ))}
-                            </select>
+                              <div
+                                style={{
+                                  padding: "10px 12px",
+                                  borderRight: "1px solid #333",
+                                  color: "#aaa",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                +91
+                              </div>
+                              <input
+                                value={customerMobile}
+                                onChange={(e) => setCustomerMobile(e.target.value)}
+                                placeholder="Enter mobile"
+                                style={{
+                                  flex: 1,
+                                  background: "transparent",
+                                  border: "none",
+                                  outline: "none",
+                                  color: "#fff",
+                                  padding: "10px",
+                                }}
+                              />
+                            </div>
+                            {loyaltyEnabled && (
+                              <>
+                                <div style={{ fontSize: "13px", color: "#aaa", marginTop: 6 }}>
+                                  Available Points: {availablePoints}
+                                </div>
+                                {!customerMobile && (
+                                  <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
+                                    Walk-in billing — no loyalty points will be applied
+                                  </div>
+                                )}
+                                {verifyingCustomer && (
+                                  <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
+                                    Checking customer...
+                                  </div>
+                                )}
+                                {availablePoints > 0 && (
+                                  <div style={{ marginTop: 8 }}>
+                                    <div style={{ fontSize: "12px", color: "#aaa" }}>
+                                      Redeem Points
+                                    </div>
+                                    <input
+                                      type="number"
+                                      value={redeemPoints}
+                                      min={0}
+                                      max={availablePoints}
+                                      onChange={(e) => {
+                                        const value = Number(e.target.value) || 0;
+                                        const safeValue = Math.min(Math.max(value, 0), availablePoints);
+                                        setRedeemPoints(safeValue);
+                                      }}
+                                      style={{
+                                        width: "100%",
+                                        background: "#111",
+                                        border: "1px solid #444",
+                                        padding: "10px",
+                                        borderRadius: "8px",
+                                        color: "#fff",
+                                        marginTop: "6px",
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                                {showOtpInput && (
+                                  <div style={{ marginTop: 10 }}>
+                                    <input
+                                      placeholder="Enter OTP"
+                                      value={otp}
+                                      onChange={(e) => setOtp(e.target.value)}
+                                      style={{
+                                        width: "100%",
+                                        background: "#111",
+                                        border: "1px solid #444",
+                                        padding: "10px",
+                                        borderRadius: "8px",
+                                        color: "#fff",
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                                {showOtpInput && (
+                                  <button
+                                    onClick={handleVerifyOtp}
+                                    disabled={verifyingOtp}
+                                    style={{
+                                      marginTop: "10px",
+                                      width: "100%",
+                                      background: "#222",
+                                      border: "1px solid #555",
+                                      padding: "10px",
+                                      borderRadius: "8px",
+                                      color: "#fff",
+                                      cursor: verifyingOtp ? "not-allowed" : "pointer",
+                                      opacity: verifyingOtp ? 0.7 : 1,
+                                    }}
+                                  >
+                                    {verifyingOtp ? "Verifying..." : "Verify OTP"}
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            <button
+                              onClick={() => {
+                                const vendorToken =
+                                  typeof window !== "undefined"
+                                    ? localStorage.getItem("vendorToken")
+                                    : null;
+
+                                if (!vendorToken) {
+                                  setPendingAction("GENERATE_BILL");
+                                  setShowVendorLogin(true);
+                                  return;
+                                }
+
+                                handleGenerateBill();
+                              }}
+                              style={{
+                                marginTop: "14px",
+                                width: "100%",
+                                background: "#e6c37a",
+                                color: "#000",
+                                padding: "12px",
+                                borderRadius: "10px",
+                                fontWeight: "600",
+                                opacity: canGenerateBill ? 1 : 0.6,
+                                cursor:
+                                  canGenerateBill ? "pointer" : "not-allowed",
+                              }}
+                              disabled={!canGenerateBill}
+                            >
+                              {processingBill ? "Generating..." : "Generate Bill"}
+                            </button>
                           </div>
-                        </div>
-                      ))}
-                      <div
-                        className="cart-total"
-                        style={{
-                          borderTop: "1px solid rgba(245, 217, 122, 0.25)",
-                          paddingTop: 10,
-                          marginTop: 8,
-                          color: "#F5D97A",
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
-                          <span>Subtotal</span>
-                          <span>₹ {cartTotal}</span>
-                        </div>
-                        {appliedDiscount > 0 && (
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              fontWeight: 600,
-                              color: "rgba(245, 217, 122, 0.75)",
-                              marginTop: 4,
-                            }}
-                          >
-                            <span>Discount</span>
-                            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              -₹ {appliedDiscount}
-                            
-                            </span>
-                          </div>
-                        )}
-                        {appliedDiscount > 0 && (
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              fontWeight: 700,
-                              marginTop: 6,
-                            }}
-                          >
-                            <span>Final Total</span>
-                            <span>₹ {finalTotal}</span>
-                          </div>
-                        )}
-                      </div>
-                      {loyaltyEnabled && earnPoints > 0 && (
-                        <div style={{ marginTop: 6 }}>
-                          You will earn: {earnPoints} points
-                        </div>
+                        </>
                       )}
-                      <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {isMobile && (
+                <>
+                  <div
+                    className="menu-mobile-cart-pill"
+                    onClick={() => setCartOpen(true)}
+                    style={{
+                      position: "fixed",
+                      bottom: "20px",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      background: "#e6c37a",
+                      color: "#000",
+                      padding: "12px 20px",
+                      borderRadius: "30px",
+                      fontWeight: "600",
+                      zIndex: 3000,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Cart ({cartItems.length}) ₹{cartTotal}
+                  </div>
+
+                  {cartOpen && (
+                    <div
+                      className="menu-mobile-cart-sheet"
+                      style={{
+                        position: "fixed",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        background: "#0a0a0a",
+                        borderTopLeftRadius: "20px",
+                        borderTopRightRadius: "20px",
+                        maxHeight: "70vh",
+                        overflowY: "auto",
+                        padding: "20px",
+                        zIndex: 4000,
+                      }}
+                    >
+                      <div className="menu-mobile-cart-head" style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+                        <div className="menu-cart-title" style={{ fontSize: 16, fontWeight: 700, color: "#F5D97A" }}>
+                          Cart
+                        </div>
                         <button
-                          onClick={clearCart}
+                          className="menu-overlay-close-btn"
+                          type="button"
+                          onClick={() => {
+                            setCartOpen(false);
+                            setMenuSearch("");
+                          }}
                           style={{
-                            flex: 1,
-                            background: "#222",
-                            border: "1px solid #555",
-                            padding: "10px",
-                            borderRadius: "8px",
-                            color: "#fff",
+                            marginLeft: "auto",
+
+                            border: "1px solid rgba(255,255,255,0.2)",
+                            background: " linear-gradient(135deg, #e6bf6a, #cfa94e)",
+                            color: " #0b0b0d",
+                            padding: "6px 10px",
+                            borderRadius: 6,
                             cursor: "pointer",
                           }}
                         >
-                          Clear Cart
+                          Close
                         </button>
-                        <button
-  onClick={() => {
-    if (appliedDiscount > 0) {
-      setDiscountAmount(0);
-      setDiscountPercent(0);
-      setAppliedDiscount(0);
-      setDiscountMode(null);
-    } else {
-      setShowDiscountPopup(true);
-    }
-  }}
-  style={{
-    flex: 1,
-    background: appliedDiscount > 0 ? "#4a1a1a" : "#222",
-    border: "1px solid #555",
-    padding: "10px",
-    borderRadius: "8px",
-    color: "#fff",
-    cursor: "pointer",
-  }}
->
-  {appliedDiscount > 0 ? "Clear Discount" : "Discount"}
-</button>
                       </div>
                       <div
                         style={{
-                          borderTop: "1px solid #333",
-                          marginTop: "20px",
-                          paddingTop: "15px",
+                          background: "rgba(12, 10, 8, 0.95)",
+                          border: "1px solid rgba(245, 217, 122, 0.35)",
+                          borderRadius: 10,
+                          padding: "12px",
+                          color: "#f3f3f3",
                         }}
                       >
-                        <label style={{ color: "#e6c37a", fontSize: "14px" }}>
-                          Customer Mobile
-                        </label>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            background: "#111",
-                            border: "1px solid #444",
-                            borderRadius: "8px",
-                            overflow: "hidden",
-                            marginTop: "6px",
-                            marginBottom: "10px",
-                          }}
-                        >
-                          <div
-                            style={{
-                              padding: "10px 12px",
-                              borderRight: "1px solid #333",
-                              color: "#aaa",
-                              fontWeight: 500,
-                            }}
-                          >
-                            +91
-                          </div>
-                          <input
-                            value={customerMobile}
-                            onChange={(e) => setCustomerMobile(e.target.value)}
-                            placeholder="Enter mobile"
-                            style={{
-                              flex: 1,
-                              background: "transparent",
-                              border: "none",
-                              outline: "none",
-                              color: "#fff",
-                              padding: "10px",
-                            }}
-                          />
-                        </div>
-                        {loyaltyEnabled && (
+                        {cartItems.length === 0 ? (
+                          <div style={{ color: "rgba(255,255,255,0.6)" }}>Empty</div>
+                        ) : (
                           <>
-                            <div style={{ fontSize: "13px", color: "#aaa", marginTop: 6 }}>
-                              Available Points: {availablePoints}
-                            </div>
-                            {!customerMobile && (
-                              <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
-                                Walk-in billing — no loyalty points will be applied
-                              </div>
-                            )}
-                            {verifyingCustomer && (
-                              <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
-                                Checking customer...
-                              </div>
-                            )}
-                            {availablePoints > 0 && (
-                              <div style={{ marginTop: 8 }}>
-                                <div style={{ fontSize: "12px", color: "#aaa" }}>
-                                  Redeem Points
+                            {cartItems.map((item, index) => (
+                              <div
+                                key={`${item.itemId || item.name}-${index}`}
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 6,
+                                  marginBottom: 12,
+                                }}
+                              >
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                                  <span style={{ flex: 1 }}>
+                                    {item.nodePath && item.nodePath.length
+                                      ? item.nodePath.join(" - ")
+                                      : item.name}
+                                  </span>
+                                  <span style={{ minWidth: 80, textAlign: "right" }}>
+                                    ₹ {item.total}
+                                  </span>
                                 </div>
-                                <input
-                                  type="number"
-                                  value={redeemPoints}
-                                  min={0}
-                                  max={availablePoints}
-                                 onChange={(e) => {
-  const value = Number(e.target.value) || 0;
-  const safeValue = Math.min(Math.max(value, 0), availablePoints);
-  setRedeemPoints(safeValue);
-}}
+                                {item.resourceName ? (
+                                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+                                    Stylist: {item.resourceName}
+                                  </div>
+                                ) : null}
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span style={{ minWidth: 40, color: "rgba(255,255,255,0.8)" }}>
+                                    x{item.qty}
+                                  </span>
+                                  <div style={{ display: "flex", gap: 6 }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => increaseQty(item.itemId)}
+                                      style={{
+                                        width: 26,
+                                        height: 26,
+                                        borderRadius: 4,
+                                        border: "1px solid rgba(245, 217, 122, 0.35)",
+                                        background: "transparent",
+                                        color: "#F5D97A",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      +
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => decreaseQty(item.itemId)}
+                                      style={{
+                                        width: 26,
+                                        height: 26,
+                                        borderRadius: 4,
+                                        border: "1px solid rgba(245, 217, 122, 0.35)",
+                                        background: "transparent",
+                                        color: "#F5D97A",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      -
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeItem(item.itemId)}
+                                      style={{
+                                        width: 26,
+                                        height: 26,
+                                        borderRadius: 4,
+                                        border: "1px solid rgba(245, 217, 122, 0.35)",
+                                        background: "transparent",
+                                        color: "#F5D97A",
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      🗑
+                                    </button>
+                                  </div>
+                                </div>
+                                <div style={{ marginTop: 8 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 13,
+                                      color: "#F5D97A",
+                                      fontWeight: 500,
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    Stylist
+                                  </div>
+                                  <select
+                                    value={item.resourceId || ""}
+                                    onChange={(e) => updateItemStylist(item.itemId, e.target.value)}
+                                    style={{
+                                      width: "100%",
+                                      marginTop: 6,
+                                      background: "#111",
+                                      border: "1px solid #444",
+                                      color: "#fff",
+                                      padding: "8px",
+                                      borderRadius: 6,
+                                    }}
+                                  >
+                                    <option value="">Select Stylist</option>
+                                    {resources
+                                      .filter((r) => r.status === "Active")
+                                      .map((r) => (
+                                        <option key={r._id} value={r._id}>
+                                          {r.name}
+                                        </option>
+                                      ))}
+                                  </select>
+                                </div>
+                              </div>
+                            ))}
+                            <div
+                              className="cart-total"
+                              style={{
+                                borderTop: "1px solid rgba(245, 217, 122, 0.25)",
+                                paddingTop: 10,
+                                marginTop: 8,
+                                color: "#F5D97A",
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
+                                <span>Subtotal</span>
+                                <span>₹ {cartTotal}</span>
+                              </div>
+                              {appliedDiscount > 0 && (
+                                <div
                                   style={{
-                                    width: "100%",
-                                    background: "#111",
-                                    border: "1px solid #444",
-                                    padding: "10px",
-                                    borderRadius: "8px",
-                                    color: "#fff",
-                                    marginTop: "6px",
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    fontWeight: 600,
+                                    color: "rgba(245, 217, 122, 0.75)",
+                                    marginTop: 4,
                                   }}
-                                />
+                                >
+                                  <span>Discount</span>
+                                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    -₹ {appliedDiscount}
+
+                                  </span>
+                                </div>
+                              )}
+                              {appliedDiscount > 0 && (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    fontWeight: 700,
+                                    marginTop: 6,
+                                  }}
+                                >
+                                  <span>Final Total</span>
+                                  <span>₹ {finalTotal}</span>
+                                </div>
+                              )}
+                            </div>
+                            {loyaltyEnabled && earnPoints > 0 && (
+                              <div style={{ marginTop: 6 }}>
+                                You will earn: {earnPoints} points
                               </div>
                             )}
-                            {showOtpInput && (
-                              <div style={{ marginTop: 10 }}>
-                                <input
-                                  placeholder="Enter OTP"
-                                  value={otp}
-                                  onChange={(e) => setOtp(e.target.value)}
-                                  style={{
-                                    width: "100%",
-                                    background: "#111",
-                                    border: "1px solid #444",
-                                    padding: "10px",
-                                    borderRadius: "8px",
-                                    color: "#fff",
-                                  }}
-                                />
-                              </div>
-                            )}
-                            {showOtpInput && (
+                            <div style={{ marginTop: "10px", display: "flex", gap: 10 }}>
                               <button
-  onClick={handleVerifyOtp}
-  disabled={verifyingOtp}
-  style={{
-    marginTop: "10px",
-    width: "100%",
-    background: "#222",
-    border: "1px solid #555",
-    padding: "10px",
-    borderRadius: "8px",
-    color: "#fff",
-    cursor: verifyingOtp ? "not-allowed" : "pointer",
-    opacity: verifyingOtp ? 0.7 : 1,
-  }}
->
-  {verifyingOtp ? "Verifying..." : "Verify OTP"}
-</button>
-                            )}
-                          </>
-                        )}
-                          <button
-                            onClick={handleGenerateBill}
-                            style={{
-                              marginTop: "14px",
-                              width: "100%",
-                              background: "#e6c37a",
-                              color: "#000",
-                              padding: "12px",
-                              borderRadius: "10px",
-                              fontWeight: "600",
-                              opacity: canGenerateBill ? 1 : 0.6,
-                              cursor:
-                              canGenerateBill ? "pointer" : "not-allowed",
-                            }}
-                            disabled={!canGenerateBill}
-                          >
-                          {processingBill ? "Generating..." : "Generate Bill"}
-                          </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {isMobile && (
-            <>
-              <div
-                className="menu-mobile-cart-pill"
-                onClick={() => setCartOpen(true)}
-                style={{
-                  position: "fixed",
-                  bottom: "20px",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  background: "#e6c37a",
-                  color: "#000",
-                  padding: "12px 20px",
-                  borderRadius: "30px",
-                  fontWeight: "600",
-                  zIndex: 3000,
-                  cursor: "pointer",
-                }}
-              >
-                Cart ({cartItems.length}) ₹{cartTotal}
-              </div>
-
-              {cartOpen && (
-                <div
-                  className="menu-mobile-cart-sheet"
-                  style={{
-                    position: "fixed",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    background: "#0a0a0a",
-                    borderTopLeftRadius: "20px",
-                    borderTopRightRadius: "20px",
-                    maxHeight: "70vh",
-                    overflowY: "auto",
-                    padding: "20px",
-                    zIndex: 4000,
-                  }}
-                >
-                  <div className="menu-mobile-cart-head" style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-                    <div className="menu-cart-title" style={{ fontSize: 16, fontWeight: 700, color: "#F5D97A" }}>
-                      Cart
-                    </div>
-                    <button
-                      className="menu-overlay-close-btn"
-                      type="button"
-                      onClick={() => {
-                        setCartOpen(false);
-                        setMenuSearch("");
-                      }}
-                      style={{
-                        marginLeft: "auto",
-                        background: "transparent",
-                        border: "1px solid rgba(255,255,255,0.2)",
-                        color: "#f3f3f3",
-                        padding: "6px 10px",
-                        borderRadius: 6,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Close
-                    </button>
-                  </div>
-                  <div
-                    style={{
-                      background: "rgba(12, 10, 8, 0.95)",
-                      border: "1px solid rgba(245, 217, 122, 0.35)",
-                      borderRadius: 10,
-                      padding: "12px",
-                      color: "#f3f3f3",
-                    }}
-                  >
-                    {cartItems.length === 0 ? (
-                      <div style={{ color: "rgba(255,255,255,0.6)" }}>Empty</div>
-                    ) : (
-                      <>
-                        {cartItems.map((item, index) => (
-                          <div
-                            key={`${item.itemId || item.name}-${index}`}
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 6,
-                              marginBottom: 12,
-                            }}
-                          >
-                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                              <span style={{ flex: 1 }}>
-                                {item.nodePath && item.nodePath.length
-                                  ? item.nodePath.join(" - ")
-                                  : item.name}
-                              </span>
-                              <span style={{ minWidth: 80, textAlign: "right" }}>
-                                ₹ {item.total}
-                              </span>
+                                onClick={clearCart}
+                                style={{
+                                  flex: 1,
+                                  background: "#222",
+                                  border: "1px solid #555",
+                                  padding: "10px",
+                                  borderRadius: "8px",
+                                  color: "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Clear Cart
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (appliedDiscount > 0) {
+                                    setDiscountAmount(0);
+                                    setDiscountPercent(0);
+                                    setAppliedDiscount(0);
+                                    setDiscountMode(null);
+                                  } else {
+                                    setShowDiscountPopup(true);
+                                  }
+                                }}
+                                style={{
+                                  flex: 1,
+                                  background: appliedDiscount > 0 ? "#4a1a1a" : "#222",
+                                  border: "1px solid #555",
+                                  padding: "10px",
+                                  borderRadius: "8px",
+                                  color: "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                {appliedDiscount > 0 ? "Clear Discount" : "Discount"}
+                              </button>
                             </div>
-                            {item.resourceName ? (
-                              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
-                                Stylist: {item.resourceName}
-                              </div>
-                            ) : null}
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{ minWidth: 40, color: "rgba(255,255,255,0.8)" }}>
-                                x{item.qty}
-                              </span>
-                              <div style={{ display: "flex", gap: 6 }}>
-                                <button
-                                  type="button"
-                                  onClick={() => increaseQty(item.itemId)}
-                                  style={{
-                                    width: 26,
-                                    height: 26,
-                                    borderRadius: 4,
-                                    border: "1px solid rgba(245, 217, 122, 0.35)",
-                                    background: "transparent",
-                                    color: "#F5D97A",
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  +
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => decreaseQty(item.itemId)}
-                                  style={{
-                                    width: 26,
-                                    height: 26,
-                                    borderRadius: 4,
-                                    border: "1px solid rgba(245, 217, 122, 0.35)",
-                                    background: "transparent",
-                                    color: "#F5D97A",
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  -
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeItem(item.itemId)}
-                                  style={{
-                                    width: 26,
-                                    height: 26,
-                                    borderRadius: 4,
-                                    border: "1px solid rgba(245, 217, 122, 0.35)",
-                                    background: "transparent",
-                                    color: "#F5D97A",
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  🗑
-                                </button>
-                              </div>
-                            </div>
-                            <div style={{ marginTop: 8 }}>
+                            <div
+                              style={{
+                                borderTop: "1px solid #333",
+                                marginTop: "20px",
+                                paddingTop: "15px",
+                              }}
+                            >
+                              <label style={{ color: "#e6c37a", fontSize: "14px" }}>
+                                Customer Mobile
+                              </label>
                               <div
                                 style={{
-                                  fontSize: 13,
-                                  color: "#F5D97A",
-                                  fontWeight: 500,
-                                  marginBottom: 4,
-                                }}
-                              >
-                                Stylist
-                              </div>
-                              <select
-                                value={item.resourceId || ""}
-                                onChange={(e) => updateItemStylist(item.itemId, e.target.value)}
-                                style={{
-                                  width: "100%",
-                                  marginTop: 6,
+                                  display: "flex",
+                                  alignItems: "center",
                                   background: "#111",
                                   border: "1px solid #444",
-                                  color: "#fff",
-                                  padding: "8px",
-                                  borderRadius: 6,
+                                  borderRadius: "8px",
+                                  overflow: "hidden",
+                                  marginTop: "6px",
+                                  marginBottom: "10px",
                                 }}
                               >
-                                <option value="">Select Stylist</option>
-                                {resources
-                                  .filter((r) => r.status === "Active")
-                                  .map((r) => (
-                                    <option key={r._id} value={r._id}>
-                                      {r.name}
-                                    </option>
-                                  ))}
-                              </select>
-                            </div>
-                          </div>
-                        ))}
-                        <div
-                          className="cart-total"
-                          style={{
-                            borderTop: "1px solid rgba(245, 217, 122, 0.25)",
-                            paddingTop: 10,
-                            marginTop: 8,
-                            color: "#F5D97A",
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600 }}>
-                            <span>Subtotal</span>
-                            <span>₹ {cartTotal}</span>
-                          </div>
-                          {appliedDiscount > 0 && (
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                fontWeight: 600,
-                                color: "rgba(245, 217, 122, 0.75)",
-                                marginTop: 4,
-                              }}
-                            >
-                              <span>Discount</span>
-                              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                -₹ {appliedDiscount}
-                              
-                              </span>
-                            </div>
-                          )}
-                          {appliedDiscount > 0 && (
-                            <div
-                              style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                fontWeight: 700,
-                                marginTop: 6,
-                              }}
-                            >
-                              <span>Final Total</span>
-                              <span>₹ {finalTotal}</span>
-                            </div>
-                          )}
-                        </div>
-                        {loyaltyEnabled && earnPoints > 0 && (
-                          <div style={{ marginTop: 6 }}>
-                            You will earn: {earnPoints} points
-                          </div>
-                        )}
-                        <div style={{ marginTop: "10px", display: "flex", gap: 10 }}>
-                          <button
-                            onClick={clearCart}
-                            style={{
-                              flex: 1,
-                              background: "#222",
-                              border: "1px solid #555",
-                              padding: "10px",
-                              borderRadius: "8px",
-                              color: "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Clear Cart
-                          </button>
-                         <button
-  onClick={() => {
-    if (appliedDiscount > 0) {
-      setDiscountAmount(0);
-      setDiscountPercent(0);
-      setAppliedDiscount(0);
-      setDiscountMode(null);
-    } else {
-      setShowDiscountPopup(true);
-    }
-  }}
-  style={{
-    flex: 1,
-    background: appliedDiscount > 0 ? "#4a1a1a" : "#222",
-    border: "1px solid #555",
-    padding: "10px",
-    borderRadius: "8px",
-    color: "#fff",
-    cursor: "pointer",
-  }}
->
-  {appliedDiscount > 0 ? "Clear Discount" : "Discount"}
-</button>
-                        </div>
-                        <div
-                          style={{
-                            borderTop: "1px solid #333",
-                            marginTop: "20px",
-                            paddingTop: "15px",
-                          }}
-                        >
-                          <label style={{ color: "#e6c37a", fontSize: "14px" }}>
-                            Customer Mobile
-                          </label>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              background: "#111",
-                              border: "1px solid #444",
-                              borderRadius: "8px",
-                              overflow: "hidden",
-                              marginTop: "6px",
-                              marginBottom: "10px",
-                            }}
-                          >
-                            <div
-                              style={{
-                                padding: "10px 12px",
-                                borderRight: "1px solid #333",
-                                color: "#aaa",
-                                fontWeight: 500,
-                              }}
-                            >
-                              +91
-                            </div>
-                            <input
-                              value={customerMobile}
-                              onChange={(e) => setCustomerMobile(e.target.value)}
-                              placeholder="Enter mobile"
-                              style={{
-                                flex: 1,
-                                background: "transparent",
-                                border: "none",
-                                outline: "none",
-                                color: "#fff",
-                                padding: "10px",
-                              }}
-                            />
-                          </div>
-                          {loyaltyEnabled && (
-                            <>
-                              <div style={{ fontSize: "13px", color: "#aaa" }}>
-                                Available Points: {availablePoints}
+                                <div
+                                  style={{
+                                    padding: "10px 12px",
+                                    borderRight: "1px solid #333",
+                                    color: "#aaa",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  +91
+                                </div>
+                                <input
+                                  value={customerMobile}
+                                  onChange={(e) => setCustomerMobile(e.target.value)}
+                                  placeholder="Enter mobile"
+                                  style={{
+                                    flex: 1,
+                                    background: "transparent",
+                                    border: "none",
+                                    outline: "none",
+                                    color: "#fff",
+                                    padding: "10px",
+                                  }}
+                                />
                               </div>
-                              {!customerMobile && (
-                                <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
-                                  Walk-in billing — no loyalty points will be applied
-                                </div>
-                              )}
-                              {verifyingCustomer && (
-                                <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
-                                  Checking customer...
-                                </div>
-                              )}
-                              {availablePoints > 0 && (
-                                <div style={{ marginTop: 8 }}>
-                                  <div style={{ fontSize: "12px", color: "#aaa" }}>
-                                    Redeem Points
+                              {loyaltyEnabled && (
+                                <>
+                                  <div style={{ fontSize: "13px", color: "#aaa" }}>
+                                    Available Points: {availablePoints}
                                   </div>
-                                  <input
-                                    type="number"
-                                    value={redeemPoints}
-                                    min={0}
-                                    max={availablePoints}
-                                    onChange={(e) => setRedeemPoints(Number(e.target.value))}
-                                    style={{
-                                      width: "100%",
-                                      background: "#111",
-                                      border: "1px solid #444",
-                                      padding: "10px",
-                                      borderRadius: "8px",
-                                      color: "#fff",
-                                      marginTop: "6px",
-                                    }}
-                                  />
-                                </div>
+                                  {!customerMobile && (
+                                    <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
+                                      Walk-in billing — no loyalty points will be applied
+                                    </div>
+                                  )}
+                                  {verifyingCustomer && (
+                                    <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
+                                      Checking customer...
+                                    </div>
+                                  )}
+                                  {availablePoints > 0 && (
+                                    <div style={{ marginTop: 8 }}>
+                                      <div style={{ fontSize: "12px", color: "#aaa" }}>
+                                        Redeem Points
+                                      </div>
+                                      <input
+                                        type="number"
+                                        value={redeemPoints}
+                                        min={0}
+                                        max={availablePoints}
+                                        onChange={(e) => setRedeemPoints(Number(e.target.value))}
+                                        style={{
+                                          width: "100%",
+                                          background: "#111",
+                                          border: "1px solid #444",
+                                          padding: "10px",
+                                          borderRadius: "8px",
+                                          color: "#fff",
+                                          marginTop: "6px",
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                  {showOtpInput && (
+                                    <div style={{ marginTop: 10 }}>
+                                      <input
+                                        placeholder="Enter OTP"
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value)}
+                                        style={{
+                                          width: "100%",
+                                          background: "#111",
+                                          border: "1px solid #444",
+                                          padding: "10px",
+                                          borderRadius: "8px",
+                                          color: "#fff",
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                  {showOtpInput && (
+                                    <button
+                                      onClick={handleVerifyOtp}
+                                      disabled={verifyingOtp}
+                                      style={{
+                                        marginTop: "10px",
+                                        width: "100%",
+                                        background: "#222",
+                                        border: "1px solid #555",
+                                        padding: "10px",
+                                        borderRadius: "8px",
+                                        color: "#fff",
+                                        cursor: verifyingOtp ? "not-allowed" : "pointer",
+                                        opacity: verifyingOtp ? 0.7 : 1,
+                                      }}
+                                    >
+                                      {verifyingOtp ? "Verifying..." : "Verify OTP"}
+                                    </button>
+                                  )}
+                                </>
                               )}
-                              {showOtpInput && (
-                                <div style={{ marginTop: 10 }}>
-                                  <input
-                                    placeholder="Enter OTP"
-                                    value={otp}
-                                    onChange={(e) => setOtp(e.target.value)}
-                                    style={{
-                                      width: "100%",
-                                      background: "#111",
-                                      border: "1px solid #444",
-                                      padding: "10px",
-                                      borderRadius: "8px",
-                                      color: "#fff",
-                                    }}
-                                  />
-                                </div>
-                              )}
-                              {showOtpInput && (
-                                <button
-  onClick={handleVerifyOtp}
-  disabled={verifyingOtp}
-  style={{
-    marginTop: "10px",
-    width: "100%",
-    background: "#222",
-    border: "1px solid #555",
-    padding: "10px",
-    borderRadius: "8px",
-    color: "#fff",
-    cursor: verifyingOtp ? "not-allowed" : "pointer",
-    opacity: verifyingOtp ? 0.7 : 1,
-  }}
->
-  {verifyingOtp ? "Verifying..." : "Verify OTP"}
-</button>
-                              )}
-                            </>
-                          )}
-                          <button
-                            onClick={handleGenerateBill}
-                            style={{
-                              marginTop: "14px",
-                              width: "100%",
-                              background: "#e6c37a",
-                              color: "#000",
-                              padding: "12px",
-                              borderRadius: "10px",
-                              fontWeight: "600",
-                              opacity: canGenerateBill ? 1 : 0.6,
-                              cursor:
-                                canGenerateBill ? "pointer" : "not-allowed",
-                            }}
-                            disabled={!canGenerateBill}
-                          >
-                           {processingBill ? "Generating..." : "Generate Bill"}
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
+                            <button
+                              onClick={() => {
+                                const vendorToken =
+                                  typeof window !== "undefined"
+                                    ? localStorage.getItem("vendorToken")
+                                    : null;
+
+                                if (!vendorToken) {
+                                  setPendingAction("GENERATE_BILL");
+                                  setShowVendorLogin(true);
+                                  return;
+                                }
+
+                                handleGenerateBill();
+                              }}
+                              style={{
+                                marginTop: "14px",
+                                width: "100%",
+                                  background: "#e6c37a",
+                                  color: "#000",
+                                  padding: "12px",
+                                  borderRadius: "10px",
+                                  fontWeight: "600",
+                                  opacity: canGenerateBill ? 1 : 0.6,
+                                  cursor:
+                                    canGenerateBill ? "pointer" : "not-allowed",
+                                }}
+                                disabled={!canGenerateBill}
+                              >
+                                {processingBill ? "Generating..." : "Generate Bill"}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
+            </div>
           </div>
         </div>
       )}
@@ -3445,7 +3634,7 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
               Close
             </button>
           </div>
-          </div>
+        </div>
       )}
 
       {viewMode === "new-dashboard" && (
@@ -3467,7 +3656,9 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
             <div className="new-dashboard-grid">
               <div
                 className="new-dashboard-card new-dashboard-card-action"
-                onClick={() => setViewMode("profile-dashboard")}
+                onClick={() => {
+                  setViewMode("profile-dashboard");
+                }}
               >
                 <div className="new-dashboard-card-title">
                   Profile
@@ -3493,18 +3684,24 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
                 {
                   title: "My Stylists",
                   description: `View and manage ${resources.length} stylist records.`,
-                  onClick: () => setViewMode("stylists-dashboard"),
+                  onClick: () => {
+                    setViewMode("stylists-dashboard");
+                  },
                 },
                 {
                   title: "Loyalty",
                   description: "Configure loyalty rules, earning, and expiry settings.",
-                  onClick: () => setViewMode("loyalty"),
+                  onClick: () => {
+                    setViewMode("loyalty");
+                  },
                 },
                 {
-  title: "Subscription",
-  description: "Manage your subscription plan and billing.",
-  onClick: () => setViewMode("subscription-dashboard"),
-},
+                  title: "Subscription",
+                  description: "Manage your subscription plan and billing.",
+                  onClick: () => {
+                    setViewMode("subscription-dashboard");
+                  },
+                },
               ].map((card) => (
                 <div
                   key={card.title}
@@ -3515,11 +3712,11 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
                   onKeyDown={
                     card.onClick
                       ? (event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            card.onClick();
-                          }
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          card.onClick();
                         }
+                      }
                       : undefined
                   }
                 >
@@ -3535,6 +3732,58 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
           </div>
         </div>
       )}
+      {showInvalidMobilePopup && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 9999,
+    }}
+    onClick={() => setShowInvalidMobilePopup(false)}
+  >
+    <div
+      style={{
+        background: "#111",
+        color: "#fff",
+        padding: "20px",
+        borderRadius: "12px",
+        width: "90%",
+        maxWidth: "360px",
+        textAlign: "center",
+        border: "1px solid #444",
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div style={{ fontSize: "18px", fontWeight: 600, marginBottom: "10px" }}>
+        Invalid Mobile Number
+      </div>
+
+      <div style={{ fontSize: "14px", color: "#ccc", marginBottom: "20px" }}>
+        Please enter a valid 10-digit mobile number.
+      </div>
+
+      <button
+        onClick={() => setShowInvalidMobilePopup(false)}
+        style={{
+          width: "100%",
+          padding: "10px",
+          background: "#e6c37a",
+          color: "#000",
+          borderRadius: "8px",
+          border: "none",
+          fontWeight: 600,
+          cursor: "pointer",
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+)}
 
       {viewMode === "profile-dashboard" && (
         <div className="new-dashboard-overlay">
@@ -3610,9 +3859,8 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
               ].map((card) => (
                 <div
                   key={card.title}
-                  className={`new-dashboard-card new-dashboard-card-action ${
-                    activeRevenueTab === card.key ? "active" : ""
-                  }`}
+                  className={`new-dashboard-card new-dashboard-card-action ${activeRevenueTab === card.key ? "active" : ""
+                    }`}
                   onClick={() => setActiveRevenueTab(card.key)}
                   role="button"
                   tabIndex={0}
@@ -3677,37 +3925,37 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
         </div>
       )}
       {viewMode === "subscription-dashboard" && (
-  <div className="new-dashboard-overlay">
-    <div className="new-dashboard-shell">
+        <div className="new-dashboard-overlay">
+          <div className="new-dashboard-shell">
 
-      <div className="new-dashboard-header">
-        <button
-          className="new-dashboard-nav-btn"
-          onClick={() => setViewMode("new-dashboard")}
-        >
-          Back
-        </button>
+            <div className="new-dashboard-header">
+              <button
+                className="new-dashboard-nav-btn"
+                onClick={() => setViewMode("new-dashboard")}
+              >
+                Back
+              </button>
 
-        <div className="new-dashboard-title">
-          Subscription
+              <div className="new-dashboard-title">
+                Subscription
+              </div>
+
+              <button
+                className="new-dashboard-close-btn"
+                onClick={() => setViewMode("preview")}
+              >
+                Close
+              </button>
+            </div>
+
+            <SubscriptionDashboard
+              vendorId={vendorId}
+              onBack={() => setViewMode("new-dashboard")}
+            />
+
+          </div>
         </div>
-
-        <button
-          className="new-dashboard-close-btn"
-          onClick={() => setViewMode("preview")}
-        >
-          Close
-        </button>
-      </div>
-
-      <SubscriptionDashboard
-        vendorId={vendorId}
-        onBack={() => setViewMode("new-dashboard")}
-      />
-
-    </div>
-  </div>
-)}
+      )}
 
       {openServices && serviceType === "packages" && (
         <PackagesPortal
@@ -3758,7 +4006,7 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
           >
             Menu
           </button>
-          <button
+          {/* <button
         className="quick-action-btn"
         type="button"
         onClick={() => {
@@ -3768,20 +4016,35 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
         }}
       >
         Dashboard 📊
-      </button>
+      </button> */}
 
-      <button
-        className="quick-action-btn"
-        type="button"
-        onClick={() => {
-          setViewMode("new-dashboard");
-          setShowOptions(false);
-        }}
-      >
-        New-Dashboard
-      </button>
+          <button
+            className="quick-action-btn"
+            type="button"
+            onClick={() => {
+              setShowOptions(false);
+              const vendorToken =
+                typeof window !== "undefined"
+                  ? localStorage.getItem("vendorToken")
+                  : null;
 
-      <button
+              if (!vendorToken) {
+                setPendingAction(null);
+              setLoginAsAdmin(false);
+setShowAdminPasscode(false);
+setAdminPasscode("");
+setShowVendorOtp(false);
+setShowVendorLogin(true);
+                return;
+              }
+
+              setViewMode("new-dashboard");
+            }}
+          >
+            Dashboard
+          </button>
+
+          {/* <button
         className="quick-action-btn"
         type="button"
         onClick={() => {
@@ -3790,10 +4053,134 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
         }}
       >
         Loyalty ⚙️
-      </button>
+      </button> */}
         </div>
       )}
+      {showVendorLogin && (
+        <div
+          className="login-overlay vendor-login-overlay"
+          onClick={() => {
+            setShowVendorLogin(false);
+            setLoginAsAdmin(false);   // ✅ reset
+            setShowAdminPasscode(false);
+            setAdminPasscode("");
+            setPendingAction(null);
+          }}
+        >
+          
+            
+          <div
+            className="login-modal vendor-login-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
 
+            <h3 className="vendor-login-title">Vendor Login</h3>
+
+            {/* ADMIN PASSCODE SCREEN */}
+            {showAdminPasscode ? (
+              <>
+                <input
+                  className="login-input vendor-login-input"
+                  placeholder="Enter Admin Passcode"
+                  value={adminPasscode}
+                  onChange={(e) => setAdminPasscode(e.target.value)}
+                />
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  <button
+                    className="login-btn-secondary vendor-login-btn vendor-login-btn-secondary"
+                    onClick={() => {
+                      setShowAdminPasscode(false);
+                      setLoginAsAdmin(false);
+                      setAdminPasscode("");
+                    }}
+                  >
+                    Back
+                  </button>
+
+                  <button
+                    className="login-btn-main vendor-login-btn vendor-login-btn-primary"
+                    onClick={verifyAdminPasscode}
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            ) : !showVendorOtp ? (
+
+              <>
+
+                <div className="login-input-row">
+  <select
+    className="login-code"
+    value={countryCode}
+    onChange={(e) => setCountryCode(e.target.value)}
+  >
+    <option value="91">IN +91</option>
+  </select>
+
+  <input
+    placeholder="Enter mobile number"
+    value={vendorMobile}
+    onChange={(e) => setVendorMobile(e.target.value)}
+    className="login-input vendor-login-input"
+  />
+</div>
+             
+                <label className="vendor-login-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={loginAsAdmin}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+
+                      setLoginAsAdmin(checked);
+
+                      if (checked) {
+                        setVendorMobile("");       // clear mobile
+                        setShowAdminPasscode(true);
+                        setShowVendorOtp(false);
+                      } else {
+                        setShowAdminPasscode(false);
+                        setAdminPasscode("");
+                        setShowVendorOtp(false);
+                      }
+                    }}
+                  />
+                  Login as Admin
+                </label>
+
+                <button
+                  className="login-btn-main vendor-login-btn vendor-login-btn-primary"
+                  onClick={handleVendorLogin}
+                  disabled={loginAsAdmin}
+                >
+                  Continue
+                </button>
+              </>
+
+            ) : (
+
+              <>
+                <input
+                  placeholder="Enter OTP"
+                  value={vendorOtp}
+                  onChange={(e) => setVendorOtp(e.target.value)}
+                  className="login-input vendor-login-input"
+                />
+
+                <button
+                  className="login-btn-main vendor-login-btn vendor-login-btn-primary"
+                  onClick={verifyVendorOtp}
+                >
+                  Verify OTP
+                </button>
+              </>
+            )}
+
+          </div>
+        </div>
+      )}
       {showBillSuccess && (
         <div className="bill-success-overlay">
           <div className="bill-success-modal">
@@ -3815,6 +4202,91 @@ const [verifyingOtp, setVerifyingOtp] = useState(false);
               OK
             </button>
           </div>
+        </div>
+      )}
+
+      {showSessionExpiredPopup && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.65)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+            padding: 16,
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff8e6", // soft gold background
+              color: "#1a1a1a",
+              borderRadius: 16,
+              padding: "24px",
+              maxWidth: 420,
+              width: "100%",
+              boxShadow: "0 25px 60px rgba(0,0,0,0.3)",
+              border: "1px solid rgba(230,195,122,0.6)",
+              textAlign: "center",
+              animation: "fadeInScale 0.25s ease",
+            }}
+          >
+            {/* Title */}
+            <div
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                marginBottom: 10,
+                color: "#b88a2b",
+              }}
+            >
+              Session Expired
+            </div>
+
+            {/* Message */}
+            <div
+              style={{
+                fontSize: 14,
+                marginBottom: 20,
+                lineHeight: 1.6,
+                color: "#333",
+              }}
+            >
+              Your session has ended. Please log in again to continue.
+            </div>
+
+            {/* Button */}
+            <button
+              type="button"
+              onClick={() => setShowSessionExpiredPopup(false)}
+              style={{
+                width: "100%",
+                background: "linear-gradient(135deg, #e6c37a, #d4a94f)",
+                color: "#1a1a1a",
+                border: "none",
+                padding: "12px",
+                borderRadius: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = "translateY(-1px)";
+                e.target.style.boxShadow = "0 8px 20px rgba(0,0,0,0.25)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = "translateY(0)";
+                e.target.style.boxShadow = "none";
+              }}
+            >
+              OK, Got it
+            </button>
+          </div>
+
+          {/* Animation */}
+        
         </div>
       )}
 

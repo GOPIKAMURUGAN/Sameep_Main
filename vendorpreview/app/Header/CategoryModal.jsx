@@ -685,6 +685,9 @@ const normalizePhone = (phone) => {
 
       if (data?.token) {
         localStorage.setItem("authToken", data.token);
+        localStorage.setItem("loginTime", String(Date.now()));
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new Event("auth-changed"));
       }
 
       setOtpSent(false);
@@ -1173,11 +1176,11 @@ onChange={(e) =>
                         }
                       >
                         <option value="">Select minimum count</option>
-                        {[10, 25, 50, 100, 250, 500, 1000].map((n) => (
-                          <option key={n} value={n}>
-                            {n}+
-                          </option>
-                        ))}
+                       {Array.from({ length: 25 }, (_, i) => i + 1).map((n) => (
+  <option key={n} value={n}>
+    {n}
+  </option>
+))}
                       </select>
                     )}
 

@@ -1,8 +1,7 @@
 "use client";
 import { useState } from "react";
 import "./Login.css";
-import { useVendor } from "@/app/context/VendorContext";
-
+import { useVendor } from "../context/VendorContext";
 
 export default function Login({ onClose }) {
   console.log("LOGIN MODAL RENDERED");
@@ -87,6 +86,7 @@ const categoryId =
 
       if (data.message === "OTP verified") {
         localStorage.setItem("authToken", data.token);
+        localStorage.setItem("loginTime", String(Date.now()));
 
         localStorage.setItem(
           "userData",
@@ -97,6 +97,7 @@ const categoryId =
         );
 
         window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new Event("auth-changed"));
         onClose();
       } else {
         alert(data.message || "Invalid OTP");
@@ -143,6 +144,7 @@ const categoryId =
 
       // 🔐 REAL BACKEND SESSION TOKEN
       localStorage.setItem("authToken", data.token);
+      localStorage.setItem("loginTime", String(Date.now()));
 
       localStorage.setItem(
         "userData",
@@ -153,6 +155,7 @@ const categoryId =
       );
 
       window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new Event("auth-changed"));
       onClose();
     } catch {
       alert("Unable to login as admin");

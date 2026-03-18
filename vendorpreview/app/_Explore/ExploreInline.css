@@ -83,8 +83,8 @@
 .menu-overlay-close-btn {
   margin-left: auto;
   border: 1px solid #d5dbe7;
-  background: #ffffff;
-  color: #374151;
+  background: linear-gradient(135deg, #e6bf6a, #cfa94e);
+  color: #0b0b0d;
   padding: 8px 12px;
   border-radius: 10px;
   cursor: pointer;
@@ -153,8 +153,8 @@
 }
 
 .menu-overlay-close-btn:hover {
-  border-color: #bcc7d8;
-  background: #f8fafc;
+  background: linear-gradient(135deg, #e6bf6a, #cfa94e);
+  color: #0b0b0d;
 }
 
 .menu-overlay-layout {
@@ -1208,19 +1208,21 @@
 }
 
 .quick-actions-toggle-btn {
-  position: fixed;
-  right: 20px;
-  bottom: 90px;
-  padding: 12px 18px;
-  border-radius: 999px;
-  border: none;
-  cursor: pointer;
-  background: linear-gradient(135deg, #e6bf6a, #cfa94e);
+    background: linear-gradient(135deg, #e6bf6a, #cfa94e);
   color: #0b0b0d;
   font-weight: 900;
   box-shadow: 0 6px 14px rgba(255, 200, 110, 0.35), 0 0 18px rgba(255, 190, 120, 0.35);
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #444;
+  cursor: pointer;
   z-index: 1000;
 }
+
 
 .new-dashboard-overlay {
   position: fixed;

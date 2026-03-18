@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useSessionGuard } from "../Login/useSessionGuard";
 import "./Header.css";
-
 import { useVendor } from "../context/VendorContext";
 import Login from "../Login/Login";
 import ProfileModal from "../Profile/Profile";
@@ -37,6 +36,7 @@ export default function Header() {
   const [openServices, setOpenServices] = useState(false);
   const [serviceType, setServiceType] = useState(null);
   const [user, setUser] = useState(null);
+  const [hasSession, setHasSession] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -69,21 +69,56 @@ export default function Header() {
   // 🔹 User session
   // --------------------------------------------------
   useEffect(() => {
-    const updateUser = () => {
-      const u = localStorage.getItem("userData");
-      setUser(u ? JSON.parse(u) : null);
+    const syncSessionState = () => {
+      const raw = localStorage.getItem("userData");
+      let parsedUser = null;
+      if (raw) {
+        try {
+          parsedUser = JSON.parse(raw);
+        } catch {
+          parsedUser = null;
+        }
+      }
+      setUser(parsedUser);
+
+      const token =
+        localStorage.getItem("authToken") || localStorage.getItem("vendorToken");
+      setHasSession(Boolean(token));
     };
 
-    updateUser();
-    window.addEventListener("storage", updateUser);
-    return () => window.removeEventListener("storage", updateUser);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        syncSessionState();
+      }
+    };
+
+    syncSessionState();
+    window.addEventListener("storage", syncSessionState);
+    window.addEventListener("auth-changed", syncSessionState);
+    window.addEventListener("session-expired", syncSessionState);
+    window.addEventListener("focus", syncSessionState);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("storage", syncSessionState);
+      window.removeEventListener("auth-changed", syncSessionState);
+      window.removeEventListener("session-expired", syncSessionState);
+      window.removeEventListener("focus", syncSessionState);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, []);
 
   const logout = () => {
     localStorage.removeItem("authToken");
+    localStorage.removeItem("vendorToken");
     localStorage.removeItem("userData");
+    localStorage.removeItem("loginTime");
+    localStorage.removeItem("vendorLoginTime");
+    localStorage.removeItem("vendorSessionVendorId");
+    localStorage.removeItem("sessionHour");
 
     window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new Event("auth-changed"));
   };
 
   // --------------------------------------------------
@@ -143,7 +178,19 @@ export default function Header() {
                 </button>
               </li>
 
-              {!user && (
+              {hasSession && (
+                <li className="nav-item">
+                  <button
+                    className="nav-link login-btn btn-link"
+                    onClick={logout}
+                    type="button"
+                  >
+                    Logout
+                  </button>
+                </li>
+              )}
+
+              {/* {!user && (
                 <li className="nav-item">
                   <button
                     className="nav-link login-btn btn-link"
@@ -152,9 +199,9 @@ export default function Header() {
                     Log In
                   </button>
                 </li>
-              )}
+              )} */}
 
-              {user && (
+              {/* {user && (
                 <li className="nav-item profile-wrapper">
                   <div
                     className="profile-action"
@@ -173,7 +220,7 @@ export default function Header() {
                     <span className="profile-text">Logout</span>
                   </div>
                 </li>
-              )}
+              )} */}
             </ul>
           </div>
         </div>
