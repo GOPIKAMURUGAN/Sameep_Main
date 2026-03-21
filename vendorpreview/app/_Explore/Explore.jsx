@@ -311,15 +311,10 @@ const handleConfiguredAddToCart = () => {
     sectionName,
     selectedMain,
     selectedSub,
-    selectedSubSub   // ✅ ADD THIS
+    selectedSubSub
   ].filter(Boolean);
 
-const serviceId = [
-  data.id || data._id || data.categoryId,
-  selectedMain,
-  selectedSub,
-  selectedSubSub
-].filter(Boolean).join("_");
+const serviceId = data.id || data._id || data.categoryId;
 
   const serviceName =
     selectedSubSub ||   // ✅ PRIORITY LEVEL 5
@@ -744,9 +739,17 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
 
     // 🔹 LEVEL 3 = leaf
     if (level3.isLeaf && level3.pricingStatus === "Active") {
+      const price = Number(level3.price) || 0;
+
+      if (price < minPrice) {
+        minPrice = price;
+        defaultMain = getName(level2).trim();
+        defaultSub = getName(level3).trim();
+      }
+
       return {
         label: getName(level3).trim(),
-        price: Number(level3.price) || 0,
+        price,
         imageUrl: imageMap[level3.categoryId] || null,
         terms: normalizeTerms(level3.terms || ""),
         offerText: level3.offerText || "",
@@ -771,19 +774,37 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
             offerText: c.offerText || "",
             packagesIncludes: packagesMap[c.categoryId] || ""
           }))
+          .filter(option => {
+            const price = Number(option.price) || 0;
+
+            if (price < minPrice) {
+              minPrice = price;
+              defaultMain = getName(level2).trim();
+              defaultSub = getName(level3).trim();
+            }
+
+            return true;
+          })
       };
     }
 
     return null;
-  }).filter(Boolean);
+  }).filter(Boolean).filter(option => {
+    if (option.subSubOptions) {
+      return option.subSubOptions.length > 0;
+    }
 
-  // ⭐⭐⭐ THIS WAS MISSING ⭐⭐⭐
-  options.push({
-    label: getName(level2).trim(),
-    price: 0,
-    imageUrl: imageMap[level2.categoryId] || null,
-    subOptions
+    return true;
   });
+
+  if (subOptions.length) {
+    options.push({
+      label: getName(level2).trim(),
+      price: 0,
+      imageUrl: imageMap[level2.categoryId] || null,
+      subOptions
+    });
+  }
 }
 
       });
@@ -1637,7 +1658,7 @@ function ExploreContent({ onReady, onOpenServices }) {
 
         const pricingData = await pricingRes.json();
 
-        setMenuTree(pricingData?.tree || []);
+        setMenuTree(filterActiveMenuTree(pricingData?.tree || []));
 
         // ✅ build master category tree
         const categoryRes = await fetch(
@@ -2277,6 +2298,39 @@ function ExploreContent({ onReady, onOpenServices }) {
     if (depth === 0) return "menu-root";
     if (depth === 1) return "menu-category";
     return "menu-sub";
+  };
+
+  const filterActiveMenuTree = (nodes) => {
+    if (!Array.isArray(nodes)) return [];
+
+    return nodes.reduce((acc, node) => {
+      if (!node || typeof node !== "object") return acc;
+
+      const children = Array.isArray(node.children) ? node.children : [];
+      const filteredChildren = filterActiveMenuTree(children);
+      const isActiveLeaf =
+        node.isLeaf &&
+        node.pricingStatus === "Active" &&
+        node.price !== undefined &&
+        node.price !== null;
+
+      if (isActiveLeaf) {
+        acc.push({
+          ...node,
+          children: [],
+        });
+        return acc;
+      }
+
+      if (filteredChildren.length > 0) {
+        acc.push({
+          ...node,
+          children: filteredChildren,
+        });
+      }
+
+      return acc;
+    }, []);
   };
 
   const filterMenuNodes = (nodes, query) => {
