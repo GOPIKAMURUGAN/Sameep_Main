@@ -56,6 +56,7 @@ export default function MonthRevenue({ vendorId }) {
   const [loading, setLoading] = useState(true);
   const [stylists, setStylists] = useState([]);
   const [loadingStylists, setLoadingStylists] = useState(true);
+  const [expandedBills, setExpandedBills] = useState({});
 
   useEffect(() => {
     if (!vendorId) {
@@ -158,6 +159,23 @@ export default function MonthRevenue({ vendorId }) {
     );
   }, [bills]);
 
+  useEffect(() => {
+    setExpandedBills(
+      bills.reduce((acc, bill) => {
+        const key = bill.billId || `${bill.phone}-${bill.createdAt}`;
+        acc[key] = false;
+        return acc;
+      }, {})
+    );
+  }, [bills]);
+
+  const toggleBill = (billKey) => {
+    setExpandedBills((prev) => ({
+      ...prev,
+      [billKey]: !prev[billKey],
+    }));
+  };
+
   return (
     <section className="revenue-panel">
       <div className="revenue-panel-header">
@@ -215,9 +233,13 @@ export default function MonthRevenue({ vendorId }) {
                 <div className="revenue-panel-empty">No revenue bills found for this month.</div>
               ) : (
                 <div className="revenue-panel-list">
-                  {bills.map((bill) => (
+                  {bills.map((bill) => {
+                    const billKey = bill.billId || `${bill.phone}-${bill.createdAt}`;
+                    const isExpanded = expandedBills[billKey] === true;
+
+                    return (
                     <div
-                      key={bill.billId || `${bill.phone}-${bill.createdAt}`}
+                      key={billKey}
                       className="revenue-panel-list-item"
                     >
                       <div className="revenue-panel-bill-content">
@@ -227,11 +249,18 @@ export default function MonthRevenue({ vendorId }) {
                         <div className="revenue-panel-list-sub">
                           {bill.phone || "Walk-in"} • {formatDateTime(bill.createdAt)}
                         </div>
+                        <div className="revenue-panel-chip-row">
+                          <span className="revenue-panel-chip">Earned {Number(bill.earned || 0)}</span>
+                          <span className="revenue-panel-chip">Redeemed {Number(bill.redeemed || 0)}</span>
+                          <span className="revenue-panel-chip">
+                            {Array.isArray(bill.items) ? bill.items.length : 0} item(s)
+                          </span>
+                        </div>
                         <div className="revenue-panel-bill-meta">
-                          Earned {Number(bill.earned || 0)} • Redeemed {Number(bill.redeemed || 0)}
+                          {isExpanded ? "Expanded item details" : "Tap to inspect bill items"}
                         </div>
 
-                        {Array.isArray(bill.items) && bill.items.length > 0 ? (
+                        {isExpanded && Array.isArray(bill.items) && bill.items.length > 0 ? (
                           <div className="revenue-panel-items-list">
                             {bill.items.map((item, index) => (
                               <div
@@ -250,11 +279,20 @@ export default function MonthRevenue({ vendorId }) {
                           </div>
                         ) : null}
                       </div>
-                      <div className="revenue-panel-list-value">
-                        {currencyFmt.format(Number(bill.total || 0))}
+                      <div className="revenue-panel-bill-actions">
+                        <div className="revenue-panel-list-value">
+                          {currencyFmt.format(Number(bill.total || 0))}
+                        </div>
+                        <button
+                          type="button"
+                          className="revenue-panel-expand-btn"
+                          onClick={() => toggleBill(billKey)}
+                        >
+                          {isExpanded ? "Hide items" : "View items"}
+                        </button>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
             </div>

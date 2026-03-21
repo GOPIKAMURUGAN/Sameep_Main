@@ -148,7 +148,12 @@
   align-items: flex-start;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
+}
+
+.today-revenue-bill-main {
+  flex: 1 1 280px;
+  min-width: 0;
 }
 
 .today-revenue-bill-id {
@@ -163,6 +168,30 @@
   color: rgba(245, 242, 234, 0.8);
 }
 
+.today-revenue-bill-chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.today-revenue-bill-chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(230, 195, 122, 0.08);
+  border: 1px solid rgba(230, 195, 122, 0.16);
+  color: rgba(245, 242, 234, 0.84);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.today-revenue-bill-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
 .today-revenue-bill-time {
   margin-top: 4px;
   font-size: 14px;
@@ -175,6 +204,17 @@
   background: rgba(230, 195, 122, 0.12);
   color: #e6c37a;
   font-weight: 700;
+}
+
+.today-revenue-expand-btn {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(230, 195, 122, 0.24);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f5f2ea;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 12px;
 }
 
 .today-revenue-metrics-grid {
@@ -204,7 +244,7 @@
 
 .today-revenue-items-section {
   border-top: 1px solid rgba(230, 195, 122, 0.14);
-  padding-top: 16px;
+  padding-top: 14px;
 }
 
 .today-revenue-items-title {
@@ -224,9 +264,10 @@
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.025);
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(230, 195, 122, 0.1);
 }
 
 .today-revenue-item-name {
@@ -234,7 +275,9 @@
 }
 
 .today-revenue-item-meta {
+  margin-top: 4px;
   color: rgba(245, 242, 234, 0.74);
+  font-size: 13px;
 }
 
 .today-revenue-stylist-list {
@@ -274,5 +317,12 @@
 
   .today-revenue-title {
     font-size: 22px;
+  }
+
+  .today-revenue-bill-actions {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
   }
 }

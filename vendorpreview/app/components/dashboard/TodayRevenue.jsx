@@ -56,6 +56,7 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
   const [stylists, setStylists] = useState([]);
   const [loadingRevenue, setLoadingRevenue] = useState(true);
   const [loadingStylists, setLoadingStylists] = useState(true);
+  const [expandedBills, setExpandedBills] = useState({});
 
   useEffect(() => {
     if (!vendorId) {
@@ -163,6 +164,23 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
     );
   }, [bills]);
 
+  useEffect(() => {
+    setExpandedBills(
+      bills.reduce((acc, bill) => {
+        const key = bill.billId || `${bill.phone}-${bill.createdAt}`;
+        acc[key] = true;
+        return acc;
+      }, {})
+    );
+  }, [bills]);
+
+  const toggleBill = (billKey) => {
+    setExpandedBills((prev) => ({
+      ...prev,
+      [billKey]: !prev[billKey],
+    }));
+  };
+
   return (
     <div className={`today-revenue-page ${embedded ? "today-revenue-page-embedded" : ""}`}>
       {!embedded ? (
@@ -228,34 +246,43 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
               </div>
             ) : (
               <div className="today-revenue-bills">
-                {bills.map((bill) => (
-                  <div key={bill.billId || `${bill.phone}-${bill.createdAt}`} className="today-revenue-bill-card">
+                {bills.map((bill) => {
+                  const billKey = bill.billId || `${bill.phone}-${bill.createdAt}`;
+                  const isExpanded = expandedBills[billKey] !== false;
+
+                  return (
+                  <div key={billKey} className="today-revenue-bill-card">
                     <div className="today-revenue-bill-header">
-                      <div>
+                      <div className="today-revenue-bill-main">
                         <div className="today-revenue-bill-id">
                           Bill #{String(bill.billId || "").slice(0, 8)}
                         </div>
                         <div className="today-revenue-bill-phone">
                           {bill.phone || "Walk-in"} • {formatDateTime(bill.createdAt)}
                         </div>
+                        <div className="today-revenue-bill-chip-row">
+                          <span className="today-revenue-bill-chip">Earned {Number(bill.earned || 0)}</span>
+                          <span className="today-revenue-bill-chip">Redeemed {Number(bill.redeemed || 0)}</span>
+                          <span className="today-revenue-bill-chip">
+                            {Array.isArray(bill.items) ? bill.items.length : 0} item(s)
+                          </span>
+                        </div>
                       </div>
-                      <div className="today-revenue-bill-total">
-                        {currencyFmt.format(Number(bill.total || 0))}
+                      <div className="today-revenue-bill-actions">
+                        <div className="today-revenue-bill-total">
+                          {currencyFmt.format(Number(bill.total || 0))}
+                        </div>
+                        <button
+                          type="button"
+                          className="today-revenue-expand-btn"
+                          onClick={() => toggleBill(billKey)}
+                        >
+                          {isExpanded ? "Hide items" : "Show items"}
+                        </button>
                       </div>
                     </div>
 
-                    <div className="today-revenue-metrics-grid">
-                      <div className="today-revenue-metric-card">
-                        <div className="today-revenue-metric-label">Earned</div>
-                        <div className="today-revenue-metric-value">{Number(bill.earned || 0)}</div>
-                      </div>
-                      <div className="today-revenue-metric-card">
-                        <div className="today-revenue-metric-label">Redeemed</div>
-                        <div className="today-revenue-metric-value">{Number(bill.redeemed || 0)}</div>
-                      </div>
-                    </div>
-
-                    {Array.isArray(bill.items) && bill.items.length > 0 ? (
+                    {isExpanded && Array.isArray(bill.items) && bill.items.length > 0 ? (
                       <div className="today-revenue-items-section">
                         <div className="today-revenue-items-title">Cart Items</div>
                         <div className="today-revenue-items-list">
@@ -277,7 +304,7 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
                       </div>
                     ) : null}
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </>
