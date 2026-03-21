@@ -4,6 +4,12 @@ import axios from "axios";
 import { LocationPickerModal } from "../components/LocationPickerModal";
 import BusinessLocationModal from "../components/BusinessLocationModal";
 import BusinessHoursModal from "../components/BusinessHoursModal";
+import {
+  getPlans,
+  getVendorSubscription,
+  assignVendorPlan,
+  updateVendorSubscription,
+} from "../services/subscriptionService";
 // Use the same API_BASE_URL as in api.js
 import API_BASE_URL from "../config";
 
@@ -179,6 +185,13 @@ export default function VendorStatusListPage() {
 
   const [selectedVendorForBusinessHours, setSelectedVendorForBusinessHours] =
     useState(null);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [vendorSubscription, setVendorSubscription] = useState(null);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [loadingSubscription, setLoadingSubscription] = useState(false);
+  const [assignLoading, setAssignLoading] = useState(false);
 
   // Profile pictures upload state: { [vendorId]: File[] }
   const [profilePicsToUpload, setProfilePicsToUpload] = useState({});
@@ -200,6 +213,30 @@ export default function VendorStatusListPage() {
       return name;
     } catch {
       return "";
+    }
+  };
+
+  const resetPlanModalState = () => {
+    setShowPlanModal(false);
+    setSelectedPlanId("");
+    setExpiryDate("");
+    setVendorSubscription(null);
+  };
+
+  const loadPlans = async () => {
+    const res = await getPlans();
+    setPlans(res.data?.data || []);
+  };
+
+  const loadVendorSubscription = async (vendorId) => {
+    try {
+      setLoadingSubscription(true);
+      const res = await getVendorSubscription(vendorId);
+      setVendorSubscription(res.data?.data || null);
+    } catch {
+      setVendorSubscription(null);
+    } finally {
+      setLoadingSubscription(false);
     }
   };
 
@@ -508,6 +545,25 @@ export default function VendorStatusListPage() {
           }}
           style={{ padding: '6px 12px', borderRadius: 6, background: '#111827', color: '#fff', border: 'none' }}
         >Add on Text</button>
+        <button
+          onClick={() => {
+            if (!selectedVendorId) return alert("Select vendor first");
+
+            loadPlans();
+            loadVendorSubscription(selectedVendorId);
+
+            setShowPlanModal(true);
+          }}
+          style={{
+            padding: '6px 12px',
+            borderRadius: 6,
+            background: '#111827',
+            color: '#fff',
+            border: 'none'
+          }}
+        >
+          Assign Plan ⭐
+        </button>
       </div>
       {vendors.length === 0 ? (
         <p>No vendors found in this status.</p>
@@ -702,6 +758,111 @@ export default function VendorStatusListPage() {
               </div>
               
             </div>
+          </div>
+        </div>
+      )}
+
+      {showPlanModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1200
+        }}>
+          <div style={{
+            background: '#fff',
+            padding: 20,
+            borderRadius: 10,
+            minWidth: 320
+          }}>
+            <h3>Subscription</h3>
+
+            {loadingSubscription ? (
+              <p>Loading...</p>
+            ) : (
+              <>
+                {vendorSubscription ? (
+                  <div style={{ marginBottom: 10 }}>
+                    <b>Current Plan:</b>{" "}
+                    {vendorSubscription.planId?.name || vendorSubscription.plan?.name || vendorSubscription.planId || "-"}
+                    <br />
+                    <b>Start:</b>{" "}
+                    {vendorSubscription.startDate
+                      ? new Date(vendorSubscription.startDate).toLocaleDateString()
+                      : "-"}
+                    <br />
+                    <b>Expiry:</b>{" "}
+                    {vendorSubscription.expiryDate
+                      ? new Date(vendorSubscription.expiryDate).toLocaleDateString()
+                      : "-"}
+                  </div>
+                ) : (
+                  <p>No active subscription</p>
+                )}
+
+                <select
+                  value={selectedPlanId}
+                  onChange={(e) => setSelectedPlanId(e.target.value)}
+                  style={{ width: '100%', marginBottom: 10 }}
+                >
+                  <option value="">Select Plan</option>
+                  {plans.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.name} - ₹{p.price}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  style={{ width: '100%', marginBottom: 10 }}
+                />
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button onClick={resetPlanModalState}>
+                    Cancel
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (!selectedPlanId || !expiryDate) {
+                        return alert("Select plan and expiry");
+                      }
+
+                      setAssignLoading(true);
+
+                      try {
+                        await assignVendorPlan({
+                          vendorId: selectedVendorId,
+                          planId: selectedPlanId,
+                          expiryDate
+                        });
+
+                        alert("Plan assigned successfully");
+                        resetPlanModalState();
+                      } catch (err) {
+                        alert("Failed to assign plan");
+                      } finally {
+                        setAssignLoading(false);
+                      }
+                    }}
+                    style={{
+                      background: '#0ea5e9',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '6px 12px'
+                    }}
+                  >
+                    {assignLoading ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

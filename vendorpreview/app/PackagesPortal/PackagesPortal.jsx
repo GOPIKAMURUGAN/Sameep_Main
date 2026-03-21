@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import "./PackagesPortal.css";
-import { useVendor } from "@/app/context/VendorContext";
+import { useVendor } from "../context/VendorContext";
 function fetchWithAuth(url, options = {}) {
   const token = localStorage.getItem("authToken");
 
@@ -704,13 +704,13 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }) {
         <div className="service-info">
           <h4>{service.name}</h4>
 
-          {terms.length > 0 && (
+          {/* {terms.length > 0 && (
             <ul className="service-terms">
               {terms.map((term, index) => (
                 <li key={index}>✓ {term}</li>
               ))}
             </ul>
-          )}
+          )} */}
 
           {packagesIncludes.length > 0 && (
             <div className="service-includes">
@@ -771,3 +771,4 @@ function Modal({ title, children, onClose }) {
     </div>
   );
 }
+

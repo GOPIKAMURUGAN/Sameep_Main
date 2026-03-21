@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSessionGuard } from "../Login/useSessionGuard";
 import "./Header.css";
+
 import { useVendor } from "../context/VendorContext";
 import Login from "../Login/Login";
 import ProfileModal from "../Profile/Profile";
@@ -68,6 +69,9 @@ export default function Header() {
   // --------------------------------------------------
   // 🔹 User session
   // --------------------------------------------------
+const vendorId =
+  vendorInfo?._id || vendorInfo?.vendor?._id || null;
+
   useEffect(() => {
     const syncSessionState = () => {
       const raw = localStorage.getItem("userData");
@@ -81,8 +85,12 @@ export default function Header() {
       }
       setUser(parsedUser);
 
-      const token =
-        localStorage.getItem("authToken") || localStorage.getItem("vendorToken");
+
+const token =
+  localStorage.getItem("authToken") ||
+  (vendorId
+    ? localStorage.getItem(`vendorToken:${vendorId}`)
+    : null);
       setHasSession(Boolean(token));
     };
 
@@ -106,11 +114,16 @@ export default function Header() {
       window.removeEventListener("focus", syncSessionState);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, []);
+}, [vendorId]);
 
   const logout = () => {
     localStorage.removeItem("authToken");
-    localStorage.removeItem("vendorToken");
+ const vendorId =
+  vendorInfo?._id || vendorInfo?.vendor?._id || null;
+
+if (vendorId) {
+  localStorage.removeItem(`vendorToken:${vendorId}`);
+}
     localStorage.removeItem("userData");
     localStorage.removeItem("loginTime");
     localStorage.removeItem("vendorLoginTime");
@@ -178,7 +191,7 @@ export default function Header() {
                 </button>
               </li>
 
-              {hasSession && (
+            {hasSession && vendorInfo && (
                 <li className="nav-item">
                   <button
                     className="nav-link login-btn btn-link"

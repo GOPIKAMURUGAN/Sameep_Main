@@ -33,6 +33,9 @@ export default function DummyVendorStatusListPage() {
   const [showAddText, setShowAddText] = useState(false);
   const [addHeading, setAddHeading] = useState("");
   const [addDescription, setAddDescription] = useState("");
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [vendorSubscription, setVendorSubscription] = useState(null);
   const [uploads, setUploads] = useState({}); // { [vendorId]: File[] }
   const [statusCounts, setStatusCounts] = useState({}); // { status: count }
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -371,6 +374,43 @@ export default function DummyVendorStatusListPage() {
     }
   };
 
+  const loadPlans = async () => {
+    try {
+      const res = await axios.get(`${API_PREFIX}/api/admin/plans`);
+      setPlans(res.data?.data || []);
+    } catch {
+      alert("Failed to load plans");
+    }
+  };
+
+  const loadVendorSubscription = async (vendorId) => {
+    try {
+      const res = await axios.get(
+        `${API_PREFIX}/api/admin/vendor-subscriptions/${vendorId}`
+      );
+      const data = res.data?.data || null;
+      setVendorSubscription(data);
+    } catch {
+      setVendorSubscription(null);
+    }
+  };
+
+  const assignPlan = async (planId) => {
+    try {
+      await axios.post(`${API_PREFIX}/api/admin/vendor-subscriptions`, {
+        vendorId: selectedVendorId,
+        planId,
+      });
+
+      alert("Plan assigned successfully");
+      setShowPlanModal(false);
+
+      loadVendorSubscription(selectedVendorId);
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to assign plan");
+    }
+  };
+
   return (
     <div>
       <h2>Vendors - {decodeURIComponent(status || "")} </h2>
@@ -466,6 +506,26 @@ export default function DummyVendorStatusListPage() {
           }}
           style={{ padding: '6px 12px', borderRadius: 6, background: '#111827', color: '#fff', border: 'none' }}
         >Add on Text</button>
+        <button
+          onClick={() => {
+            const v = vendors.find(x => x._id === selectedVendorId);
+            if (!v) return alert('Please select a vendor first');
+
+            loadPlans();
+            loadVendorSubscription(selectedVendorId);
+
+            setShowPlanModal(true);
+          }}
+          style={{
+            padding: '6px 12px',
+            borderRadius: 6,
+            background: '#111827',
+            color: '#fff',
+            border: 'none'
+          }}
+        >
+          Assign Plan ⭐
+        </button>
       </div>
       {loading ? (
         <div>Loading...</div>
@@ -818,6 +878,147 @@ export default function DummyVendorStatusListPage() {
               </div>
               
             </div>
+          </div>
+        </div>
+      )}
+      {showPlanModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1500
+        }}>
+          <div style={{
+            background: '#fff',
+            padding: 20,
+            borderRadius: 10,
+            minWidth: 350
+          }}>
+            <h3>Vendor Subscription</h3>
+
+            {vendorSubscription ? (
+              <div>
+                {vendorSubscription?.plan ? (
+                  <div>
+                    <div style={{
+                      display: 'inline-block',
+                      padding: '4px 8px',
+                      background: vendorSubscription.subscription?.active ? '#16a34a' : '#dc2626',
+                      color: '#fff',
+                      borderRadius: 6,
+                      marginBottom: 8
+                    }}>
+                      {vendorSubscription.plan.name}
+                    </div>
+                    <p><b>Price:</b> ₹{vendorSubscription.plan.price}</p>
+                    <p><b>Billing:</b> {vendorSubscription.plan.billingCycle}</p>
+                    <p><b>WhatsApp Balance:</b> {vendorSubscription.wallet?.whatsappBalance}</p>
+                    <p><b>OTP Balance:</b> {vendorSubscription.wallet?.otpBalance}</p>
+                    <p>
+                      <b>Start Date:</b>{" "}
+                      {vendorSubscription.subscription?.startDate
+                        ? new Date(vendorSubscription.subscription.startDate).toLocaleDateString()
+                        : "N/A"}
+                    </p>
+                    <p>
+                      <b>Expiry Date:</b>{" "}
+                      {vendorSubscription.subscription?.expiryDate
+                        ? new Date(vendorSubscription.subscription.expiryDate).toLocaleDateString()
+                        : "N/A"}
+                    </p>
+                    {vendorSubscription.subscription?.expiryDate &&
+                      new Date(vendorSubscription.subscription.expiryDate) < new Date() && (
+                        <p style={{ color: 'red', fontWeight: 'bold' }}>
+                          Subscription Expired ⚠️
+                        </p>
+                      )}
+                    <h4 style={{ marginTop: 12 }}>Features</h4>
+                    <ul style={{ paddingLeft: 18 }}>
+                      {vendorSubscription.plan.features.website && <li>Website</li>}
+                      {vendorSubscription.plan.features.digitalMenu && <li>Digital Menu</li>}
+                      {vendorSubscription.plan.features.basicBilling && <li>Basic Billing</li>}
+                      {vendorSubscription.plan.features.customerBilling && <li>Customer Billing</li>}
+                      {vendorSubscription.plan.features.whatsappBilling && <li>WhatsApp Billing</li>}
+                      {vendorSubscription.plan.features.advancedBilling && <li>Advanced Billing</li>}
+                      {vendorSubscription.plan.features.humanResourceManagement && <li>HR Management</li>}
+                      {vendorSubscription.plan.features.loyaltyModule && <li>Loyalty Module</li>}
+                      {vendorSubscription.plan.features.otpVerification && <li>OTP Verification</li>}
+                      {vendorSubscription.plan.features.analyticsCustomer && <li>Customer Analytics</li>}
+                      {vendorSubscription.plan.features.analyticsReports && <li>Reports & Analytics</li>}
+                    </ul>
+                  </div>
+                ) : (
+                  <p style={{ color: 'red' }}>
+                    No active subscription
+                  </p>
+                )}
+
+                <button
+                  onClick={() => {
+                    setVendorSubscription(null);
+                  }}
+                  style={{
+                    marginTop: 10,
+                    padding: '6px 12px',
+                    background: '#f59e0b',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 6
+                  }}
+                >
+                  Change Plan
+                </button>
+              </div>
+            ) : (
+              <div>
+                <h4>Select Plan</h4>
+
+                {plans.map((plan) => (
+                  <div key={plan._id} style={{
+                    border: '1px solid #ddd',
+                    padding: 10,
+                    marginBottom: 10,
+                    borderRadius: 6
+                  }}>
+                    <div><b>{plan.name}</b></div>
+                    <div>₹{plan.price}</div>
+
+                    <button
+                      onClick={() => assignPlan(plan._id)}
+                      style={{
+                        marginTop: 6,
+                        padding: '4px 10px',
+                        background: '#16a34a',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 4
+                      }}
+                    >
+                      Assign
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                setShowPlanModal(false);
+                setVendorSubscription(null);
+              }}
+              style={{
+                marginTop: 10,
+                padding: '6px 12px',
+                background: '#ccc',
+                border: 'none',
+                borderRadius: 6
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

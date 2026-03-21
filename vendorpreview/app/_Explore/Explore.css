@@ -1407,3 +1407,34 @@ margin-left: 15px;
 .vendor-login-input {
   flex: 1;
 }
+
+.explore-cart-cashback-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #f6d37a;
+  background: linear-gradient(135deg, #181818, #0a0a0a);
+  border: 1px solid rgba(230, 195, 122, 0.45); /* stronger */
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+
+  transition: all 0.25s ease;
+}
+/* .explore-cart-cashback-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.explore-cart-cashback-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f5d97a;
+}
+
+.explore-cart-cashback-copy {
+  font-size: 12px;
+  color: rgba(127, 127, 127, 0.9); 
+} */

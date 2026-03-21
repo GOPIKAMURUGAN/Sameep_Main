@@ -14,19 +14,33 @@ exports.assignVendorPlan = async (req, res) => {
       });
     }
 
+    const plan = await Plan.findById(planId).lean();
+
+    let finalStartDate = startDate ? new Date(startDate) : new Date();
+
+    let finalExpiryDate = expiryDate;
+
+    if (!finalExpiryDate && plan?.billingCycle === "yearly") {
+      finalExpiryDate = new Date(finalStartDate);
+      finalExpiryDate.setFullYear(finalExpiryDate.getFullYear() + 1);
+    }
+
+    if (!finalExpiryDate && plan?.billingCycle === "monthly") {
+      finalExpiryDate = new Date(finalStartDate);
+      finalExpiryDate.setMonth(finalExpiryDate.getMonth() + 1);
+    }
+
     const subscription = await VendorSubscription.findOneAndUpdate(
       { vendorId },
       {
         vendorId,
         planId,
-        startDate: startDate || Date.now(),
-        expiryDate,
+        startDate: finalStartDate,
+        expiryDate: finalExpiryDate,
         active: active !== undefined ? active : true,
       },
       { upsert: true, new: true }
     );
-
-    const plan = await Plan.findById(planId).lean();
 
     let wallet = await VendorWallet.findOne({ vendorId });
     if (!wallet) {
@@ -93,6 +107,12 @@ exports.getVendorSubscription = async (req, res) => {
 
     const wallet = await VendorWallet.findOne({ vendorId }).lean();
 
+    let isActive = subscription.active;
+
+    if (subscription.expiryDate && new Date(subscription.expiryDate) < new Date()) {
+      isActive = false;
+    }
+
     return res.json({
       success: true,
       data: {
@@ -101,7 +121,7 @@ exports.getVendorSubscription = async (req, res) => {
         subscription: {
           startDate: subscription.startDate,
           expiryDate: subscription.expiryDate,
-          active: subscription.active,
+          active: isActive,
         },
         wallet: {
           whatsappBalance: wallet?.whatsappBalance || 0,

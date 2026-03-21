@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-const SESSION_CHECK_INTERVAL_MS = 5000;
+const SESSION_CHECK_INTERVAL_MS = 30000;
 
 const guardState = {
   refCount: 0,
@@ -24,7 +24,11 @@ const clearLogoutTimer = () => {
 
 const clearSessionStorage = () => {
   localStorage.removeItem("authToken");
-  localStorage.removeItem("vendorToken");
+ Object.keys(localStorage).forEach((key) => {
+  if (key.startsWith("vendorToken:")) {
+    localStorage.removeItem(key);
+  }
+});
   localStorage.removeItem("userData");
   localStorage.removeItem("loginTime");
   localStorage.removeItem("authLoginTime");
@@ -34,8 +38,20 @@ const clearSessionStorage = () => {
   localStorage.removeItem("sessionHour");
 };
 
-const getSessionToken = () =>
-  localStorage.getItem("authToken") || localStorage.getItem("vendorToken");
+const getSessionToken = () => {
+  const authToken = localStorage.getItem("authToken");
+
+  if (authToken) return authToken;
+
+  // 🔥 get active vendorId
+  const vendorId = localStorage.getItem("vendorSessionVendorId");
+
+  if (vendorId) {
+    return localStorage.getItem(`vendorToken:${vendorId}`);
+  }
+
+  return null;
+};
 
 const notifySessionExpired = (reason) => {
   window.dispatchEvent(
@@ -78,7 +94,11 @@ const checkSession = async () => {
     console.log("Checking session API...");
 
     const deviceId = localStorage.getItem("deviceId");
-    const body = deviceId ? { token, deviceId } : { token };
+   const vendorId = localStorage.getItem("vendorSessionVendorId");
+
+const body = deviceId
+  ? { token, deviceId, vendorId }
+  : { token, vendorId };
 
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/customers/session-status-token`,
@@ -241,12 +261,20 @@ export function useSessionGuard() {
     }
 
     const sessionDeviceId = localStorage.getItem("sessionDeviceId");
-    const token = localStorage.getItem("vendorToken");
+   const vendorId = localStorage.getItem("vendorSessionVendorId");
+
+const token = vendorId
+  ? localStorage.getItem(`vendorToken:${vendorId}`)
+  : null;
 
     if (token && (!sessionDeviceId || deviceId !== sessionDeviceId)) {
       console.warn("Device mismatch -> logout");
 
-      localStorage.removeItem("vendorToken");
+     Object.keys(localStorage).forEach((key) => {
+  if (key.startsWith("vendorToken:")) {
+    localStorage.removeItem(key);
+  }
+});
       localStorage.removeItem("vendorLoginTime");
       localStorage.removeItem("vendorSessionVendorId");
       localStorage.removeItem("sessionDeviceId");

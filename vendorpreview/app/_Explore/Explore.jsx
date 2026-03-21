@@ -130,6 +130,8 @@ function TermsList({ terms }) {
 
 
 function ServiceCard({ data, sectionName, openLogin, addToCart }) {
+
+  const [selectedSubSub, setSelectedSubSub] = useState(null);
   const [selectedMain, setSelectedMain] = useState(
     data.defaultMain || data.options?.[0]?.label || null
   );
@@ -146,40 +148,92 @@ function ServiceCard({ data, sectionName, openLogin, addToCart }) {
     return `₹${price.toLocaleString("en-IN")}`;
   };
 
+useEffect(() => {
+  if (!selectedMain || !selectedSub) {
+    setSelectedSubSub(null);
+    return;
+  }
 
+  const main = data.options?.find(o => o.label === selectedMain);
+  if (!main) return;
+
+  const sub = main.subOptions?.find(s => s.label === selectedSub);
+  if (!sub) return;
+
+  // ✅ IF LEVEL 5 EXISTS → pick cheapest
+  if (sub.subSubOptions?.length) {
+    const cheapest = sub.subSubOptions.reduce((a, b) =>
+      (b.price || 0) < (a.price || 0) ? b : a
+    );
+
+    setSelectedSubSub(cheapest.label);
+  } else {
+    setSelectedSubSub(null);
+  }
+}, [selectedSub, selectedMain, data.options]);
   useEffect(() => {
     setSelectedMain(data.defaultMain || data.options?.[0]?.label || null);
     setSelectedSub(data.defaultSub || null);
   }, [data.defaultMain, data.defaultSub, data.options]);
 
   useEffect(() => {
-    if (!selectedMain) return;
+  if (!selectedMain) return;
 
-    const main = data.options?.find((option) => option.label === selectedMain);
-    if (!main) return;
+  const main = data.options?.find(o => o.label === selectedMain);
+  if (!main) return;
 
-    if (main.subOptions?.length) {
-      const cheapest = main.subOptions.reduce((a, b) =>
-        b.price < a.price ? b : a
+  if (main.subOptions?.length) {
+    const cheapestSub = main.subOptions.reduce((a, b) =>
+      (b.price || 0) < (a.price || 0) ? b : a
+    );
+
+    setSelectedSub(cheapestSub.label);
+
+    // ⭐ LEVEL 5 handling
+    if (cheapestSub.subSubOptions?.length) {
+      const cheapestSubSub = cheapestSub.subSubOptions.reduce((a, b) =>
+        (b.price || 0) < (a.price || 0) ? b : a
       );
-      setSelectedSub(cheapest.label);
-      return;
+
+      setSelectedSubSub(cheapestSubSub.label);
+    } else {
+      setSelectedSubSub(null);
     }
 
-    setSelectedSub(null);
-  }, [selectedMain, data.options]);
+    return;
+  }
 
-  const total = useMemo(() => {
-    let sum = 0;
-    const main = data.options?.find((option) => option.label === selectedMain);
+  setSelectedSub(null);
+  setSelectedSubSub(null);
+}, [selectedMain, data.options]);
 
-    if (main) sum += main.price || 0;
+const total = useMemo(() => {
+  let sum = 0;
 
-    const sub = main?.subOptions?.find((option) => option.label === selectedSub);
-    if (sub) sum += sub.price || 0;
+  const main = data.options?.find(o => o.label === selectedMain);
+  if (!main) return data.base;
 
-    return sum || data.base;
-  }, [data, selectedMain, selectedSub]);
+  // LEVEL 2 price
+  sum += main.price || 0;
+
+  const sub = main.subOptions?.find(s => s.label === selectedSub);
+
+  // LEVEL 3 price
+  if (sub && !sub.subSubOptions) {
+    sum += sub.price || 0;
+  }
+
+  // LEVEL 4 + LEVEL 5
+  if (sub?.subSubOptions?.length) {
+    const subSub = sub.subSubOptions.find(s => s.label === selectedSubSub);
+
+    if (subSub) {
+      sum += subSub.price || 0;
+    }
+  }
+
+  return sum || data.base;
+}, [data, selectedMain, selectedSub, selectedSubSub]);
 
   const selectedPackagesIncludes = useMemo(() => {
     if (!selectedMain) return "";
@@ -205,7 +259,7 @@ function ServiceCard({ data, sectionName, openLogin, addToCart }) {
     }
 
     return main?.imageUrl || data.img || null;
-  }, [data, selectedMain, selectedSub]);
+  }, [data, selectedMain, selectedSub, selectedSubSub]);
 
   const selectedOfferText = useMemo(() => {
     if (!selectedMain) return data.offerText || "";
@@ -219,7 +273,7 @@ function ServiceCard({ data, sectionName, openLogin, addToCart }) {
     }
 
     return main.offerText || data.offerText || "";
-  }, [data, selectedMain, selectedSub]);
+  }, [data, selectedMain, selectedSub, selectedSubSub]);
 
   const selectedTerms = useMemo(() => {
     if (!selectedMain) return [];
@@ -252,25 +306,38 @@ function ServiceCard({ data, sectionName, openLogin, addToCart }) {
     );
   };
 
-  const handleConfiguredAddToCart = () => {
-    const categoryPath = [sectionName, selectedMain, selectedSub].filter(Boolean);
+const handleConfiguredAddToCart = () => {
+  const categoryPath = [
+    sectionName,
+    selectedMain,
+    selectedSub,
+    selectedSubSub   // ✅ ADD THIS
+  ].filter(Boolean);
 
-    const serviceId = data.id || data._id || data.categoryId;
+const serviceId = [
+  data.id || data._id || data.categoryId,
+  selectedMain,
+  selectedSub,
+  selectedSubSub
+].filter(Boolean).join("_");
 
-    const serviceName =
-      selectedSub || selectedMain || data.title;
+  const serviceName =
+    selectedSubSub ||   // ✅ PRIORITY LEVEL 5
+    selectedSub ||
+    selectedMain ||
+    data.title;
 
-    addToCart(
-      {
-        _id: serviceId,
-        categoryId: serviceId,
-        name: serviceName,
-        price: Number(total) || 0,
-      },
-      categoryPath,
-      []
-    );
-  };
+  addToCart(
+    {
+      _id: serviceId,
+      categoryId: serviceId,
+      name: serviceName,
+      price: Number(total) || 0,
+    },
+    categoryPath,
+    []
+  );
+};
 
   if (data.simple) {
     return (
@@ -330,17 +397,22 @@ function ServiceCard({ data, sectionName, openLogin, addToCart }) {
         )}
 
       <div className="ws-media" key={selectedOfferText || dynamicImg}>
-       <div className="ws-media">
-  {dynamicImg && (
-    <img src={dynamicImg} alt={data.title} />
-  )}
-
-  {selectedOfferText && (
-    <div className="offer-banner offer-confetti">
+        <div className="ws-media">
+  {selectedOfferText ? (
+    <div className="offer-full">
       {selectedOfferText}
     </div>
+  ) : (
+    dynamicImg && <img src={dynamicImg} alt={data.title} />
   )}
-</div>
+
+
+          {selectedOfferText && (
+            <div className="offer-banner offer-confetti">
+              {selectedOfferText}
+            </div>
+          )}
+        </div>
       </div>
 
       {!selectedOfferText && (
@@ -387,6 +459,68 @@ function ServiceCard({ data, sectionName, openLogin, addToCart }) {
             </div>
           </div>
         )}
+      {selectedMain &&
+        data.options
+          ?.find((opt) => opt.label === selectedMain)
+          ?.subOptions?.find((sub) => sub.label === selectedSub)
+          ?.subOptions?.length > 0 && (
+
+          <div className="ws-subsection">
+            <div className="ws-subhead small">
+              Choose {selectedSub} Type
+            </div>
+
+            <div className="ws-chips">
+              {data.options
+                .find((opt) => opt.label === selectedMain)
+                .subOptions.find((sub) => sub.label === selectedSub)
+                .subSubOptions.map((subSub) => (
+                  <Chip
+                    key={subSub.label}
+                    active={selectedSubSub === subSub.label}
+                    onClick={() =>
+                      setSelectedSubSub(
+                        selectedSubSub === subSub.label ? null : subSub.label
+                      )
+                    }
+                  >
+                    {subSub.label}
+                  </Chip>
+                ))}
+            </div>
+          </div>
+        )}
+        {selectedMain &&
+  data.options
+    ?.find((opt) => opt.label === selectedMain)
+    ?.subOptions?.find((sub) => sub.label === selectedSub)
+    ?.subSubOptions?.length > 0 && (
+
+    <div className="ws-subsection">
+      <div className="ws-subhead small">
+        Choose {selectedSub} Option
+      </div>
+
+      <div className="ws-chips">
+        {data.options
+          .find((opt) => opt.label === selectedMain)
+          .subOptions.find((sub) => sub.label === selectedSub)
+          .subSubOptions.map((subSub) => (
+            <Chip
+              key={subSub.label}
+              active={selectedSubSub === subSub.label}
+              onClick={() =>
+                setSelectedSubSub(
+                  selectedSubSub === subSub.label ? null : subSub.label
+                )
+              }
+            >
+              {subSub.label}
+            </Chip>
+          ))}
+      </div>
+    </div>
+)}
 
       <TermsList terms={selectedTerms} />
 
@@ -606,40 +740,51 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
         /* ---------- LEVEL2 HAS SUBOPTIONS ---------- */
         else if (level2.children?.length) {
 
-          const subOptions = level2.children
-            .filter(c =>
-              c.isLeaf &&
-              c.pricingStatus === "Active"
-            )
-            .map(c => {
-              const price = Number(c.price) || 0;
+  const subOptions = (level2.children || []).map(level3 => {
 
-              if (price < minPrice) {
-                minPrice = price;
-                defaultMain = getName(level2).trim();
-                defaultSub = getName(c).trim();
-              }
+    // 🔹 LEVEL 3 = leaf
+    if (level3.isLeaf && level3.pricingStatus === "Active") {
+      return {
+        label: getName(level3).trim(),
+        price: Number(level3.price) || 0,
+        imageUrl: imageMap[level3.categoryId] || null,
+        terms: normalizeTerms(level3.terms || ""),
+        offerText: level3.offerText || "",
+        packagesIncludes: packagesMap[level3.categoryId] || ""
+      };
+    }
 
-              return {
-                label: getName(c).trim(),
+    // 🔹 LEVEL 4 → LEVEL 5 exists
+    if (level3.children?.length) {
+      return {
+        label: getName(level3).trim(),
+        price: 0,
+        imageUrl: imageMap[level3.categoryId] || null,
 
-                price,
-                imageUrl: imageMap[c.categoryId] || null,
-                terms: normalizeTerms(c.terms || ""),
-                offerText: c.offerText || "",
-                packagesIncludes: packagesMap[c.categoryId] || ""
-              };
-            });
+        subSubOptions: level3.children
+          .filter(c => c.isLeaf && c.pricingStatus === "Active")
+          .map(c => ({
+            label: getName(c).trim(),
+            price: Number(c.price) || 0,
+            imageUrl: imageMap[c.categoryId] || null,
+            terms: normalizeTerms(c.terms || ""),
+            offerText: c.offerText || "",
+            packagesIncludes: packagesMap[c.categoryId] || ""
+          }))
+      };
+    }
 
-          if (subOptions.length) {
-            options.push({
-              label: getName(level2).trim(),
-              price: 0,
-              imageUrl: imageMap[level2.categoryId] || null,
-              subOptions
-            });
-          }
-        }
+    return null;
+  }).filter(Boolean);
+
+  // ⭐⭐⭐ THIS WAS MISSING ⭐⭐⭐
+  options.push({
+    label: getName(level2).trim(),
+    price: 0,
+    imageUrl: imageMap[level2.categoryId] || null,
+    subOptions
+  });
+}
 
       });
 
@@ -735,14 +880,42 @@ function ExploreContent({ onReady, onOpenServices }) {
   const [showLogin, setShowLogin] = useState(false);
   const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(false);
   const [showSessionExpiredPopup, setShowSessionExpiredPopup] = useState(false);
+  const vendorLogout = () => {
+    if (typeof window === "undefined") return;
+
+    const sessionVendorId = localStorage.getItem("vendorSessionVendorId");
+    if (sessionVendorId) {
+      localStorage.removeItem(`vendorToken:${sessionVendorId}`);
+    }
+
+    localStorage.removeItem("vendorSessionVendorId");
+    localStorage.removeItem("vendorLoginTime");
+    localStorage.removeItem("sessionDeviceId");
+
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("vendorToken:")) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new Event("auth-changed"));
+  };
   const getStoredViewMode = () => {
     if (typeof window === "undefined") return "preview";
     const stored = localStorage.getItem("viewMode");
     if (stored === "new-dashboard") return "preview";
     return stored || "preview";
   };
-  const [viewMode, setViewMode] = useState(getStoredViewMode);
-  const persistViewMode = (nextMode) => {
+  const [viewMode, setViewMode] = useState("preview");
+
+  useEffect(() => {
+    const stored = localStorage.getItem("viewMode");
+
+    if (stored && stored !== "new-dashboard") {
+      setViewMode(stored);
+    }
+  }, []); const persistViewMode = (nextMode) => {
     if (typeof window !== "undefined") {
       if (nextMode === "new-dashboard") {
         localStorage.removeItem("viewMode");
@@ -756,6 +929,7 @@ function ExploreContent({ onReady, onOpenServices }) {
 
   useEffect(() => {
     const handleSessionExpired = () => {
+      vendorLogout();
       setShowSessionExpiredPopup(true);
       setShowVendorLogin(false);
       setShowLogin(false);
@@ -787,6 +961,7 @@ function ExploreContent({ onReady, onOpenServices }) {
 
   const [showAdminPasscode, setShowAdminPasscode] = useState(false);
   const [adminPasscode, setAdminPasscode] = useState("");
+
 
   const handleVendorLogin = async () => {
 
@@ -860,7 +1035,7 @@ function ExploreContent({ onReady, onOpenServices }) {
         localStorage.setItem("sessionDeviceId", deviceId);
 
         if (data?.token) {
-          localStorage.setItem("vendorToken", data.token);
+          localStorage.setItem(`vendorToken:${vendorId}`, data.token);
         }
         localStorage.setItem("vendorLoginTime", String(Date.now()));
         localStorage.setItem("userType", "vendor");
@@ -871,11 +1046,11 @@ function ExploreContent({ onReady, onOpenServices }) {
         window.dispatchEvent(new Event("storage"));
         window.dispatchEvent(new Event("auth-changed"));
 
-      setShowVendorLogin(false);
-setShowVendorOtp(false);
-setLoginAsAdmin(false);
-setShowAdminPasscode(false);
-setAdminPasscode("");
+        setShowVendorLogin(false);
+        setShowVendorOtp(false);
+        setLoginAsAdmin(false);
+        setShowAdminPasscode(false);
+        setAdminPasscode("");
 
         if (pendingAction === "GENERATE_BILL") {
           await handleGenerateBill();
@@ -989,7 +1164,7 @@ setAdminPasscode("");
     setEarnPoints(0);
   };
 
-const [showInvalidMobilePopup, setShowInvalidMobilePopup] = useState(false);
+  const [showInvalidMobilePopup, setShowInvalidMobilePopup] = useState(false);
   const { vendorInfo, setVendorInfo } = useVendor();
 
   const [countryCode, setCountryCode] = useState("91");
@@ -1153,9 +1328,9 @@ const [showInvalidMobilePopup, setShowInvalidMobilePopup] = useState(false);
 
 
   const requestOtp = async () => {
-   if (!mobile || mobile.length !== 10) {
-  setShowInvalidMobilePopup(true);
-  return;
+    if (!mobile || mobile.length !== 10) {
+      setShowInvalidMobilePopup(true);
+      return;
     }
 
     try {
@@ -1228,9 +1403,29 @@ const [showInvalidMobilePopup, setShowInvalidMobilePopup] = useState(false);
   const handleVerifyOtp = async () => {
     if (!billingId || !otp) return;
 
+    const vendorToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem(`vendorToken:${vendorId}`)
+        : null;
+
+    if (!vendorToken) {
+      setShowVendorLogin(true);
+      return;
+    }
+
+    const storedVendorId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("vendorSessionVendorId")
+        : null;
+
+    if (storedVendorId !== String(vendorId)) {
+      // Different vendor → force login
+      setShowVendorLogin(true);
+      return;
+    }
+
     try {
       setVerifyingOtp(true);
-      const vendorToken = localStorage.getItem("vendorToken");
 
       await fetch(`${API_BASE_URL}/api/billing/verify-otp`, {
         method: "POST",
@@ -1367,7 +1562,7 @@ const [showInvalidMobilePopup, setShowInvalidMobilePopup] = useState(false);
       localStorage.setItem("sessionDeviceId", deviceId);
 
       if (data?.token) {
-        localStorage.setItem("vendorToken", data.token);
+        localStorage.setItem(`vendorToken:${vendorId}`, data.token);
       }
       localStorage.setItem("vendorLoginTime", Date.now());
       if (vendorId) {
@@ -1678,16 +1873,16 @@ const [showInvalidMobilePopup, setShowInvalidMobilePopup] = useState(false);
     setEarnPoints(pts);
   }, [cartTotal, percentPer100, ruleLoaded, loyaltyEnabled]);
 
-useEffect(() => {
-  if (!customerMobile || customerMobile.length !== 10) return;
-  if (!vendorId) return; // ✅ FIX
+  useEffect(() => {
+    if (!customerMobile || customerMobile.length !== 10) return;
+    if (!vendorId) return; // ✅ FIX
 
-  const handle = setTimeout(() => {
-    verifyCustomer(customerMobile);
-  }, 500);
+    const handle = setTimeout(() => {
+      verifyCustomer(customerMobile);
+    }, 500);
 
-  return () => clearTimeout(handle);
-}, [customerMobile, vendorId]);
+    return () => clearTimeout(handle);
+  }, [customerMobile, vendorId]);
 
   /*
   const saveLoyaltyRule = async () => {
@@ -1876,10 +2071,31 @@ useEffect(() => {
       return;
     }
 
+    const vendorToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem(`vendorToken:${vendorId}`)
+        : null;
+
+    if (!vendorToken) {
+      setPendingAction("GENERATE_BILL");
+      setShowVendorLogin(true);
+      return;
+    }
+
+    const storedVendorId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("vendorSessionVendorId")
+        : null;
+
+    if (storedVendorId !== String(vendorId)) {
+      // Different vendor → force login
+      setPendingAction("GENERATE_BILL");
+      setShowVendorLogin(true);
+      return;
+    }
+
     try {
       setProcessingBill(true);
-
-      const vendorToken = localStorage.getItem("vendorToken");
 
       // STEP 1 - Create billing session
       const createRes = await fetch(`${API_BASE_URL}/api/billing/create`, {
@@ -2073,22 +2289,26 @@ useEffect(() => {
       if (!node || typeof node !== "object") return acc;
 
       const name = String(node.name || node.title || "").toLowerCase();
-      const filteredChildren = Array.isArray(node.children)
-        ? filterMenuNodes(node.children, normalizedQuery)
-        : [];
-      const hasPrice = node.price !== undefined && node.price !== null;
+      const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+
       const matchesSelf = name.includes(normalizedQuery);
 
-      if (matchesSelf || filteredChildren.length > 0) {
-        acc.push({
-          ...node,
-          children: filteredChildren,
-        });
+      // 🔥 If parent matches → return FULL subtree (no filtering)
+      if (matchesSelf) {
+        acc.push(node);
         return acc;
       }
 
-      if (hasPrice && matchesSelf) {
-        acc.push(node);
+      // 🔍 Otherwise check children
+      if (hasChildren) {
+        const filteredChildren = filterMenuNodes(node.children, normalizedQuery);
+
+        if (filteredChildren.length > 0) {
+          acc.push({
+            ...node,
+            children: filteredChildren,
+          });
+        }
       }
 
       return acc;
@@ -2570,32 +2790,37 @@ useEffect(() => {
                 {/* LOGGED IN */}
                 {/* NOT LOGGED IN */}
                 {/* BEFORE LOGIN */}
-             {cartItems.length > 0 && loyaltyEnabled && earnPoints > 0 && (
-                  <div className="explore-cart-cashback-card">
-                    <div className="explore-cart-cashback-left">
-                      <div className="explore-cart-cashback-icon">🎉</div>
+                {cartItems.length > 0 && (
+  <div className="explore-cart-cashback-card">
+    <div className="explore-cart-cashback-left">
+      <div className="explore-cart-cashback-icon">🛒</div>
 
-                      <div className="explore-cart-cashback-text">
-                        <div className="explore-cart-cashback-title">
-                          Congratulations!
-                        </div>
+      <div className="explore-cart-cashback-text">
+        <div className="explore-cart-cashback-title">
+          Items added to cart
+        </div>
 
-                        <div className="explore-cart-cashback-copy">
-                          You will earn {earnPoints} points on this order
-                        </div>
-                      </div>
-                    </div>
+        <div className="explore-cart-cashback-copy">
+          You have {cartItems.length} item(s)
+        </div>
+      </div>
+    </div>
 
-                    <div className="explore-cart-cashback-actions">
-                      <button
-                        className="explore-cart-go-btn"
-                        onClick={() => setViewMode("menu")}
-                      >
-                        Go to Cart
-                      </button>
-                    </div>
-                  </div>
-                )}
+    <div className="explore-cart-cashback-actions">
+      <button
+        className="explore-cart-go-btn"
+        onClick={() => setViewMode("menu")}
+      >
+        Go to Cart
+      </button>
+    </div>
+  </div>
+)}
+{cartItems.length > 0 && loyaltyEnabled && earnPoints > 0 && (
+  <div className="explore-cart-cashback-card">
+    🎉 You will earn {earnPoints} points
+  </div>
+)}
 
                 <div className="explore-cart-widget-total">
                   <span>Total</span>
@@ -3029,10 +3254,21 @@ useEffect(() => {
                               onClick={() => {
                                 const vendorToken =
                                   typeof window !== "undefined"
-                                    ? localStorage.getItem("vendorToken")
+                                    ? localStorage.getItem(`vendorToken:${vendorId}`)
                                     : null;
 
                                 if (!vendorToken) {
+                                  setPendingAction("GENERATE_BILL");
+                                  setShowVendorLogin(true);
+                                  return;
+                                }
+
+                                const storedVendorId =
+                                  typeof window !== "undefined"
+                                    ? localStorage.getItem("vendorSessionVendorId")
+                                    : null;
+
+                                if (storedVendorId !== String(vendorId)) {
                                   setPendingAction("GENERATE_BILL");
                                   setShowVendorLogin(true);
                                   return;
@@ -3464,24 +3700,35 @@ useEffect(() => {
                                   )}
                                 </>
                               )}
-                            <button
-                              onClick={() => {
-                                const vendorToken =
-                                  typeof window !== "undefined"
-                                    ? localStorage.getItem("vendorToken")
-                                    : null;
+                              <button
+                                onClick={() => {
+                                  const vendorToken =
+                                    typeof window !== "undefined"
+                                      ? localStorage.getItem(`vendorToken:${vendorId}`)
+                                      : null;
 
-                                if (!vendorToken) {
-                                  setPendingAction("GENERATE_BILL");
-                                  setShowVendorLogin(true);
-                                  return;
-                                }
+                                  if (!vendorToken) {
+                                    setPendingAction("GENERATE_BILL");
+                                    setShowVendorLogin(true);
+                                    return;
+                                  }
 
-                                handleGenerateBill();
-                              }}
-                              style={{
-                                marginTop: "14px",
-                                width: "100%",
+                                  const storedVendorId =
+                                    typeof window !== "undefined"
+                                      ? localStorage.getItem("vendorSessionVendorId")
+                                      : null;
+
+                                  if (storedVendorId !== String(vendorId)) {
+                                    setPendingAction("GENERATE_BILL");
+                                    setShowVendorLogin(true);
+                                    return;
+                                  }
+
+                                  handleGenerateBill();
+                                }}
+                                style={{
+                                  marginTop: "14px",
+                                  width: "100%",
                                   background: "#e6c37a",
                                   color: "#000",
                                   padding: "12px",
@@ -3733,57 +3980,57 @@ useEffect(() => {
         </div>
       )}
       {showInvalidMobilePopup && (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.6)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 9999,
-    }}
-    onClick={() => setShowInvalidMobilePopup(false)}
-  >
-    <div
-      style={{
-        background: "#111",
-        color: "#fff",
-        padding: "20px",
-        borderRadius: "12px",
-        width: "90%",
-        maxWidth: "360px",
-        textAlign: "center",
-        border: "1px solid #444",
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div style={{ fontSize: "18px", fontWeight: 600, marginBottom: "10px" }}>
-        Invalid Mobile Number
-      </div>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+          onClick={() => setShowInvalidMobilePopup(false)}
+        >
+          <div
+            style={{
+              background: "#111",
+              color: "#fff",
+              padding: "20px",
+              borderRadius: "12px",
+              width: "90%",
+              maxWidth: "360px",
+              textAlign: "center",
+              border: "1px solid #444",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: "18px", fontWeight: 600, marginBottom: "10px" }}>
+              Invalid Mobile Number
+            </div>
 
-      <div style={{ fontSize: "14px", color: "#ccc", marginBottom: "20px" }}>
-        Please enter a valid 10-digit mobile number.
-      </div>
+            <div style={{ fontSize: "14px", color: "#ccc", marginBottom: "20px" }}>
+              Please enter a valid 10-digit mobile number.
+            </div>
 
-      <button
-        onClick={() => setShowInvalidMobilePopup(false)}
-        style={{
-          width: "100%",
-          padding: "10px",
-          background: "#e6c37a",
-          color: "#000",
-          borderRadius: "8px",
-          border: "none",
-          fontWeight: 600,
-          cursor: "pointer",
-        }}
-      >
-        Cancel
-      </button>
-    </div>
-  </div>
-)}
+            <button
+              onClick={() => setShowInvalidMobilePopup(false)}
+              style={{
+                width: "100%",
+                padding: "10px",
+                background: "#e6c37a",
+                color: "#000",
+                borderRadius: "8px",
+                border: "none",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {viewMode === "profile-dashboard" && (
         <div className="new-dashboard-overlay">
@@ -4025,16 +4272,31 @@ useEffect(() => {
               setShowOptions(false);
               const vendorToken =
                 typeof window !== "undefined"
-                  ? localStorage.getItem("vendorToken")
+                  ? localStorage.getItem(`vendorToken:${vendorId}`)
                   : null;
 
               if (!vendorToken) {
                 setPendingAction(null);
-              setLoginAsAdmin(false);
-setShowAdminPasscode(false);
-setAdminPasscode("");
-setShowVendorOtp(false);
-setShowVendorLogin(true);
+                setLoginAsAdmin(false);
+                setShowAdminPasscode(false);
+                setAdminPasscode("");
+                setShowVendorOtp(false);
+                setShowVendorLogin(true);
+                return;
+              }
+
+              const storedVendorId =
+                typeof window !== "undefined"
+                  ? localStorage.getItem("vendorSessionVendorId")
+                  : null;
+
+              if (storedVendorId !== String(vendorId)) {
+                setPendingAction(null);
+                setLoginAsAdmin(false);
+                setShowAdminPasscode(false);
+                setAdminPasscode("");
+                setShowVendorOtp(false);
+                setShowVendorLogin(true);
                 return;
               }
 
@@ -4067,8 +4329,8 @@ setShowVendorLogin(true);
             setPendingAction(null);
           }}
         >
-          
-            
+
+
           <div
             className="login-modal vendor-login-modal"
             onClick={(e) => e.stopPropagation()}
@@ -4111,22 +4373,22 @@ setShowVendorLogin(true);
               <>
 
                 <div className="login-input-row">
-  <select
-    className="login-code"
-    value={countryCode}
-    onChange={(e) => setCountryCode(e.target.value)}
-  >
-    <option value="91">IN +91</option>
-  </select>
+                  <select
+                    className="login-code"
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                  >
+                    <option value="91">IN +91</option>
+                  </select>
 
-  <input
-    placeholder="Enter mobile number"
-    value={vendorMobile}
-    onChange={(e) => setVendorMobile(e.target.value)}
-    className="login-input vendor-login-input"
-  />
-</div>
-             
+                  <input
+                    placeholder="Enter mobile number"
+                    value={vendorMobile}
+                    onChange={(e) => setVendorMobile(e.target.value)}
+                    className="login-input vendor-login-input"
+                  />
+                </div>
+
                 <label className="vendor-login-checkbox">
                   <input
                     type="checkbox"
@@ -4286,7 +4548,7 @@ setShowVendorLogin(true);
           </div>
 
           {/* Animation */}
-        
+
         </div>
       )}
 

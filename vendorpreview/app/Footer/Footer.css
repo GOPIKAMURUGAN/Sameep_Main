@@ -169,3 +169,9 @@
 .linkedin { color: #0a66c2; }
 .whatsapp { color: #25d366; }
 
+@media (max-width: 768px) {
+  .footer-socials {
+    justify-content: center;
+    width: 100%;
+  }
+}

@@ -684,10 +684,9 @@ const normalizePhone = (phone) => {
       }
 
       if (data?.token) {
-        localStorage.setItem("authToken", data.token);
-        localStorage.setItem("loginTime", String(Date.now()));
-        window.dispatchEvent(new Event("storage"));
-        window.dispatchEvent(new Event("auth-changed"));
+        localStorage.setItem("otpVerified", "true");
+       
+      
       }
 
       setOtpSent(false);
