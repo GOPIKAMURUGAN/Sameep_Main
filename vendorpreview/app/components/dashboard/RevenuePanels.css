@@ -122,6 +122,49 @@
   font-weight: 700;
 }
 
+.revenue-panel-bill-content {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.revenue-panel-bill-meta {
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(245, 242, 234, 0.6);
+}
+
+.revenue-panel-items-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.revenue-panel-item-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(230, 195, 122, 0.12);
+}
+
+.revenue-panel-item-name {
+  font-weight: 600;
+}
+
+.revenue-panel-item-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(245, 242, 234, 0.68);
+}
+
+.revenue-panel-item-value {
+  color: #e6c37a;
+  font-weight: 700;
+}
+
 .revenue-panel-search-row {
   display: flex;
   gap: 12px;

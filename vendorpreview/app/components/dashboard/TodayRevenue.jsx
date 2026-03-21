@@ -23,6 +23,20 @@ function formatDateTime(value) {
   });
 }
 
+function formatItemMeta(item) {
+  const parts = [];
+
+  if (Number(item?.qty || 0) > 0) {
+    parts.push(`Qty ${item.qty}`);
+  }
+
+  if (Array.isArray(item?.nodePath) && item.nodePath.length > 0) {
+    parts.push(item.nodePath.join(" / "));
+  }
+
+  return parts.join(" • ");
+}
+
 function getTodayRange() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -229,6 +243,39 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
                         {currencyFmt.format(Number(bill.total || 0))}
                       </div>
                     </div>
+
+                    <div className="today-revenue-metrics-grid">
+                      <div className="today-revenue-metric-card">
+                        <div className="today-revenue-metric-label">Earned</div>
+                        <div className="today-revenue-metric-value">{Number(bill.earned || 0)}</div>
+                      </div>
+                      <div className="today-revenue-metric-card">
+                        <div className="today-revenue-metric-label">Redeemed</div>
+                        <div className="today-revenue-metric-value">{Number(bill.redeemed || 0)}</div>
+                      </div>
+                    </div>
+
+                    {Array.isArray(bill.items) && bill.items.length > 0 ? (
+                      <div className="today-revenue-items-section">
+                        <div className="today-revenue-items-title">Cart Items</div>
+                        <div className="today-revenue-items-list">
+                          {bill.items.map((item, index) => (
+                            <div
+                              key={`${bill.billId || bill.createdAt}-item-${item.itemId || item.name || index}`}
+                              className="today-revenue-item-row"
+                            >
+                              <div>
+                                <div className="today-revenue-item-name">{item.name || "Unnamed Item"}</div>
+                                <div className="today-revenue-item-meta">{formatItemMeta(item)}</div>
+                              </div>
+                              <div className="today-revenue-bill-total">
+                                {currencyFmt.format(Number(item.total || item.price || 0))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>

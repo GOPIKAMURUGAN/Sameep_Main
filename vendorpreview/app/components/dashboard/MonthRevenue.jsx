@@ -22,6 +22,20 @@ function formatDateTime(value) {
   });
 }
 
+function formatItemMeta(item) {
+  const parts = [];
+
+  if (Number(item?.qty || 0) > 0) {
+    parts.push(`Qty ${item.qty}`);
+  }
+
+  if (Array.isArray(item?.nodePath) && item.nodePath.length > 0) {
+    parts.push(item.nodePath.join(" / "));
+  }
+
+  return parts.join(" • ");
+}
+
 function getMonthRange() {
   const start = new Date();
   start.setDate(1);
@@ -201,18 +215,40 @@ export default function MonthRevenue({ vendorId }) {
                 <div className="revenue-panel-empty">No revenue bills found for this month.</div>
               ) : (
                 <div className="revenue-panel-list">
-                  {bills.slice(0, 8).map((bill) => (
+                  {bills.map((bill) => (
                     <div
                       key={bill.billId || `${bill.phone}-${bill.createdAt}`}
                       className="revenue-panel-list-item"
                     >
-                      <div>
+                      <div className="revenue-panel-bill-content">
                         <div className="revenue-panel-list-main">
                           Bill #{String(bill.billId || "").slice(0, 8)}
                         </div>
                         <div className="revenue-panel-list-sub">
                           {bill.phone || "Walk-in"} • {formatDateTime(bill.createdAt)}
                         </div>
+                        <div className="revenue-panel-bill-meta">
+                          Earned {Number(bill.earned || 0)} • Redeemed {Number(bill.redeemed || 0)}
+                        </div>
+
+                        {Array.isArray(bill.items) && bill.items.length > 0 ? (
+                          <div className="revenue-panel-items-list">
+                            {bill.items.map((item, index) => (
+                              <div
+                                key={`${bill.billId || bill.createdAt}-item-${item.itemId || item.name || index}`}
+                                className="revenue-panel-item-row"
+                              >
+                                <div>
+                                  <div className="revenue-panel-item-name">{item.name || "Unnamed Item"}</div>
+                                  <div className="revenue-panel-item-meta">{formatItemMeta(item)}</div>
+                                </div>
+                                <div className="revenue-panel-item-value">
+                                  {currencyFmt.format(Number(item.total || item.price || 0))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                       <div className="revenue-panel-list-value">
                         {currencyFmt.format(Number(bill.total || 0))}
