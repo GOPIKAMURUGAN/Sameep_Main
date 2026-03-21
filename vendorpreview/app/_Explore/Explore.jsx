@@ -1115,6 +1115,7 @@ function ExploreContent({ onReady, onOpenServices }) {
   };
   // ================= MENU TREE (TEMP SAFE STATE) =================
   const [menuTree, setMenuTree] = useState([]);
+  const [expandedMenuNodes, setExpandedMenuNodes] = useState({});
 
 
   const [selectedServiceName, setSelectedServiceName] = useState("");
@@ -2374,6 +2375,34 @@ function ExploreContent({ onReady, onOpenServices }) {
     [menuTree, menuSearch]
   );
 
+  const countLeafNodes = (nodes) => {
+    if (!Array.isArray(nodes) || nodes.length === 0) return 0;
+
+    return nodes.reduce((count, node) => {
+      if (!node || typeof node !== "object") return count;
+      const children = Array.isArray(node.children) ? node.children : [];
+
+      if (children.length === 0 && node.price !== undefined && node.price !== null) {
+        return count + 1;
+      }
+
+      return count + countLeafNodes(children);
+    }, 0);
+  };
+
+  const isMenuNodeExpanded = (nodeKey, depth) => {
+    if (menuSearch.trim()) return true;
+    if (expandedMenuNodes[nodeKey] !== undefined) return expandedMenuNodes[nodeKey];
+    return depth < 2;
+  };
+
+  const toggleMenuNode = (nodeKey) => {
+    setExpandedMenuNodes((prev) => ({
+      ...prev,
+      [nodeKey]: !(prev[nodeKey] ?? true),
+    }));
+  };
+
   const renderMenuNodes = (nodes, depth = 0, path = [], pathIds = []) => {
     if (!Array.isArray(nodes) || nodes.length === 0) return null;
 
@@ -2383,6 +2412,7 @@ function ExploreContent({ onReady, onOpenServices }) {
       const name = node.name || node.title || "Untitled";
       const newPath = [...path, name];
       const newPathIds = [...pathIds, node.categoryId || node._id];
+      const nodeKey = newPathIds.filter(Boolean).join("_") || `${depth}-${name}-${idx}`;
 
       const hasChildren = Array.isArray(node.children) && node.children.length > 0;
       const hasPrice = node.price !== undefined && node.price !== null;
@@ -2395,16 +2425,19 @@ function ExploreContent({ onReady, onOpenServices }) {
             key={`${depth}-leaf-${name}-${idx}`}
             className={`menu-tree-leaf-row menu-depth-indent-${Math.min(depth, 6)} ${cls}`}
           >
-            <span className="menu-tree-leaf-name">{name}</span>
-            <span className="menu-tree-leaf-price">
-              ₹ {node.price}
-            </span>
+            <div className="menu-tree-leaf-copy">
+              <div className="menu-tree-leaf-name">{name}</div>
+              <div className="menu-tree-leaf-meta">
+                {newPath.slice(0, -1).join(" / ")}
+              </div>
+            </div>
+            <span className="menu-tree-leaf-price">₹ {node.price}</span>
             <button
               className="menu-tree-add-btn"
               type="button"
               onClick={() => addToCart(node, newPath, newPathIds)}
             >
-              [+ Add]
+              Add
             </button>
           </div>
         );
@@ -2414,16 +2447,30 @@ function ExploreContent({ onReady, onOpenServices }) {
       if (!hasChildren) return null;
 
       const cls = menuClassForDepth(depth, false);
+      const leafCount = countLeafNodes(node.children);
+      const isExpanded = isMenuNodeExpanded(nodeKey, depth);
 
       return (
         <div
           key={`${depth}-node-${name}-${idx}`}
           className="menu-tree-node-block"
         >
-          <div className={`menu-tree-heading menu-depth-heading-${Math.min(depth, 6)} ${cls}`}>
-            {name}
-          </div>
-          <div>{renderMenuNodes(node.children, depth + 1, newPath, newPathIds)}</div>
+          <button
+            type="button"
+            className={`menu-tree-heading menu-depth-heading-${Math.min(depth, 6)} ${cls} ${isExpanded ? "expanded" : "collapsed"}`}
+            onClick={() => toggleMenuNode(nodeKey)}
+          >
+            <span className="menu-tree-heading-copy">
+              <span className="menu-tree-heading-title">{name}</span>
+              <span className="menu-tree-heading-meta">
+                {leafCount} service{leafCount === 1 ? "" : "s"}
+              </span>
+            </span>
+            <span className="menu-tree-heading-toggle">{isExpanded ? "−" : "+"}</span>
+          </button>
+          {isExpanded ? (
+            <div>{renderMenuNodes(node.children, depth + 1, newPath, newPathIds)}</div>
+          ) : null}
         </div>
       );
     });
@@ -2939,6 +2986,18 @@ function ExploreContent({ onReady, onOpenServices }) {
                       onChange={(e) => setMenuSearch(e.target.value)}
                       placeholder="Search services..."
                     />
+                  </div>
+                  <div className="menu-toolbar">
+                    <div className="menu-toolbar-copy">
+                      <div className="menu-toolbar-title">Quick Billing Menu</div>
+                      <div className="menu-toolbar-subtitle">
+                        Search a service, open the matching section, and add it directly to cart.
+                      </div>
+                    </div>
+                    <div className="menu-toolbar-summary">
+                      <span>{countLeafNodes(filteredMenuTree)} services</span>
+                      <span>{cartItems.length} in cart</span>
+                    </div>
                   </div>
                   {filteredMenuTree.length === 0 ? (
                     <div className="menu-empty-search">
