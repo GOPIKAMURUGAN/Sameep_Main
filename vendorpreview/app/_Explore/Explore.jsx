@@ -2396,10 +2396,10 @@ function ExploreContent({ onReady, onOpenServices }) {
     return depth < 2;
   };
 
-  const toggleMenuNode = (nodeKey) => {
+  const toggleMenuNode = (nodeKey, depth) => {
     setExpandedMenuNodes((prev) => ({
       ...prev,
-      [nodeKey]: !(prev[nodeKey] ?? true),
+      [nodeKey]: !(prev[nodeKey] ?? (depth < 2)),
     }));
   };
 
@@ -2458,7 +2458,7 @@ function ExploreContent({ onReady, onOpenServices }) {
           <button
             type="button"
             className={`menu-tree-heading menu-depth-heading-${Math.min(depth, 6)} ${cls} ${isExpanded ? "expanded" : "collapsed"}`}
-            onClick={() => toggleMenuNode(nodeKey)}
+            onClick={() => toggleMenuNode(nodeKey, depth)}
           >
             <span className="menu-tree-heading-copy">
               <span className="menu-tree-heading-title">{name}</span>
