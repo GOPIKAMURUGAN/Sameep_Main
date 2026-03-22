@@ -74,6 +74,12 @@ export function adminImpersonate(payload) {
   });
 }
 
+export function fetchAdminPasscode() {
+  return request("/api/app-config/admin-passcode", {
+    method: "GET",
+  });
+}
+
 export function createVendor(payload) {
   return request("/api/dummy-vendors", {
     method: "POST",

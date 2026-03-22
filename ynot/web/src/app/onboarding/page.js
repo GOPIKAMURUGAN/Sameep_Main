@@ -4,9 +4,9 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ServiceAreasStep from "../../components/onboarding/ServiceAreasStep";
 import {
-  adminImpersonate,
   bypassOtp,
   createVendor,
+  fetchAdminPasscode,
   fetchDummyCategories,
   fetchTrustQuestions,
   getGooglePlaceDetails,
@@ -408,14 +408,13 @@ function OnboardingFlow() {
 
     try {
       setVerifyingPasscode(true);
-      await adminImpersonate({
-        categoryId:
-          confirmedCategory?._id ||
-          confirmedCategory?.id ||
-          confirmedCategory?.categoryId,
-        passcode: adminPasscode,
-        ...(vendorId ? { vendorId } : {}),
-      });
+      const data = await fetchAdminPasscode();
+      const expectedPasscode = String(data?.adminPasscode || "").trim();
+
+      if (!expectedPasscode || adminPasscode.trim() !== expectedPasscode) {
+        alert("Invalid passcode");
+        return;
+      }
 
       setBypassOtpEnabled(true);
       setShowAdminPopup(false);
