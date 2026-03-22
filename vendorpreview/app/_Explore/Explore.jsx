@@ -315,6 +315,12 @@ const handleConfiguredAddToCart = () => {
   ].filter(Boolean);
 
 const serviceId = data.id || data._id || data.categoryId;
+const cartKey = [
+  serviceId,
+  selectedMain,
+  selectedSub,
+  selectedSubSub
+].filter(Boolean).join("_");
 
   const serviceName =
     selectedSubSub ||   // ✅ PRIORITY LEVEL 5
@@ -326,6 +332,7 @@ const serviceId = data.id || data._id || data.categoryId;
     {
       _id: serviceId,
       categoryId: serviceId,
+      cartKey,
       name: serviceName,
       price: Number(total) || 0,
     },
@@ -2011,11 +2018,12 @@ function ExploreContent({ onReady, onOpenServices }) {
     setCartItems(prev => {
       const safePathIds = (categoryPathIds || []).filter(Boolean);
       const itemId = node._id || node.id || node.categoryId;
+      const cartKey = node.cartKey || itemId;
       const categoryId = node.categoryId || node._id || node.id;
-      const existing = prev.find(i => i.itemId === itemId);
+      const existing = prev.find(i => (i.cartKey || i.itemId) === cartKey);
       if (existing) {
         return prev.map(i => {
-          if (i.itemId !== itemId) return i;
+          if ((i.cartKey || i.itemId) !== cartKey) return i;
           const qty = i.qty + 1;
           return { ...i, qty, total: i.price * qty };
         });
@@ -2023,6 +2031,7 @@ function ExploreContent({ onReady, onOpenServices }) {
       return [
         ...prev,
         {
+          cartKey,
           itemId,
           categoryId,
 
@@ -2249,41 +2258,41 @@ function ExploreContent({ onReady, onOpenServices }) {
 
 
 
-  const increaseQty = (itemId) => {
+  const increaseQty = (cartKey) => {
     setCartItems(prev =>
       prev.map(i => {
-        if (i.itemId !== itemId) return i;
+        if ((i.cartKey || i.itemId) !== cartKey) return i;
         const qty = i.qty + 1;
         return { ...i, qty, total: i.price * qty };
       })
     );
   };
 
-  const decreaseQty = (itemId) => {
+  const decreaseQty = (cartKey) => {
     setCartItems(prev => {
-      const item = prev.find(i => i.itemId === itemId);
+      const item = prev.find(i => (i.cartKey || i.itemId) === cartKey);
       if (!item) return prev;
       if (item.qty > 1) {
         return prev.map(i => {
-          if (i.itemId !== itemId) return i;
+          if ((i.cartKey || i.itemId) !== cartKey) return i;
           const qty = i.qty - 1;
           return { ...i, qty, total: i.price * qty };
         });
       }
-      return prev.filter(i => i.itemId !== itemId);
+      return prev.filter(i => (i.cartKey || i.itemId) !== cartKey);
     });
   };
 
-  const removeItem = (itemId) => {
-    setCartItems(prev => prev.filter(i => i.itemId !== itemId));
+  const removeItem = (cartKey) => {
+    setCartItems(prev => prev.filter(i => (i.cartKey || i.itemId) !== cartKey));
   };
 
-  const updateItemStylist = (itemId, resourceId) => {
+  const updateItemStylist = (cartKey, resourceId) => {
     const resource = resources.find(r => String(r._id) === String(resourceId));
 
     setCartItems(prev =>
       prev.map(item =>
-        item.itemId === itemId
+        (item.cartKey || item.itemId) === cartKey
           ? {
             ...item,
             resourceId: resourceId || null,
@@ -2858,7 +2867,7 @@ function ExploreContent({ onReady, onOpenServices }) {
 
                 {cartItems.map((item, index) => (
                   <div
-                    key={`${item.itemId || item.name}-${index}`}
+                    key={`${item.cartKey || item.itemId || item.name}-${index}`}
                     className="explore-cart-widget-item"
                   >
                     <div className="explore-cart-widget-head">
@@ -2870,7 +2879,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                       <button
                         type="button"
                         className="explore-cart-widget-btn"
-                        onClick={() => decreaseQty(item.itemId)}
+                        onClick={() => decreaseQty(item.cartKey || item.itemId)}
                       >
                         -
                       </button>
@@ -2878,7 +2887,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                       <button
                         type="button"
                         className="explore-cart-widget-btn"
-                        onClick={() => increaseQty(item.itemId)}
+                        onClick={() => increaseQty(item.cartKey || item.itemId)}
                       >
                         +
                       </button>
@@ -3038,7 +3047,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                         <>
                           {cartItems.map((item, index) => (
                             <div
-                              key={`${item.itemId || item.name}-${index}`}
+                              key={`${item.cartKey || item.itemId || item.name}-${index}`}
                               style={{
                                 display: "flex",
                                 flexDirection: "column",
@@ -3068,7 +3077,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                 <div style={{ display: "flex", gap: 6 }}>
                                   <button
                                     type="button"
-                                    onClick={() => increaseQty(item.itemId)}
+                                    onClick={() => increaseQty(item.cartKey || item.itemId)}
                                     style={{
                                       width: 26,
                                       height: 26,
@@ -3083,7 +3092,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => decreaseQty(item.itemId)}
+                                    onClick={() => decreaseQty(item.cartKey || item.itemId)}
                                     style={{
                                       width: 26,
                                       height: 26,
@@ -3098,7 +3107,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => removeItem(item.itemId)}
+                                    onClick={() => removeItem(item.cartKey || item.itemId)}
                                     style={{
                                       width: 26,
                                       height: 26,
@@ -3126,7 +3135,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                 </div>
                                 <select
                                   value={item.resourceId || ""}
-                                  onChange={(e) => updateItemStylist(item.itemId, e.target.value)}
+                                  onChange={(e) => updateItemStylist(item.cartKey || item.itemId, e.target.value)}
                                   style={{
                                     width: "100%",
                                     marginTop: 6,
@@ -3492,7 +3501,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                           <>
                             {cartItems.map((item, index) => (
                               <div
-                                key={`${item.itemId || item.name}-${index}`}
+                                key={`${item.cartKey || item.itemId || item.name}-${index}`}
                                 style={{
                                   display: "flex",
                                   flexDirection: "column",
@@ -3522,7 +3531,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                   <div style={{ display: "flex", gap: 6 }}>
                                     <button
                                       type="button"
-                                      onClick={() => increaseQty(item.itemId)}
+                                      onClick={() => increaseQty(item.cartKey || item.itemId)}
                                       style={{
                                         width: 26,
                                         height: 26,
@@ -3537,7 +3546,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => decreaseQty(item.itemId)}
+                                      onClick={() => decreaseQty(item.cartKey || item.itemId)}
                                       style={{
                                         width: 26,
                                         height: 26,
@@ -3552,7 +3561,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => removeItem(item.itemId)}
+                                      onClick={() => removeItem(item.cartKey || item.itemId)}
                                       style={{
                                         width: 26,
                                         height: 26,
@@ -3580,7 +3589,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                   </div>
                                   <select
                                     value={item.resourceId || ""}
-                                    onChange={(e) => updateItemStylist(item.itemId, e.target.value)}
+                                    onChange={(e) => updateItemStylist(item.cartKey || item.itemId, e.target.value)}
                                     style={{
                                       width: "100%",
                                       marginTop: 6,

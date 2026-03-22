@@ -6,19 +6,19 @@ export default function CategoryCard({ category, onClick }) {
 
   return (
     <div className="categoryCard" onClick={onClick}>
-      <img
-        src={category.imageUrl || "/placeholder.svg"}
-        alt={category.name}
-        className="categoryImage"
-      />
+      <div className="categoryMedia">
+        <img
+          src={category.imageUrl || "/placeholder.svg"}
+          alt={category.name}
+          className="categoryImage"
+        />
+        {isPopular ? <span className="categoryBadge">Popular</span> : null}
+      </div>
 
       <div className="categoryContent">
         <h3>{category.name}</h3>
 
-        <p className="vendorCount">
-          {isPopular && "🔥 "}
-          {vendorCount} vendors already growing
-        </p>
+        <p className="vendorCount">{vendorCount} vendors already growing</p>
       </div>
     </div>
   );

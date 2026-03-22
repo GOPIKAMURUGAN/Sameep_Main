@@ -1,0 +1,18 @@
+<svg width="544" height="160" viewBox="0 0 544 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="goldFill" x1="56" y1="26" x2="372" y2="118" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8D57F"/>
+      <stop offset="0.52" stop-color="#D9AA4E"/>
+      <stop offset="1" stop-color="#B9852F"/>
+    </linearGradient>
+    <filter id="softGlow" x="0" y="0" width="544" height="160" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0.956 0 1 0 0 0.788 0 0 1 0 0.415 0 0 0 0.25 0"/>
+      <feBlend mode="screen" in2="SourceGraphic"/>
+    </filter>
+  </defs>
+  <g filter="url(#softGlow)">
+    <text x="44" y="86" fill="url(#goldFill)" font-family="Georgia, 'Times New Roman', serif" font-size="74" letter-spacing="6">YNOT</text>
+    <text x="48" y="126" fill="url(#goldFill)" font-family="Georgia, 'Times New Roman', serif" font-size="28" letter-spacing="1.2">Go Online. Instantly.</text>
+  </g>
+</svg>
