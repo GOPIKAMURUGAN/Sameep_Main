@@ -791,6 +791,8 @@ router.get("/categories/counts", async (req, res) => {
       imageUrl: c.imageUrl,
       totalVendors: totals.get(String(c._id)) || 0,
       statusCounts: statusMap.get(String(c._id)) || {},
+      visibleToVendor: c.visibleToVendor !== false,
+      onboardingEnabled: c.visibleToVendor !== false,
     }));
 
     res.json(result);

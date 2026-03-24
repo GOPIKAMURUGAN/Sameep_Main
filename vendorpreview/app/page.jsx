@@ -132,5 +132,3 @@ if (!sessionAllowed) {
     </div>
   );
 }
-
-

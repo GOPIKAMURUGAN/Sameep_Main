@@ -275,6 +275,17 @@ select {
   box-shadow: 0 0 24px rgba(245, 201, 106, 0.12);
 }
 
+.categoryCardDisabled {
+  cursor: default;
+  opacity: 0.78;
+}
+
+.categoryCardDisabled:hover {
+  transform: none;
+  border-color: rgba(245, 201, 106, 0.2);
+  box-shadow: none;
+}
+
 .categoryMedia {
   position: relative;
 }
@@ -307,6 +318,12 @@ select {
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.04em;
+}
+
+.categoryCardDisabled .categoryBadge {
+  color: #1b1711;
+  background: linear-gradient(135deg, rgba(245, 201, 106, 0.95), rgba(212, 169, 79, 0.92));
+  border-color: rgba(245, 201, 106, 0.8);
 }
 
 .categoryContent {

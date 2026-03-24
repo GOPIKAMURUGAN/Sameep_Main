@@ -34,8 +34,14 @@ export default function Home() {
       (b.vendorCount || b.totalVendors || 0) -
       (a.vendorCount || a.totalVendors || 0)
   );
+  const enabledCategories = sortedCategories.filter(
+    (category) => category.onboardingEnabled !== false && category.visibleToVendor !== false
+  );
+  const disabledCategories = sortedCategories.filter(
+    (category) => category.onboardingEnabled === false || category.visibleToVendor === false
+  );
 
-  const featuredCategories = sortedCategories.slice(0, 6);
+  const featuredCategories = enabledCategories.slice(0, 6);
 
   return (
     <div className="pageWrapper">
@@ -148,11 +154,11 @@ export default function Home() {
             </div>
           ) : null}
 
-          {!loading && !error && categories.length === 0 ? (
+          {!loading && !error && enabledCategories.length === 0 ? (
             <div className="emptyState">No categories available right now.</div>
           ) : null}
 
-          {!loading && !error && sortedCategories.length > 6 ? (
+          {!loading && !error && (enabledCategories.length > 6 || disabledCategories.length > 0) ? (
             <>
               <div className="sectionHeader sectionHeaderSecondary">
                 <div>
@@ -161,7 +167,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="grid">
-                {sortedCategories.slice(6).map((cat) => {
+                {enabledCategories.slice(6).map((cat) => {
                   const categoryId = cat.categoryId || cat.id || cat._id;
 
                   return (
@@ -171,6 +177,17 @@ export default function Home() {
                       onClick={() =>
                         router.push(`/onboarding?categoryId=${categoryId}`)
                       }
+                    />
+                  );
+                })}
+                {disabledCategories.map((cat) => {
+                  const categoryId = cat.categoryId || cat.id || cat._id;
+
+                  return (
+                    <CategoryCard
+                      key={categoryId}
+                      category={cat}
+                      disabled
                     />
                   );
                 })}

@@ -7,6 +7,7 @@ const Customer = require("../models/Customer");
 const Vendor = require("../models/DummyVendor");
 const { sendBillWhatsapp } = require("../utils/whatsappService");
 const { calculateCustomerBalance } = require("../services/loyaltyService");
+const { deductOTP, deductWhatsApp } = require("../services/vendorWalletService");
 
 
 // ✅ Create Billing Session
@@ -200,6 +201,10 @@ exports.verifyRedeemOTP = async (req, res) => {
         success: false,
         message: "Invalid OTP",
       });
+    }
+
+    if (!billing.otpVerified) {
+      await deductOTP(billing.vendorId, `billing-redemption:${billing._id}`);
     }
 
     billing.otpVerified = true;
@@ -400,6 +405,8 @@ if (!closed) {
           finalPaid: billing.totalAmount - (billing.pointsRedeemed || 0),
           balance,
         });
+
+        await deductWhatsApp(billing.vendorId, `billing:${billing._id}`);
       } catch (err) {
         console.error("WhatsApp send failed:", err?.message || err);
       }
