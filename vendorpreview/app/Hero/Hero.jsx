@@ -12,6 +12,8 @@ const HeroSection = ({
   description,
   button1Label,
   button2Label,
+  onButton1Click,
+  onButton2Click,
 }) => {
   const [index, setIndex] = useState(0);
   const [slide, setSlide] = useState(false);
@@ -126,8 +128,16 @@ const HeroSection = ({
         </div>
 
         <div className="hero-buttons">
-          {button1Label && <button className="btn">{button1Label}</button>}
-          {button2Label && <button className="btn">{button2Label}</button>}
+          {button1Label && (
+            <button className="btn" onClick={onButton1Click}>
+              {button1Label}
+            </button>
+          )}
+          {button2Label && (
+            <button className="btn" onClick={onButton2Click}>
+              {button2Label}
+            </button>
+          )}
         </div>
       </div>
 

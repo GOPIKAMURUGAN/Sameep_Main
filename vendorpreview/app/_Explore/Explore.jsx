@@ -101,6 +101,82 @@ function buildImageMapFromTree(nodes) {
   return map;
 }
 
+function cloneCustomPackageNode(node) {
+  return {
+    _id: node._id,
+    id: node._id,
+    vendorCustomPackageId: node._id,
+    name: node.name || "",
+    imageUrl: node.imageUrl || "",
+    packagesIncludes: node.packagesIncludes || "",
+    terms: node.terms || "",
+    offerText: node.offerText || "",
+    pricingStatus: node.pricingStatus || "Active",
+    isLeaf: node.isLeaf !== false,
+    price: node.isLeaf === false ? null : Number(node.price) || 0,
+    sequence: Number.isFinite(Number(node.sequence)) ? Number(node.sequence) : 0,
+    sourceType: "custom_package",
+    children: Array.isArray(node.children)
+      ? node.children.map(cloneCustomPackageNode)
+      : [],
+  };
+}
+
+function mergeCustomPackagesIntoPricingTree(pricingTree, customTree, nameMap, rootCategoryId) {
+  const clonedTree = Array.isArray(pricingTree)
+    ? structuredClone(pricingTree)
+    : [];
+
+  const packagesTargets = new Map();
+
+  function walkStandard(nodes, parentNode = null) {
+    (nodes || []).forEach((node) => {
+      const resolvedName = nameMap?.[node?.categoryId] || node?.name || "";
+      if (resolvedName.trim().toLowerCase() === "packages") {
+        const key = parentNode?.categoryId || parentNode?._id
+          ? `standard:${String(parentNode.categoryId || parentNode._id)}`
+          : `root:${String(rootCategoryId)}`;
+        packagesTargets.set(key, node);
+      }
+
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        walkStandard(node.children, node);
+      }
+    });
+  }
+
+  walkStandard(clonedTree, null);
+
+  (customTree || []).forEach((customNode) => {
+    if (!customNode || customNode.parentNodeType === "custom_package") return;
+
+    let targetKey = null;
+
+    if (customNode.parentNodeType === "root") {
+      targetKey = `root:${String(rootCategoryId)}`;
+    } else if (
+      (customNode.parentNodeType === "standard_subcategory" ||
+        customNode.parentNodeType === "standard_category") &&
+      customNode.parentNodeId
+    ) {
+      targetKey = `standard:${String(customNode.parentNodeId)}`;
+    }
+
+    if (!targetKey) return;
+
+    const targetNode = packagesTargets.get(targetKey);
+    if (!targetNode) return;
+
+    if (!Array.isArray(targetNode.children)) {
+      targetNode.children = [];
+    }
+
+    targetNode.children.push(cloneCustomPackageNode(customNode));
+  });
+
+  return clonedTree;
+}
+
 // --------------------------------------------------
 // CHIP
 // --------------------------------------------------
@@ -589,7 +665,11 @@ function collectLeafTerms(node) {
 
 function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
   const getName = (node) =>
-    nameMap?.[node?.categoryId] || node?.name || "";
+    node?.name || nameMap?.[node?.categoryId] || "";
+  const getImage = (node) =>
+    node?.imageUrl || imageMap?.[node?.categoryId] || null;
+  const getPackagesIncludes = (node) =>
+    node?.packagesIncludes || packagesMap?.[node?.categoryId] || "";
 
   const result = tree.map(level0 => {
     const children = level0.children || [];
@@ -607,13 +687,13 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
         cards: [{
           id: level0.categoryId,
           title: getName(level0),
-          img: imageMap[level0.categoryId] || null,
+          img: getImage(level0),
           base: Number(level0.price) || 0,
           options: [],
           simple: true,
           terms: normalizeTerms(level0.terms || ""),
           offerText: level0.offerText || "",
-          packagesIncludes: packagesMap[level0.categoryId] || ""
+          packagesIncludes: getPackagesIncludes(level0)
         }]
       };
     }
@@ -646,10 +726,10 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
           label: getName(c).trim(),
 
           price,
-          imageUrl: imageMap[c.categoryId] || null,
+          imageUrl: getImage(c),
           terms: normalizeTerms(c.terms || ""),
           offerText: c.offerText || "",
-          packagesIncludes: packagesMap?.[c.categoryId] || "",
+          packagesIncludes: getPackagesIncludes(c),
           subOptions: []
         };
       });
@@ -659,7 +739,7 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
         cards: [{
           id: level0.categoryId,
           title: getName(level0),
-          img: imageMap[level0.categoryId] || null,
+          img: getImage(level0),
           options,
           base: minPrice === Infinity ? 0 : minPrice,
           defaultMain: options[0]?.label || null,
@@ -682,12 +762,13 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
         return {
           id: level1.categoryId,
           title: getName(level1),
-          img: imageMap[level1.categoryId] || null,
+          img: getImage(level1),
           base: Number(level1.price) || 0,
           options: [],
           simple: true,
           terms: normalizeTerms(level1.terms || ""),
-          offerText: level1.offerText || ""
+          offerText: level1.offerText || "",
+          packagesIncludes: getPackagesIncludes(level1)
         };
       }
       let minPrice = Infinity;
@@ -713,10 +794,10 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
               label: getName(level2).trim(),
 
               price: 0,
-              imageUrl: imageMap[level2.categoryId] || null,
+              imageUrl: getImage(level2),
               terms: normalizeTerms(level2.terms || ""),
               offerText: level2.offerText || "",
-              packagesIncludes: packagesMap?.[level2.categoryId] || "",
+              packagesIncludes: getPackagesIncludes(level2),
               subOptions: []
             });
 
@@ -726,10 +807,10 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
             label: getName(level2).trim(),
 
             price,
-            imageUrl: imageMap[level2.categoryId] || null,
+            imageUrl: getImage(level2),
             terms: normalizeTerms(level2.terms || ""),
             offerText: level2.offerText || "",
-            packagesIncludes: packagesMap?.[level2.categoryId] || "",
+            packagesIncludes: getPackagesIncludes(level2),
             subOptions: []
           });
 
@@ -757,10 +838,10 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
       return {
         label: getName(level3).trim(),
         price,
-        imageUrl: imageMap[level3.categoryId] || null,
+        imageUrl: getImage(level3),
         terms: normalizeTerms(level3.terms || ""),
         offerText: level3.offerText || "",
-        packagesIncludes: packagesMap[level3.categoryId] || ""
+        packagesIncludes: getPackagesIncludes(level3)
       };
     }
 
@@ -769,17 +850,17 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
       return {
         label: getName(level3).trim(),
         price: 0,
-        imageUrl: imageMap[level3.categoryId] || null,
+        imageUrl: getImage(level3),
 
         subSubOptions: level3.children
           .filter(c => c.isLeaf && c.pricingStatus === "Active")
           .map(c => ({
             label: getName(c).trim(),
             price: Number(c.price) || 0,
-            imageUrl: imageMap[c.categoryId] || null,
+            imageUrl: getImage(c),
             terms: normalizeTerms(c.terms || ""),
             offerText: c.offerText || "",
-            packagesIncludes: packagesMap[c.categoryId] || ""
+            packagesIncludes: getPackagesIncludes(c)
           }))
           .filter(option => {
             const price = Number(option.price) || 0;
@@ -808,7 +889,7 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
     options.push({
       label: getName(level2).trim(),
       price: 0,
-      imageUrl: imageMap[level2.categoryId] || null,
+      imageUrl: getImage(level2),
       subOptions
     });
   }
@@ -824,7 +905,7 @@ function convertFromTree(tree, imageMap, nameMap, freeTextMap, packagesMap) {
       return {
         id: level1.categoryId,
         title: getName(level1),
-        img: imageMap[level1.categoryId] || null,
+        img: getImage(level1),
         options,
         base: minPrice === Infinity ? 0 : minPrice,
         defaultMain,
@@ -1656,7 +1737,19 @@ function ExploreContent({ onReady, onOpenServices }) {
           `?vendorId=${vendorId}` +
           `&rootCategoryId=${rootCategoryId}`;
 
-        const pricingRes = await fetch(PRICING_API, { cache: "no-store" });
+        const customPackagesApi =
+          `${API_BASE_URL}/api/vendor-custom-packages` +
+          `?vendorId=${vendorId}` +
+          `&rootCategoryId=${rootCategoryId}`;
+
+        const [pricingRes, categoryRes, customPackagesRes] = await Promise.all([
+          fetch(PRICING_API, { cache: "no-store" }),
+          fetch(
+            `${API_BASE_URL}/api/categories/tree?rootCategoryId=${rootCategoryId}`,
+            { cache: "no-store" }
+          ),
+          fetch(customPackagesApi, { cache: "no-store" }),
+        ]);
 
         if (!pricingRes.ok) {
           const text = await pricingRes.text();
@@ -1664,21 +1757,19 @@ function ExploreContent({ onReady, onOpenServices }) {
           throw new Error("Pricing API failed");
         }
 
-        const pricingData = await pricingRes.json();
-
-        setMenuTree(filterActiveMenuTree(pricingData?.tree || []));
-
-        // ✅ build master category tree
-        const categoryRes = await fetch(
-          `${API_BASE_URL}/api/categories/tree?rootCategoryId=${rootCategoryId}`,
-          { cache: "no-store" }
-        );
-
         if (!categoryRes.ok) {
           throw new Error("Category tree API failed");
         }
 
+        if (!customPackagesRes.ok) {
+          const text = await customPackagesRes.text();
+          console.error("Custom packages API returned non-JSON:", text);
+          throw new Error("Custom packages API failed");
+        }
+
+        const pricingData = await pricingRes.json();
         const treeData = await categoryRes.json();
+        const customPackagesData = await customPackagesRes.json();
 
         // Always normalize to array
         const categoryTree = Array.isArray(treeData)
@@ -1695,6 +1786,12 @@ function ExploreContent({ onReady, onOpenServices }) {
         const packagesMap = buildPackagesMapFromTree(categoryTree);
         const freeTextMap = buildFreeTextMapFromTree(categoryTree);
         const masterIdSet = new Set(Object.keys(nameMap));
+        const mergedPricingTree = mergeCustomPackagesIntoPricingTree(
+          pricingData?.tree || [],
+          customPackagesData?.data || [],
+          nameMap,
+          rootCategoryId
+        );
 
         // ⭐ FIND INVALID NODES
         function collectInvalidNodes(nodes, invalid = []) {
@@ -1711,17 +1808,19 @@ function ExploreContent({ onReady, onOpenServices }) {
           return invalid;
         }
 
-        const invalidNodes = collectInvalidNodes(pricingData.tree);
+        const invalidNodes = collectInvalidNodes(mergedPricingTree);
 
 
 
 
         setHeroImages(
-          extractHeroImages(categoryTree, pricingData.tree)
+          extractHeroImages(categoryTree, mergedPricingTree)
         );
 
+        setMenuTree(filterActiveMenuTree(mergedPricingTree));
+
         const converted = convertFromTree(
-          pricingData.tree,
+          mergedPricingTree,
           imageMap,
           nameMap,
           freeTextMap,
@@ -2505,6 +2604,27 @@ function ExploreContent({ onReady, onOpenServices }) {
   const heroButton2 =
     categoryHome?.button2Label?.trim() || "";
 
+  const vendorContactNumber = (() => {
+    const raw =
+      vendorInfo?.phone ||
+      vendorInfo?.mobile ||
+      vendorInfo?.businessPhone ||
+      vendorInfo?.contactPhone ||
+      "";
+    const digits = String(raw).replace(/\D/g, "");
+    if (!digits) return "";
+    return digits.length === 10 ? `+91${digits}` : `+${digits}`;
+  })();
+
+  const handleHeroButton1Click = () => {
+    if (heroButton1.trim().toLowerCase() !== "contact us") return;
+    if (!vendorContactNumber) {
+      window.alert("Vendor contact number is not available");
+      return;
+    }
+    window.location.href = `tel:${vendorContactNumber}`;
+  };
+
   useEffect(() => {
     const rule = vendorInfo?.loyaltyRule;
     if (!rule) return;
@@ -2775,6 +2895,7 @@ function ExploreContent({ onReady, onOpenServices }) {
         description={heroDescription}
         button1Label={heroButton1}
         button2Label={heroButton2}
+        onButton1Click={handleHeroButton1Click}
       />
 
 

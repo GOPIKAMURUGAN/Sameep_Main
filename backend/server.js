@@ -41,6 +41,7 @@ const trustProfileRoutes = require("./routes/trustProfileRoutes");
 const locationRoutes = require("./routes/locationRoutes");
 const categoryTreeRoutes = require("./routes/categoryTreeRoutes");
 const vendorResourceRoutes = require("./routes/vendorResourceRoutes");
+const vendorCustomPackageRoutes = require("./routes/vendorCustomPackageRoutes");
 
 const vendorPriceNodeRoutes = require(
   path.resolve(__dirname, "routes", "vendorPriceNodeRoutes")
@@ -167,6 +168,7 @@ app.use("/api/trust", trustProfileRoutes);
 app.use("/api/location", require("./routes/locationRoutes"));
 app.use("/api/test", require("./routes/test"));
 app.use("/api/vendor-resources", vendorResourceRoutes);
+app.use("/api/vendor-custom-packages", vendorCustomPackageRoutes);
 // Vendor Dashboard APIs
 app.use("/api/vendor/dashboard", require("./routes/vendorDashboardRoutes"));
 app.use("/api/vendor/dashboard", require("./routes/customerAnalyticsRoutes"));

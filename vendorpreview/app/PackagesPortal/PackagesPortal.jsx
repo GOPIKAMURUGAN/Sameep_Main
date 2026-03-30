@@ -181,6 +181,65 @@ function normalizeTree(node) {
     children: (node.children || []).map(normalizeTree),
   };
 }
+function getCustomPackageContext(path) {
+  if (!Array.isArray(path) || path.length === 0) return null;
+
+  const currentNode = path[path.length - 1];
+  const packageNode = currentNode?._isCustomRoot
+    ? path[path.length - 2]
+    : currentNode;
+
+  if (packageNode?.name !== "Packages") return null;
+
+  const packageNodeIndex = currentNode?._isCustomRoot
+    ? path.length - 2
+    : path.length - 1;
+
+  if (packageNodeIndex <= 0) {
+    return {
+      parentNodeId: null,
+      parentNodeType: "root",
+      sectionLabel: "This category",
+    };
+  }
+
+  const immediateParent = path[packageNodeIndex - 1];
+
+  return {
+    parentNodeId: immediateParent?.categoryId || immediateParent?._id || null,
+    parentNodeType: "standard_subcategory",
+    sectionLabel: immediateParent?.name || "This section",
+  };
+}
+
+function getCurrentCustomPackages(nodes, context) {
+  if (!context) return [];
+
+  return (nodes || []).filter(node => {
+    if (context.parentNodeType === "root") {
+      return node.parentNodeType === "root" && !node.parentNodeId;
+    }
+
+    return (
+      node.parentNodeType === context.parentNodeType &&
+      String(node.parentNodeId || "") === String(context.parentNodeId || "")
+    );
+  });
+}
+
+function defaultVariantForm() {
+  return {
+    id: null,
+    name: "",
+    price: "",
+    imageUrl: "",
+    packagesIncludes: "",
+    terms: "",
+    pricingStatus: "Active",
+    isDeleted: false,
+  };
+}
+
 export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) {
   const { vendorInfo } = useVendor();
   const vendorId = vendorInfo?.vendorId || vendorInfo?._id || null;
@@ -210,6 +269,23 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
   const [allTerms, setAllTerms] = useState([]);
 
   const [categoryTree, setCategoryTree] = useState([]);
+  const [customTree, setCustomTree] = useState([]);
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [customModalMode, setCustomModalMode] = useState("create");
+  const [savingCustomPackage, setSavingCustomPackage] = useState(false);
+  const [uploadingMainImage, setUploadingMainImage] = useState(false);
+  const [uploadingVariantIndex, setUploadingVariantIndex] = useState(null);
+  const [customForm, setCustomForm] = useState({
+    id: null,
+    packageType: "single",
+    name: "",
+    packagesIncludes: "",
+    terms: "",
+    price: "",
+    variants: [
+      defaultVariantForm(),
+    ],
+  });
 
   function toggleTerm(term) {
     setSelectedTerms(prev => {
@@ -234,6 +310,33 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
 
     return walk(pricingNodes);
   }
+function defaultCustomForm() {
+  return {
+    id: null,
+    packageType: "single",
+    name: "",
+    imageUrl: "",
+    packagesIncludes: "",
+    terms: "",
+    price: "",
+    variants: [
+      defaultVariantForm(),
+    ],
+  };
+  }
+  async function loadCustomPackages() {
+    if (!vendorId || !rootCategoryId) {
+      setCustomTree([]);
+      return;
+    }
+
+    const customRes = await fetchWithAuth(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-custom-packages?vendorId=${vendorId}&rootCategoryId=${rootCategoryId}&includeDeleted=true`
+    );
+    const customData = await customRes.json();
+    setCustomTree(customData?.data || []);
+  }
+
   useEffect(() => {
     if (!vendorId || !rootCategoryId) return;
 
@@ -309,6 +412,7 @@ if (missingLeafIds.length) {
         attachImagesToPricingTree(syncedTree, imageMap);
 
       setRootNodes(treeWithImages);
+      await loadCustomPackages();
 
       setLoading(false);
       onLoaded?.();
@@ -436,7 +540,19 @@ async function updateService(service, status) {
   const shouldUseVirtualParents =
     categoryChildren.length > 0 && serviceChildren.length > 0;
 
+  const isCustomPackagesScreen = currentNode?._isCustomRoot === true;
+  const showCustomEntry =
+    !isCustomPackagesScreen &&
+    currentNode?.name === "Packages";
+
   const displayCategories = [
+    ...(showCustomEntry
+      ? [{
+          _id: "custom-packages-entry",
+          name: "Custom Packages",
+          _isCustomEntry: true,
+        }]
+      : []),
     ...categoryChildren,
     ...(
       shouldUseVirtualParents && !currentNode?._isVirtualParent
@@ -447,6 +563,379 @@ async function updateService(service, status) {
         : []
     )
   ];
+  const customPackageContext = getCustomPackageContext(path);
+  const customPackageRoots = getCurrentCustomPackages(customTree, customPackageContext);
+  const activeCustomPackageRoots = customPackageRoots.filter(
+    node => !node.isDeleted && node.pricingStatus === "Active"
+  );
+  const inactiveCustomPackageRoots = customPackageRoots.filter(
+    node => node.isDeleted || node.pricingStatus !== "Active"
+  );
+
+  function openCreateCustomModal() {
+    setCustomModalMode("create");
+    setCustomForm(defaultCustomForm());
+    setShowCustomModal(true);
+  }
+
+  function openEditCustomModal(node) {
+    const childVariants = (node.children || []).map(child => ({
+      id: child._id,
+      name: child.name || "",
+      price: String(child.price ?? ""),
+      imageUrl: child.imageUrl || "",
+      packagesIncludes: child.packagesIncludes || "",
+      terms: child.terms || "",
+      pricingStatus: child.pricingStatus || "Inactive",
+      isDeleted: Boolean(child.isDeleted),
+    }));
+    const hasChildren = childVariants.length > 0;
+    setCustomModalMode("edit");
+    setCustomForm({
+      id: node._id,
+      packageType: hasChildren ? "nested" : "single",
+      name: node.name || "",
+      imageUrl: node.imageUrl || "",
+      packagesIncludes: node.packagesIncludes || "",
+      terms: node.terms || "",
+      price: hasChildren ? "" : String(node.price ?? ""),
+      variants: hasChildren
+        ? childVariants
+        : defaultCustomForm().variants,
+    });
+    setShowCustomModal(true);
+  }
+
+  function updateCustomForm(field, value) {
+    setCustomForm(prev => ({ ...prev, [field]: value }));
+  }
+
+  function updateVariant(index, field, value) {
+    setCustomForm(prev => ({
+      ...prev,
+      variants: prev.variants.map((variant, variantIndex) =>
+        variantIndex === index
+          ? { ...variant, [field]: value }
+          : variant
+      ),
+    }));
+  }
+
+  function addVariant() {
+    setCustomForm(prev => ({
+      ...prev,
+      variants: [
+        ...prev.variants,
+        defaultVariantForm(),
+      ],
+    }));
+  }
+
+  function removeVariant(index) {
+    setCustomForm(prev => ({
+      ...prev,
+      variants: prev.variants.flatMap((variant, variantIndex) => {
+        if (variantIndex !== index) return [variant];
+        if (!variant.id) return [];
+        return [{
+          ...variant,
+          pricingStatus: "Inactive",
+          isDeleted: false,
+        }];
+      }),
+    }));
+  }
+
+  function reactivateVariant(index) {
+    setCustomForm(prev => ({
+      ...prev,
+      variants: prev.variants.map((variant, variantIndex) =>
+        variantIndex === index
+          ? {
+              ...variant,
+              pricingStatus: "Active",
+              isDeleted: false,
+            }
+          : variant
+      ),
+    }));
+  }
+
+  async function uploadImageAndGetUrl(file) {
+    if (!file || !vendorId) throw new Error("File or vendor missing");
+    const endpoint = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dummy-vendors/${vendorId}/rows/default/images`;
+    const formData = new FormData();
+    formData.append("images", file);
+    const res = await fetch(endpoint, { method: "POST", body: formData });
+    const json = await res.json();
+    if (!res.ok || json?.success === false) {
+      throw new Error(json?.message || "Upload failed");
+    }
+    const imgs = json?.images || json?.data?.images || [];
+    return imgs[imgs.length - 1] || imgs[0] || "";
+  }
+
+  async function handleUploadMainImage(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setUploadingMainImage(true);
+      const url = await uploadImageAndGetUrl(file);
+      updateCustomForm("imageUrl", url);
+    } catch (err) {
+      window.alert(err.message || "Failed to upload image");
+    } finally {
+      setUploadingMainImage(false);
+    }
+  }
+
+  async function handleUploadVariantImage(event, index) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setUploadingVariantIndex(index);
+      const url = await uploadImageAndGetUrl(file);
+      updateVariant(index, "imageUrl", url);
+    } catch (err) {
+      window.alert(err.message || "Failed to upload image");
+    } finally {
+      setUploadingVariantIndex(null);
+    }
+  }
+
+  async function createCustomNode(payload) {
+    const response = await fetchWithAuth(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-custom-packages`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+    const data = await response.json();
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || "Failed to create custom package");
+    }
+    return data.data;
+  }
+
+  async function updateCustomNode(nodeId, payload) {
+    const response = await fetchWithAuth(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-custom-packages/${nodeId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      }
+    );
+    const data = await response.json();
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || "Failed to update custom package");
+    }
+    return data.data;
+  }
+
+  async function updateCustomNodeStatus(nodeId, pricingStatus) {
+    return updateCustomNode(nodeId, {
+      vendorId,
+      rootCategoryId,
+      pricingStatus,
+    });
+  }
+
+  async function restoreCustomNode(nodeId) {
+    return updateCustomNode(nodeId, {
+      vendorId,
+      rootCategoryId,
+      pricingStatus: "Active",
+      restoreDeleted: true,
+      isDeleted: false,
+    });
+  }
+
+  async function deleteCustomNode(nodeId) {
+    const response = await fetchWithAuth(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-custom-packages/${nodeId}?vendorId=${vendorId}&rootCategoryId=${rootCategoryId}`,
+      {
+        method: "DELETE",
+      }
+    );
+    const data = await response.json();
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || "Failed to delete custom package");
+    }
+    return data;
+  }
+
+  async function handleToggleCustomPackage(node) {
+    try {
+      if (node.isDeleted) {
+        await restoreCustomNode(node._id);
+      } else {
+        const nextStatus = node.pricingStatus === "Active" ? "Inactive" : "Active";
+        await updateCustomNodeStatus(node._id, nextStatus);
+      }
+      await loadCustomPackages();
+      await onPricingUpdated?.();
+    } catch (error) {
+      window.alert(error.message || "Failed to update custom package");
+    }
+  }
+
+  async function handleSaveCustomPackage() {
+    if (!customPackageContext) return;
+
+    const trimmedName = customForm.name.trim();
+    if (!trimmedName) {
+      window.alert("Package name is required");
+      return;
+    }
+
+    if (customForm.packageType === "single" && !customForm.price) {
+      window.alert("Price is required for a single package");
+      return;
+    }
+
+    if (customForm.packageType === "nested") {
+      const validVariants = customForm.variants.filter(
+        variant =>
+          variant.pricingStatus === "Active" &&
+          variant.name.trim() &&
+          variant.price !== ""
+      );
+      if (validVariants.length === 0) {
+        window.alert("Add at least one variant with name and price");
+        return;
+      }
+    }
+
+    setSavingCustomPackage(true);
+    try {
+      if (customForm.packageType === "single") {
+        if (customModalMode === "edit" && customForm.id) {
+          await updateCustomNode(customForm.id, {
+            vendorId,
+            rootCategoryId,
+            name: trimmedName,
+            imageUrl: customForm.imageUrl,
+            packagesIncludes: customForm.packagesIncludes,
+            terms: customForm.terms,
+            price: Number(customForm.price),
+            pricingStatus: "Active",
+            visibleToUser: true,
+            visibleToVendor: true,
+          });
+        } else {
+          await createCustomNode({
+            vendorId,
+            rootCategoryId,
+            parentNodeType: customPackageContext.parentNodeType,
+            parentNodeId: customPackageContext.parentNodeId,
+            name: trimmedName,
+            imageUrl: customForm.imageUrl,
+            nodeType: "package_item",
+            isLeaf: true,
+            packagesIncludes: customForm.packagesIncludes,
+            terms: customForm.terms,
+            price: Number(customForm.price),
+            pricingStatus: "Active",
+            visibleToUser: true,
+            visibleToVendor: true,
+            sequence: customPackageRoots.length,
+          });
+        }
+      } else {
+        let parentNodeId = customForm.id;
+
+        if (customModalMode === "edit" && customForm.id) {
+          await updateCustomNode(customForm.id, {
+            vendorId,
+            rootCategoryId,
+            name: trimmedName,
+            packagesIncludes: customForm.packagesIncludes,
+            terms: customForm.terms,
+            pricingStatus: "Active",
+            visibleToUser: true,
+            visibleToVendor: true,
+          });
+        } else {
+          const createdParent = await createCustomNode({
+            vendorId,
+            rootCategoryId,
+            parentNodeType: customPackageContext.parentNodeType,
+            parentNodeId: customPackageContext.parentNodeId,
+            name: trimmedName,
+            imageUrl: customForm.imageUrl,
+            nodeType: "package_group",
+            isLeaf: false,
+            packagesIncludes: customForm.packagesIncludes,
+            terms: customForm.terms,
+            pricingStatus: "Active",
+            visibleToUser: true,
+            visibleToVendor: true,
+            sequence: customPackageRoots.length,
+          });
+          parentNodeId = createdParent._id;
+        }
+
+        const existingVariants = (customPackageRoots.find(pkg => pkg._id === customForm.id)?.children || []);
+
+        for (let index = 0; index < customForm.variants.length; index += 1) {
+          const variant = customForm.variants[index];
+          const shouldBeActive =
+            variant.pricingStatus === "Active" &&
+            variant.name.trim() &&
+            variant.price !== "";
+
+          if (variant.id) {
+            await updateCustomNode(variant.id, {
+              vendorId,
+              rootCategoryId,
+              name: variant.name.trim(),
+              imageUrl: variant.imageUrl,
+              packagesIncludes: variant.packagesIncludes,
+              terms: variant.terms,
+              price: shouldBeActive ? Number(variant.price) : Number(variant.price || 0),
+              pricingStatus: shouldBeActive ? "Active" : "Inactive",
+              visibleToUser: true,
+              visibleToVendor: true,
+              sequence: index,
+              restoreDeleted: variant.isDeleted === true,
+              isDeleted: false,
+            });
+          } else if (shouldBeActive) {
+            await createCustomNode({
+              vendorId,
+              rootCategoryId,
+              parentNodeType: "custom_package",
+              parentNodeId,
+              name: variant.name.trim(),
+              imageUrl: variant.imageUrl,
+              nodeType: "package_item",
+              isLeaf: true,
+              packagesIncludes: variant.packagesIncludes,
+              terms: variant.terms,
+              price: Number(variant.price),
+              pricingStatus: "Active",
+              visibleToUser: true,
+              visibleToVendor: true,
+              sequence: index,
+            });
+          }
+        }
+      }
+
+      await loadCustomPackages();
+      await onPricingUpdated?.();
+      setShowCustomModal(false);
+      setCustomForm(defaultCustomForm());
+    } catch (error) {
+      window.alert(error.message || "Failed to save custom package");
+    } finally {
+      setSavingCustomPackage(false);
+    }
+  }
+
   return (
     <div className="packages-overlay">
       <div className="packages-card">
@@ -468,13 +957,16 @@ async function updateService(service, status) {
             </p>
           </div>
         </div>
-        {displayCategories.map(node => (
+        {!isCustomPackagesScreen && displayCategories.map(node => (
           <div
             key={node._id}
             className="subcategory-title"
             onClick={() => {
+              if (node._isCustomEntry) {
+                setPath([...path, { _id: "custom-packages-root", name: "Custom Packages", _isCustomRoot: true }]);
+                return;
+              }
               if (node._isVirtualParent) {
-                // ⭐ Wrap leaf as parent visually
                 setPath([...path, { ...node, children: [node] }]);
               } else {
                 setPath([...path, node]);
@@ -484,8 +976,7 @@ async function updateService(service, status) {
             {node.name}
           </div>
         ))}
-        {/* ================= LEAF GRID ================= */}
-        {displayCategories.length === 0 && serviceChildren.length > 0 && (() => {
+        {!isCustomPackagesScreen && displayCategories.length === 0 && serviceChildren.length > 0 && (() => {
           const activeServices = sortedChildren.filter(
             s => s.pricingStatus === "Active"
           );
@@ -556,6 +1047,70 @@ async function updateService(service, status) {
             </section>
           );
         })()}
+        {isCustomPackagesScreen && (
+          <section className="services-section custom-packages-section custom-packages-top-section">
+            <div className="custom-packages-header">
+              <div>
+                <div className="section-title">Custom Packages</div>
+                <div className="custom-packages-subtitle">
+                  Add vendor-specific packages for {customPackageContext?.sectionLabel || "this section"}.
+                </div>
+              </div>
+              <button
+                className="custom-package-create"
+                onClick={openCreateCustomModal}
+              >
+                + Create Custom Package
+              </button>
+            </div>
+
+            {customPackageRoots.length === 0 ? (
+              <div className="custom-packages-empty">
+                No custom packages yet for this package section.
+              </div>
+            ) : (
+              <>
+                {activeCustomPackageRoots.length > 0 && (
+                  <>
+                    <div className="section-title">Active Custom Packages</div>
+                    <div className="services-list custom-packages-list">
+                      {activeCustomPackageRoots.map(customPackage => (
+                        <CustomPackageCard
+                          key={customPackage._id}
+                          customPackage={customPackage}
+                          isActive
+                          onEdit={() => openEditCustomModal(customPackage)}
+                          onToggle={() => handleToggleCustomPackage(customPackage)}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {inactiveCustomPackageRoots.length > 0 && (
+                  <>
+                    <div className="section-title inactive">Inactive Custom Packages</div>
+                    <div className="services-list custom-packages-list inactive-list">
+                      {inactiveCustomPackageRoots.map(customPackage => (
+                        <CustomPackageCard
+                          key={customPackage._id}
+                          customPackage={customPackage}
+                          isActive={false}
+                          onEdit={
+                            customPackage.isDeleted
+                              ? null
+                              : () => openEditCustomModal(customPackage)
+                          }
+                          onToggle={() => handleToggleCustomPackage(customPackage)}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </section>
+        )}
       </div >
       {
         showEditModal && editingService && (
@@ -685,6 +1240,207 @@ async function updateService(service, status) {
           </Modal>
         )
       }
+      {showCustomModal && (
+        <Modal
+          title={customModalMode === "edit" ? "Edit Custom Package" : "Create Custom Package"}
+          onClose={() => setShowCustomModal(false)}
+        >
+          <div className="modal-scroll">
+            <label className="modal-label">Package Type</label>
+            <div className="custom-package-type-toggle">
+              <button
+                className={`type-pill ${customForm.packageType === "single" ? "active" : ""}`}
+                onClick={() => updateCustomForm("packageType", "single")}
+                type="button"
+              >
+                Single Package
+              </button>
+              <button
+                className={`type-pill ${customForm.packageType === "nested" ? "active" : ""}`}
+                onClick={() => updateCustomForm("packageType", "nested")}
+                type="button"
+              >
+                Package With Variants
+              </button>
+            </div>
+
+            <label className="modal-label">Package Name</label>
+            <input
+              className="price-input"
+              value={customForm.name}
+              onChange={e => updateCustomForm("name", e.target.value)}
+            />
+
+            <label className="modal-label">Package Includes</label>
+            <textarea
+              className="price-input custom-textarea"
+              value={customForm.packagesIncludes}
+              onChange={e => updateCustomForm("packagesIncludes", e.target.value)}
+              placeholder="Hair Spa, Hair Cut, Hair Wash"
+            />
+
+            <label className="modal-label">Terms</label>
+            <textarea
+              className="price-input custom-textarea"
+              value={customForm.terms}
+              onChange={e => updateCustomForm("terms", e.target.value)}
+            />
+
+            <label className="modal-label">Image URL</label>
+            <div className="image-row">
+              <input
+                className="price-input"
+                value={customForm.imageUrl}
+                onChange={e => updateCustomForm("imageUrl", e.target.value)}
+                placeholder="https://..."
+              />
+              <label className="upload-btn">
+                {uploadingMainImage ? "Uploading..." : "Upload"}
+                <input type="file" accept="image/*" onChange={handleUploadMainImage} disabled={uploadingMainImage} />
+              </label>
+            </div>
+            {customForm.imageUrl && (
+              <div className="image-preview-row">
+                <img src={customForm.imageUrl} alt="Package preview" />
+              </div>
+            )}
+
+            {customForm.packageType === "single" ? (
+              <>
+                <label className="modal-label">Price</label>
+                <input
+                  className="price-input"
+                  value={customForm.price}
+                  onChange={e => updateCustomForm("price", e.target.value)}
+                />
+              </>
+            ) : (
+              <div className="variants-editor">
+                <div className="variants-header">
+                  <span className="modal-label variants-title">Variants</span>
+                  <button
+                    type="button"
+                    className="custom-package-create small"
+                    onClick={addVariant}
+                  >
+                    + Add Variant
+                  </button>
+                </div>
+
+                {customForm.variants
+                  .filter(variant => variant.pricingStatus === "Active")
+                  .map((variant) => {
+                    const index = customForm.variants.indexOf(variant);
+                    return (
+                  <div className="variant-card" key={variant.id || `variant-${index}`}>
+                    <div className="variant-card-header">
+                      <span>Variant {index + 1}</span>
+                      {customForm.variants.filter(item => item.pricingStatus === "Active").length > 1 && (
+                        <button
+                          type="button"
+                          className="variant-remove"
+                          onClick={() => removeVariant(index)}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <label className="modal-label">Name</label>
+                    <input
+                      className="price-input"
+                      value={variant.name}
+                      onChange={e => updateVariant(index, "name", e.target.value)}
+                    />
+
+                    <label className="modal-label">Image URL</label>
+                    <div className="image-row">
+                      <input
+                        className="price-input"
+                        value={variant.imageUrl}
+                        onChange={e => updateVariant(index, "imageUrl", e.target.value)}
+                        placeholder="https://..."
+                      />
+                      <label className="upload-btn">
+                        {uploadingVariantIndex === index ? "Uploading..." : "Upload"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={e => handleUploadVariantImage(e, index)}
+                          disabled={uploadingVariantIndex === index}
+                        />
+                      </label>
+                    </div>
+                    {variant.imageUrl && (
+                      <div className="image-preview-row">
+                        <img src={variant.imageUrl} alt={`Variant ${index + 1}`} />
+                      </div>
+                    )}
+
+                    <label className="modal-label">Price</label>
+                    <input
+                      className="price-input"
+                      value={variant.price}
+                      onChange={e => updateVariant(index, "price", e.target.value)}
+                    />
+
+                    <label className="modal-label">Package Includes</label>
+                    <textarea
+                      className="price-input custom-textarea"
+                      value={variant.packagesIncludes}
+                      onChange={e => updateVariant(index, "packagesIncludes", e.target.value)}
+                    />
+
+                    <label className="modal-label">Terms</label>
+                    <textarea
+                      className="price-input custom-textarea"
+                      value={variant.terms}
+                      onChange={e => updateVariant(index, "terms", e.target.value)}
+                    />
+                  </div>
+                    );
+                  })}
+
+                {customForm.variants.some(variant => variant.pricingStatus !== "Active") && (
+                  <div className="inactive-variants-section">
+                    <div className="section-title inactive">Inactive Variants</div>
+                    {customForm.variants
+                      .filter(variant => variant.pricingStatus !== "Active")
+                      .map((variant) => {
+                        const index = customForm.variants.indexOf(variant);
+                        return (
+                          <div className="variant-card inactive-variant-card" key={variant.id || `inactive-variant-${index}`}>
+                            <div className="variant-card-header">
+                              <span>{variant.name || `Variant ${index + 1}`}</span>
+                              <button
+                                type="button"
+                                className="custom-package-create small"
+                                onClick={() => reactivateVariant(index)}
+                              >
+                                Reactivate
+                              </button>
+                            </div>
+                            <div className="inactive-variant-meta">
+                              {variant.price ? `Rs ${variant.price}` : "No price"}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <button
+            className="btn-primary"
+            onClick={handleSaveCustomPackage}
+            disabled={savingCustomPackage}
+          >
+            {savingCustomPackage ? "Saving..." : "Save Custom Package"}
+          </button>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -761,12 +1517,76 @@ function Modal({ title, children, onClose }) {
       <div className="activate-modal">
         <h3>{title}</h3>
 
-        {/* 🔹 ALL form content comes from parent */}
-        {children}
+        <div className="modal-scroll">
+          {/* 🔹 ALL form content comes from parent */}
+          {children}
+        </div>
 
         <button className="btn-secondary" onClick={onClose}>
           Cancel
         </button>
+      </div>
+    </div>
+  );
+}
+
+function CustomPackageCard({ customPackage, isActive, onEdit, onToggle }) {
+  const includes = parseTerms(customPackage.packagesIncludes);
+  const visibleVariants = (customPackage.children || []).filter(variant => !variant.isDeleted);
+  const hasVariants = visibleVariants.length > 0;
+
+  return (
+    <div className={`service-card custom-package-card ${isActive ? "active-card" : "inactive-card"}`}>
+      <div className="service-top">
+        <img
+          src={customPackage.imageUrl || "/placeholder.png"}
+          alt={customPackage.name}
+        />
+
+        <div className="service-info">
+          <h4>{customPackage.name}</h4>
+
+          {hasVariants ? (
+            <div className="custom-package-variants">
+              <div className="includes-title">Variants</div>
+              <ul className="service-packages">
+                {visibleVariants.map(variant => (
+                  <li key={variant._id}>
+                    ✓ {variant.name} - Rs {variant.price}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {includes.length > 0 && (
+            <div className="service-includes">
+              <div className="includes-title">Includes</div>
+              <ul className="service-packages">
+                {includes.map((item, index) => (
+                  <li key={`${customPackage._id}-include-${index}`}>✓ {item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="service-right custom-package-actions">
+        {!hasVariants && <span className="price">Rs {customPackage.price}</span>}
+        {typeof onEdit === "function" && (
+          <span className="edit" onClick={onEdit}>Edit</span>
+        )}
+        <label className="switch">
+          <input
+            type="checkbox"
+            checked={Boolean(isActive)}
+            onChange={onToggle}
+          />
+          <span className="switch-track">
+            <span className="switch-thumb" />
+          </span>
+        </label>
       </div>
     </div>
   );
