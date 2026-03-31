@@ -663,16 +663,21 @@ async function updateService(service, status) {
 
   async function uploadImageAndGetUrl(file) {
     if (!file || !vendorId) throw new Error("File or vendor missing");
-    const endpoint = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/dummy-vendors/${vendorId}/rows/default/images`;
+    const endpoint = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/upload`;
     const formData = new FormData();
-    formData.append("images", file);
+    formData.append("file", file);
+    formData.append("folderType", "newvendor");
+    formData.append("hierarchy", JSON.stringify([
+      "custom-packages",
+      String(vendorId),
+      `asset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    ]));
     const res = await fetch(endpoint, { method: "POST", body: formData });
     const json = await res.json();
     if (!res.ok || json?.success === false) {
-      throw new Error(json?.message || "Upload failed");
+      throw new Error(json?.message || json?.error || "Upload failed");
     }
-    const imgs = json?.images || json?.data?.images || [];
-    return imgs[imgs.length - 1] || imgs[0] || "";
+    return json?.url || "";
   }
 
   async function handleUploadMainImage(event) {
@@ -682,7 +687,8 @@ async function updateService(service, status) {
     try {
       setUploadingMainImage(true);
       const url = await uploadImageAndGetUrl(file);
-      updateCustomForm("imageUrl", url);
+      const cacheBustedUrl = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      updateCustomForm("imageUrl", cacheBustedUrl);
     } catch (err) {
       window.alert(err.message || "Failed to upload image");
     } finally {
@@ -697,7 +703,8 @@ async function updateService(service, status) {
     try {
       setUploadingVariantIndex(index);
       const url = await uploadImageAndGetUrl(file);
-      updateVariant(index, "imageUrl", url);
+      const cacheBustedUrl = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      updateVariant(index, "imageUrl", cacheBustedUrl);
     } catch (err) {
       window.alert(err.message || "Failed to upload image");
     } finally {
@@ -736,11 +743,28 @@ async function updateService(service, status) {
   }
 
   async function updateCustomNodeStatus(nodeId, pricingStatus) {
-    return updateCustomNode(nodeId, {
-      vendorId,
-      rootCategoryId,
-      pricingStatus,
-    });
+    const response = await fetchWithAuth(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-custom-packages/${nodeId}/status`,
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          vendorId,
+          rootCategoryId,
+          pricingStatus,
+        }),
+      }
+    );
+    const raw = await response.text();
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      throw new Error("Failed to update custom package status");
+    }
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || "Failed to update custom package status");
+    }
+    return data;
   }
 
   async function restoreCustomNode(nodeId) {
@@ -852,6 +876,7 @@ async function updateService(service, status) {
             vendorId,
             rootCategoryId,
             name: trimmedName,
+            imageUrl: customForm.imageUrl,
             packagesIncludes: customForm.packagesIncludes,
             terms: customForm.terms,
             pricingStatus: "Active",
@@ -888,7 +913,7 @@ async function updateService(service, status) {
             variant.price !== "";
 
           if (variant.id) {
-            await updateCustomNode(variant.id, {
+            const variantPayload = {
               vendorId,
               rootCategoryId,
               name: variant.name.trim(),
@@ -900,9 +925,14 @@ async function updateService(service, status) {
               visibleToUser: true,
               visibleToVendor: true,
               sequence: index,
-              restoreDeleted: variant.isDeleted === true,
-              isDeleted: false,
-            });
+            };
+
+            if (variant.isDeleted === true) {
+              variantPayload.restoreDeleted = true;
+              variantPayload.isDeleted = false;
+            }
+
+            await updateCustomNode(variant.id, variantPayload);
           } else if (shouldBeActive) {
             await createCustomNode({
               vendorId,
