@@ -379,7 +379,7 @@ export default function Home() {
         </div>
 
         <div className="siteShell footerBottom">
-          <p>© 2024 YNOT Go Online. All rights reserved.</p>
+          <p>© 2026 YNOT Go Online. All rights reserved.</p>
         </div>
       </footer>
     </div>
