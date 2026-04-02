@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import CategoryCard from "../components/CategoryCard";
 import { getCategories } from "../services/api";
@@ -29,173 +28,360 @@ export default function Home() {
     fetchData();
   }, []);
 
-  const sortedCategories = [...categories].sort(
-    (a, b) =>
-      (b.vendorCount || b.totalVendors || 0) -
-      (a.vendorCount || a.totalVendors || 0)
+  const sortedCategories = useMemo(
+    () =>
+      [...categories].sort(
+        (a, b) =>
+          (b.vendorCount || b.totalVendors || 0) -
+          (a.vendorCount || a.totalVendors || 0)
+      ),
+    [categories]
   );
+
   const enabledCategories = sortedCategories.filter(
-    (category) => category.onboardingEnabled !== false && category.visibleToVendor !== false
+    (category) =>
+      category.onboardingEnabled !== false &&
+      category.visibleToVendor !== false
   );
   const disabledCategories = sortedCategories.filter(
-    (category) => category.onboardingEnabled === false || category.visibleToVendor === false
+    (category) =>
+      category.onboardingEnabled === false ||
+      category.visibleToVendor === false
   );
 
-  const featuredCategories = enabledCategories.slice(0, 6);
+  const featuredCategories = enabledCategories.slice(0, 3);
+  const secondaryCategories = enabledCategories.slice(3, 9);
+  const mixedCategories = [...secondaryCategories, ...disabledCategories].slice(
+    0,
+    6
+  );
+  const topCategory = featuredCategories[0] || enabledCategories[0] || null;
+
+  const totalActiveVendors = enabledCategories.reduce(
+    (sum, category) => sum + (category.vendorCount || category.totalVendors || 0),
+    0
+  );
+
+  const scrollToSection = (id) => {
+    const target = document.getElementById(id);
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const startOnboarding = (categoryId) => {
+    const base = "/onboarding";
+    router.push(categoryId ? `${base}?categoryId=${categoryId}` : base);
+  };
 
   return (
-    <div className="pageWrapper">
-      <section className="heroCard heroCardExpanded">
-        <div className="heroShell">
-          <div className="heroSection">
-            <div className="brandLockup">
-              <Image
-                src="/ynot-logo.svg"
-                alt="YNOT Go Online. Instantly."
-                width={272}
-                height={80}
-                priority
-                className="brandLogo"
-              />
-            </div>
-            <p className="brand">YNOT</p>
-            <h1 className="title">Get Your Business Online</h1>
-            <p className="subtitle">
-              Build your digital storefront, showcase your services, and start
-              onboarding customers in minutes.
-            </p>
-            <div className="heroActions">
-              <button
-                className="ctaButton"
-                onClick={() => router.push("/onboarding")}
-              >
-                Set up my business
-              </button>
-              <button
-                className="ghostCtaButton"
-                onClick={() => {
-                  const target = document.getElementById("categories");
-                  target?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-              >
-                Explore categories
-              </button>
-            </div>
-          </div>
+    <div className="landingPage">
+      <header className="siteHeader">
+        <div className="siteShell siteHeaderInner">
+          <button
+            className="brandButton"
+            type="button"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          >
+            <span className="brandMark">Y</span>
+            <span className="brandWordmark">YNOT</span>
+          </button>
 
-          <div className="heroHighlights">
-            <div className="heroHighlightCard">
-              <div className="heroHighlightValue">500+</div>
-              <div className="heroHighlightLabel">Vendors already using YNOT</div>
-            </div>
-            <div className="heroHighlightCard">
-              <div className="heroHighlightValue">10+</div>
-              <div className="heroHighlightLabel">Service categories to start from</div>
-            </div>
-            <div className="heroHighlightCard">
-              <div className="heroHighlightValue">3 steps</div>
-              <div className="heroHighlightLabel">Choose, onboard, go live</div>
-            </div>
-          </div>
+          <nav className="siteNav" aria-label="Primary">
+            <button type="button" onClick={() => scrollToSection("how-it-works")}>
+              How it works
+            </button>
+            <button type="button" onClick={() => scrollToSection("categories")}>
+              Categories
+            </button>
+          </nav>
+
+          <button className="navCtaButton" onClick={() => startOnboarding()}>
+            Set up business
+          </button>
         </div>
+      </header>
 
-        <div className="howItWorks">
-          <div className="sectionHeader">
-            <p className="sectionEyebrow">How It Works</p>
-            <h2>Launch faster with a guided setup flow</h2>
-          </div>
-          <div className="stepsGrid">
-            <div className="stepCard">
-              <div className="stepNumber">01</div>
-              <h3>Choose your category</h3>
-              <p>Start with the service category that best matches your business.</p>
-            </div>
-            <div className="stepCard">
-              <div className="stepNumber">02</div>
-              <h3>Set up your profile</h3>
-              <p>Add your business details, services, and onboarding information.</p>
-            </div>
-            <div className="stepCard">
-              <div className="stepNumber">03</div>
-              <h3>Go online instantly</h3>
-              <p>Get ready to publish your presence and begin taking customer interest.</p>
-            </div>
-          </div>
-        </div>
+      <main>
+        <section className="heroSectionV2">
+          <div className="siteShell heroGrid">
+            <div className="heroCopy">
+              <div className="eyebrowPill">Launch in minutes</div>
+              <h1>
+                Get your
+                <span className="titleAccent"> business online</span>
+              </h1>
+              <p className="heroDescription">
+                Build your digital storefront, showcase your services, and start
+                onboarding customers without the tech headache.
+              </p>
 
-        <div className="categoriesSection" id="categories">
-          <div className="sectionHeader sectionHeaderInline">
-            <div>
-              <p className="sectionEyebrow">Popular Categories</p>
-              <h2>Pick your category and get started</h2>
-            </div>
-            <div className="trustSection">
-              Trusted by 500+ vendors across categories
-            </div>
-          </div>
+              <div className="heroButtons">
+                <button
+                  className="primaryHeroButton"
+                  onClick={() => startOnboarding()}
+                >
+                  Get started now
+                </button>
+                <button
+                  className="secondaryHeroButton"
+                  onClick={() => scrollToSection("categories")}
+                >
+                  View categories
+                </button>
+              </div>
 
-          {loading ? <div className="loadingState">Loading categories...</div> : null}
-          {!loading && error ? <div className="emptyState">{error}</div> : null}
-          {!loading && !error ? (
-            <div className="grid">
-              {featuredCategories.map((cat) => {
-                const categoryId = cat.categoryId || cat.id || cat._id;
+              <div className="trustRow">
+                <div className="avatarStack" aria-hidden="true">
+                  <span>A</span>
+                  <span>S</span>
+                  <span>P</span>
+                  <strong>+500</strong>
+                </div>
+                <p>
+                  Trusted by hundreds of vendors already growing through YNOT.
+                </p>
+              </div>
+            </div>
 
-                return (
-                  <CategoryCard
-                    key={categoryId}
-                    category={cat}
-                    onClick={() =>
-                      router.push(`/onboarding?categoryId=${categoryId}`)
-                    }
+            <div className="heroVisual">
+              <div className="floatingStatCard statCardLight">
+                <span className="statIcon">+</span>
+                <strong>{Math.max(totalActiveVendors, 500)}+</strong>
+                <p>Active vendors</p>
+              </div>
+              <div className="floatingStatCard statCardAccent">
+                <span className="statIcon">3</span>
+                <strong>3 steps</strong>
+                <p>Fast onboarding</p>
+              </div>
+              <div className="floatingStatCard statCardDark">
+                <span className="statIcon">#</span>
+                <strong>{Math.max(enabledCategories.length, 10)}+</strong>
+                <p>Categories</p>
+              </div>
+
+              <div className="heroPreviewCard">
+                <div className="heroPreviewMedia">
+                  <img
+                    src={topCategory?.imageUrl || "/placeholder.svg"}
+                    alt={topCategory?.name || "YNOT featured category"}
                   />
-                );
-              })}
-            </div>
-          ) : null}
-
-          {!loading && !error && enabledCategories.length === 0 ? (
-            <div className="emptyState">No categories available right now.</div>
-          ) : null}
-
-          {!loading && !error && (enabledCategories.length > 6 || disabledCategories.length > 0) ? (
-            <>
-              <div className="sectionHeader sectionHeaderSecondary">
-                <div>
-                  <p className="sectionEyebrow">Explore All</p>
-                  <h2>More categories on YNOT</h2>
+                  <div className="heroPreviewOverlay" />
+                </div>
+                <div className="heroPreviewContent">
+                  <p className="previewEyebrow">Featured category</p>
+                  <h3>{topCategory?.name || "Salon & Spa"}</h3>
+                  <p>
+                    Start with a guided setup flow tailored to your business
+                    type and get online faster.
+                  </p>
+                  <button
+                    className="previewAction"
+                    onClick={() =>
+                      startOnboarding(
+                        topCategory?.categoryId || topCategory?.id || topCategory?._id
+                      )
+                    }
+                  >
+                    Start with this category
+                  </button>
                 </div>
               </div>
-              <div className="grid">
-                {enabledCategories.slice(6).map((cat) => {
-                  const categoryId = cat.categoryId || cat.id || cat._id;
+            </div>
+          </div>
+
+          <div className="valueStrip">
+            <div className="siteShell valueStripInner">
+              <span>Fast</span>
+              <span>Reliable</span>
+              <span>Scalable</span>
+              <span>Simple</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="processSection" id="how-it-works">
+          <div className="siteShell">
+            <div className="sectionIntro sectionIntroCentered">
+              <p className="sectionKicker">The process</p>
+              <h2>Launch faster with a guided setup flow</h2>
+              <p>
+                We&apos;ve simplified business digitisation into three clear
+                steps so vendors can start quickly and confidently.
+              </p>
+            </div>
+
+            <div className="processGrid">
+              <article className="processCard">
+                <div className="processNumber">1</div>
+                <div className="processGhost">01</div>
+                <h3>Choose your category</h3>
+                <p>
+                  Start with the service category that best matches your business
+                  and onboarding path.
+                </p>
+              </article>
+              <article className="processCard processCardAccent">
+                <div className="processNumber">2</div>
+                <div className="processGhost">02</div>
+                <h3>Set up your profile</h3>
+                <p>
+                  Add business details, services, contact information, and brand
+                  identity in one guided flow.
+                </p>
+              </article>
+              <article className="processCard">
+                <div className="processNumber">3</div>
+                <div className="processGhost">03</div>
+                <h3>Go online instantly</h3>
+                <p>
+                  Publish your presence and begin attracting customer interest
+                  through your new digital storefront.
+                </p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section className="categoriesShowcase" id="categories">
+          <div className="siteShell">
+            <div className="sectionIntro sectionIntroSplit">
+              <div>
+                <p className="sectionKicker">Popular categories</p>
+                <h2>Pick the right category and get started</h2>
+                <p>
+                  Join vendors across industries already using YNOT to build
+                  their online presence.
+                </p>
+              </div>
+              <div className="liveBadge">
+                <span className="liveDot" />
+                {Math.max(totalActiveVendors, 500)}+ Vendors live
+              </div>
+            </div>
+
+            {loading ? <div className="loadingState">Loading categories...</div> : null}
+            {!loading && error ? <div className="emptyState">{error}</div> : null}
+            {!loading && !error && enabledCategories.length === 0 ? (
+              <div className="emptyState">No categories available right now.</div>
+            ) : null}
+
+            {!loading && !error && featuredCategories.length > 0 ? (
+              <div className="featuredGrid">
+                {featuredCategories.map((category) => {
+                  const categoryId =
+                    category.categoryId || category.id || category._id;
 
                   return (
                     <CategoryCard
                       key={categoryId}
-                      category={cat}
-                      onClick={() =>
-                        router.push(`/onboarding?categoryId=${categoryId}`)
-                      }
-                    />
-                  );
-                })}
-                {disabledCategories.map((cat) => {
-                  const categoryId = cat.categoryId || cat.id || cat._id;
-
-                  return (
-                    <CategoryCard
-                      key={categoryId}
-                      category={cat}
-                      disabled
+                      category={category}
+                      variant="featured"
+                      onClick={() => startOnboarding(categoryId)}
                     />
                   );
                 })}
               </div>
-            </>
-          ) : null}
+            ) : null}
+
+            {!loading && !error && mixedCategories.length > 0 ? (
+              <div className="compactGrid">
+                {mixedCategories.map((category) => {
+                  const categoryId =
+                    category.categoryId || category.id || category._id;
+                  const disabled =
+                    category.onboardingEnabled === false ||
+                    category.visibleToVendor === false;
+
+                  return (
+                    <CategoryCard
+                      key={categoryId}
+                      category={category}
+                      variant="compact"
+                      disabled={disabled}
+                      onClick={() => startOnboarding(categoryId)}
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="ctaBannerSection">
+          <div className="siteShell">
+            <div className="ctaBanner">
+              <div className="ctaBannerCopy">
+                <p className="sectionKicker sectionKickerLight">
+                  Ready to grow
+                </p>
+                <h2>Give your business a cleaner, faster path online.</h2>
+                <p>
+                  Use YNOT to turn category discovery into a guided onboarding
+                  journey for your business.
+                </p>
+              </div>
+              <div className="ctaBannerActions">
+                <button
+                  className="primaryHeroButton"
+                  onClick={() => startOnboarding()}
+                >
+                  Set up my business
+                </button>
+                <button
+                  className="secondaryDarkButton"
+                  onClick={() => scrollToSection("categories")}
+                >
+                  Browse categories
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="siteFooter">
+        <div className="siteShell footerGrid">
+          <div className="footerBrand">
+            <div className="footerLogo">
+              <span className="brandMark">Y</span>
+              <span className="brandWordmark">YNOT</span>
+            </div>
+            <p>
+              Helping local businesses bridge the digital divide with simple,
+              focused onboarding tools.
+            </p>
+            <div className="footerSocials" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+          </div>
+
+          <div className="footerLinks">
+            <h3>Explore</h3>
+            <button type="button" onClick={() => scrollToSection("categories")}>
+              Categories
+            </button>
+            <button type="button" onClick={() => scrollToSection("how-it-works")}>
+              How it works
+            </button>
+            <button type="button" onClick={() => startOnboarding()}>
+              Vendor onboarding
+            </button>
+          </div>
+
+          <div className="footerLinks">
+            <h3>Platform</h3>
+            <a href="/onboarding">Set up business</a>
+            <a href="/onboarding">Get started</a>
+            <a href="/onboarding">Launch online</a>
+          </div>
         </div>
-      </section>
+
+        <div className="siteShell footerBottom">
+          <p>© 2024 YNOT Go Online. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }

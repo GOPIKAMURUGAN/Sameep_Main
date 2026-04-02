@@ -1,13 +1,21 @@
 "use client";
 
-export default function CategoryCard({ category, onClick, disabled = false }) {
+export default function CategoryCard({
+  category,
+  onClick,
+  disabled = false,
+  variant = "featured",
+}) {
   const vendorCount = category.vendorCount || category.totalVendors || 0;
   const isPopular = vendorCount > 50;
-  const badgeLabel = disabled ? "Coming Soon" : isPopular ? "Popular" : null;
+  const categoryClassName = `categoryCard categoryCard${variant[0].toUpperCase()}${variant.slice(
+    1
+  )}${disabled ? " categoryCardDisabled" : ""}`;
+  const badgeLabel = disabled ? "Coming soon" : isPopular ? "Popular" : null;
 
   return (
-    <div
-      className={`categoryCard${disabled ? " categoryCardDisabled" : ""}`}
+    <article
+      className={categoryClassName}
       onClick={disabled ? undefined : onClick}
       role={disabled ? undefined : "button"}
       tabIndex={disabled ? -1 : 0}
@@ -28,16 +36,18 @@ export default function CategoryCard({ category, onClick, disabled = false }) {
           alt={category.name}
           className="categoryImage"
         />
+        <div className="categoryOverlay" />
         {badgeLabel ? <span className="categoryBadge">{badgeLabel}</span> : null}
       </div>
 
       <div className="categoryContent">
         <h3>{category.name}</h3>
-
         <p className="vendorCount">
-          {disabled ? "Vendor onboarding opens soon" : `${vendorCount} vendors already growing`}
+          {disabled
+            ? "Vendor onboarding opens soon"
+            : `${vendorCount} vendors growing`}
         </p>
       </div>
-    </div>
+    </article>
   );
 }
