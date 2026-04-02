@@ -1186,7 +1186,7 @@ function OnboardingFlow() {
                   onClick={() => setSelectedSubdomain(subdomain)}
                 >
                   <span>{subdomain}</span>
-                  <small>.ynot.com</small>
+                  <small>.ynot.co.in</small>
                 </button>
               ))}
             </div>

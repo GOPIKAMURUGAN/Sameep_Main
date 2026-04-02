@@ -1408,7 +1408,7 @@ onChange={(e) =>
                   onClick={() => setSelectedSubdomain(s)}
                 >
                   <span className="domain-name">{s}</span>
-                  <span className="domain-suffix">.ynot.com</span>
+                  <span className="domain-suffix">.ynot.co.in</span>
                 </button>
               ))}
             </div>
