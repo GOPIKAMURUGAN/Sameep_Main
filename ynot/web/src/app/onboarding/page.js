@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import ServiceAreasStep from "../../components/onboarding/ServiceAreasStep";
 import {
@@ -71,6 +71,7 @@ function OnboardingFlow() {
   const [captcha, setCaptcha] = useState("");
   const [captchaInput, setCaptchaInput] = useState(["", "", "", ""]);
   const [captchaError, setCaptchaError] = useState("");
+  const captchaRefs = useRef([]);
 
   const [manualBusinessName, setManualBusinessName] = useState("");
   const [manualPhone, setManualPhone] = useState("");
@@ -154,11 +155,16 @@ function OnboardingFlow() {
   useEffect(() => {
     if (step !== "GOOGLE_SEARCH") return;
 
+    regenerateCaptcha();
+  }, [step]);
+
+  function regenerateCaptcha() {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     setCaptcha(code);
     setCaptchaInput(["", "", "", ""]);
     setCaptchaError("");
-  }, [step]);
+    captchaRefs.current[0]?.focus();
+  }
 
   const filteredCategories = categories.filter((category) =>
     category.name?.toLowerCase().includes(search.toLowerCase())
@@ -742,7 +748,7 @@ function OnboardingFlow() {
                 <button
                   type="button"
                   className="ghostButton"
-                  onClick={() => setStep("GOOGLE_SEARCH")}
+                  onClick={regenerateCaptcha}
                 >
                   Refresh
                 </button>
@@ -752,16 +758,58 @@ function OnboardingFlow() {
                   <input
                     key={index}
                     id={`captcha-${index}`}
+                    ref={(element) => {
+                      captchaRefs.current[index] = element;
+                    }}
                     className="captcha-input"
                     type="text"
                     inputMode="numeric"
                     maxLength={1}
                     value={digit}
                     onChange={(event) => {
-                      if (!/^[0-9]?$/.test(event.target.value)) return;
+                      const nextValue = event.target.value.replace(/\D/g, "").slice(-1);
+                      if (!/^[0-9]?$/.test(nextValue)) return;
                       const next = [...captchaInput];
-                      next[index] = event.target.value;
+                      next[index] = nextValue;
                       setCaptchaInput(next);
+
+                      if (nextValue && index < captchaInput.length - 1) {
+                        captchaRefs.current[index + 1]?.focus();
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Backspace" &&
+                        !captchaInput[index] &&
+                        index > 0
+                      ) {
+                        captchaRefs.current[index - 1]?.focus();
+                      }
+                    }}
+                    onPaste={(event) => {
+                      const pasted = event.clipboardData
+                        .getData("text")
+                        .replace(/\D/g, "")
+                        .slice(0, captchaInput.length);
+
+                      if (!pasted) return;
+
+                      event.preventDefault();
+                      const next = [...captchaInput];
+
+                      pasted.split("").forEach((char, offset) => {
+                        if (index + offset < next.length) {
+                          next[index + offset] = char;
+                        }
+                      });
+
+                      setCaptchaInput(next);
+
+                      const focusIndex = Math.min(
+                        index + pasted.length,
+                        captchaInput.length - 1
+                      );
+                      captchaRefs.current[focusIndex]?.focus();
                     }}
                   />
                 ))}
@@ -1010,9 +1058,9 @@ function OnboardingFlow() {
                       }
                     >
                       <option value="">Select minimum count</option>
-                      {[10, 25, 50, 100, 250, 500, 1000].map((count) => (
+                      {Array.from({ length: 20 }, (_, index) => index + 1).map((count) => (
                         <option key={count} value={count}>
-                          {count}+
+                          {count}
                         </option>
                       ))}
                     </select>

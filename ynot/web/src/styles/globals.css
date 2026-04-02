@@ -1575,8 +1575,12 @@ button {
   }
 
   .category-select-grid,
-  .captcha-row {
+  .category-select-grid {
     grid-template-columns: 1fr;
+  }
+
+  .captcha-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .onboarding-category-card {
