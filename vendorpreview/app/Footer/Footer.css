@@ -100,6 +100,17 @@
   text-shadow: 0 0 8px rgba(255, 215, 130, 0.6);
 }
 
+.footer-secondary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.footer-info-secondary {
+  margin-bottom: 0;
+}
+
 
 /* ============================================================
    BOTTOM BAR
@@ -131,6 +142,10 @@
 
   .footer-info {
     justify-content: center;
+  }
+
+  .footer-secondary-list {
+    align-items: center;
   }
 }
 .footer-socials {

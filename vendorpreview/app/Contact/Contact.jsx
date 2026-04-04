@@ -12,6 +12,9 @@ export default function ContactSection() {
   const phone =
     vendorInfo.phone ||
     vendorInfo.contact?.phone;
+  const secondaryPhones = Array.isArray(vendorInfo.secondaryPhones)
+    ? vendorInfo.secondaryPhones.filter(Boolean)
+    : [];
 
   const location =
     vendorInfo.location || {};
@@ -45,6 +48,19 @@ export default function ContactSection() {
                 "Phone not available"
               )}
             </p>
+            {secondaryPhones.length > 0 && (
+              <div className="contact-secondary-list">
+                {secondaryPhones.map((secondaryPhone) => (
+                  <a
+                    key={secondaryPhone}
+                    className="contact-secondary-link"
+                    href={`tel:${secondaryPhone}`}
+                  >
+                    {secondaryPhone}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 📍 LOCATION */}

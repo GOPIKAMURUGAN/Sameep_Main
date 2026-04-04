@@ -7,6 +7,7 @@ import { useVendor } from "@/app/context/VendorContext";
 import HomeLocationModal from "../../Profile/HomeLocationModal";
 import BusinessLocationsModal from "../../Profile/BusinessLocationsModal";
 import BusinessHoursModal from "../../Profile/BusinessHoursModal";
+import BrandingContactModal from "../../Profile/BrandingContactModal";
 
 function ProfileDashboard({
   vendorInfo,
@@ -20,10 +21,16 @@ function ProfileDashboard({
   const [showHomeLocation, setShowHomeLocation] = useState(false);
   const [showBusinessLocations, setShowBusinessLocations] = useState(false);
   const [showBusinessHours, setShowBusinessHours] = useState(false);
+  const [showBrandingContact, setShowBrandingContact] = useState(false);
   const [hoursVendor, setHoursVendor] = useState(null);
   const [loadingVendor, setLoadingVendor] = useState(false);
   const currentVendorInfo = contextVendorInfo || vendorInfo;
   const vendorId = currentVendorInfo?.vendorId || currentVendorInfo?._id || null;
+  const brandingDetailsCount =
+    (currentVendorInfo?.logoUrl ? 1 : 0) +
+    (Array.isArray(currentVendorInfo?.secondaryPhones)
+      ? currentVendorInfo.secondaryPhones.filter(Boolean).length
+      : 0);
   const galleryCount = Array.isArray(currentVendorInfo?.rowImages)
     ? currentVendorInfo.rowImages.length
     : currentVendorInfo?.rowImages && typeof currentVendorInfo.rowImages === "object"
@@ -97,6 +104,7 @@ function ProfileDashboard({
   const socialCount = socialsToRender.filter((item) => Boolean(item.value?.trim())).length;
 
 const cardHandlers = {
+  brandingContact: () => setShowBrandingContact(true),
   gallery: () => openService("gallery"),
   locations: () => setShowHomeLocation(true),
   targetedLocations: () => setShowBusinessLocations(true),
@@ -104,6 +112,11 @@ const cardHandlers = {
 };
 
   const profileCards = [
+    {
+      key: "brandingContact",
+      title: "Branding & Contact",
+      description: `Manage logo and backup phone numbers. ${brandingDetailsCount} branding detail${brandingDetailsCount === 1 ? "" : "s"} configured.`,
+    },
     {
       key: "social-panel",
       title: "My Social Handles",
@@ -183,6 +196,16 @@ const cardHandlers = {
           vendorId={vendorId}
           initialPosition={initialHomeLocation}
           onClose={() => setShowHomeLocation(false)}
+        />
+      )}
+
+      {showBrandingContact && (
+        <BrandingContactModal
+          vendorId={vendorId}
+          businessName={currentVendorInfo?.businessName || ""}
+          initialLogoUrl={currentVendorInfo?.logoUrl || ""}
+          initialSecondaryPhones={currentVendorInfo?.secondaryPhones || []}
+          onClose={() => setShowBrandingContact(false)}
         />
       )}
 

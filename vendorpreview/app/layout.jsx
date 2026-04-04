@@ -6,7 +6,14 @@ import Footer from "./Footer/Footer";
 import VendorClientShell from "./VendorClientShell";
 import { VendorProvider } from "./context/VendorContext";
 
-export const metadata = { title: "" };
+export const metadata = {
+  title: "",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
+};
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

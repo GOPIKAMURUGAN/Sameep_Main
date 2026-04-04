@@ -69,6 +69,17 @@ const dummyVendorSchema = new mongoose.Schema({
     required: true,
   },
 
+  logoUrl: {
+    type: String,
+    default: "",
+    trim: true,
+  },
+
+  secondaryPhones: {
+    type: [String],
+    default: [],
+  },
+
   // Link to top-level DummyCategory
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,

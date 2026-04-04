@@ -53,6 +53,9 @@ export default function Footer() {
   }, [categoryId]);
 
   const webMenu = categoryData?.webMenu || [];
+  const secondaryPhones = Array.isArray(vendorInfo?.secondaryPhones)
+    ? vendorInfo.secondaryPhones.filter(Boolean)
+    : [];
 
   // ---------- FINAL SOCIALS ----------
   const socialsToRender = categorySocials
@@ -142,6 +145,17 @@ export default function Footer() {
               <FaPhoneAlt className="footer-icon" />
               <a href={`tel:${vendorInfo.phone}`}>{vendorInfo.phone}</a>
             </p>
+          )}
+
+          {secondaryPhones.length > 0 && (
+            <div className="footer-secondary-list">
+              {secondaryPhones.map((secondaryPhone) => (
+                <p className="footer-info footer-info-secondary" key={secondaryPhone}>
+                  <FaPhoneAlt className="footer-icon" />
+                  <a href={`tel:${secondaryPhone}`}>{secondaryPhone}</a>
+                </p>
+              ))}
+            </div>
           )}
 
           {vendorInfo?.location?.address && (

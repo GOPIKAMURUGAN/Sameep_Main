@@ -82,6 +82,25 @@ async function getDummyTopCategoryNameById(categoryId) {
   } catch { return null; }
 }
 
+function normalizeLogoUrl(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeSecondaryPhones(value) {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set();
+  return value
+    .map((entry) => String(entry || "").replace(/\D/g, "").trim())
+    .map((entry) => entry.slice(-10))
+    .filter((entry) => {
+      if (!entry) return false;
+      if (seen.has(entry)) return false;
+      seen.add(entry);
+      return true;
+    });
+}
+
 function getDummyVendorDisplayName(vendor) {
   return (
     vendor?.name || vendor?.contactName || vendor?.businessName || "Vendor"
@@ -592,6 +611,14 @@ router.put("/:vendorId", async (req, res) => {
 
     const update = { ...req.body };
 
+    if (update.logoUrl !== undefined) {
+      update.logoUrl = normalizeLogoUrl(update.logoUrl);
+    }
+
+    if (update.secondaryPhones !== undefined) {
+      update.secondaryPhones = normalizeSecondaryPhones(update.secondaryPhones);
+    }
+
     // Merge inventorySelections if provided as object
     if (update && typeof update.inventorySelections === 'object' && update.inventorySelections !== null) {
       const vdoc = await DummyVendor.findById(vendorId);
@@ -600,7 +627,7 @@ router.put("/:vendorId", async (req, res) => {
       const beforeSelections = JSON.parse(JSON.stringify(existing));
       vdoc.inventorySelections = { ...existing, ...update.inventorySelections };
       // Allow updating a few other simple fields too
-      ["businessName","contactName","phone","status","location","businessHours","profilePictures","rowImages","socialLinks"].forEach((k) => {
+      ["businessName","contactName","phone","status","location","businessHours","profilePictures","rowImages","socialLinks","logoUrl","secondaryPhones"].forEach((k) => {
         if (update[k] !== undefined) vdoc[k] = update[k];
       });
       // If profilePictures provided, delete removed S3 objects

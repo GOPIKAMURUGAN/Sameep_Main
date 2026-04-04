@@ -265,6 +265,111 @@
   box-shadow:0 10px 24px rgba(217,169,61,.35);
 }
 
+.branding-contact-theme{
+  width:min(760px,95vw);
+  max-height:90vh;
+}
+
+.branding-contact-grid{
+  display:flex;
+  flex-direction:column;
+  gap:22px;
+  margin-top:10px;
+}
+
+.branding-contact-section{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding:18px;
+  border-radius:18px;
+  border:1px solid rgba(245,217,122,.14);
+  background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));
+}
+
+.branding-label{
+  color:#f5e2a4;
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+
+.branding-logo-row{
+  display:grid;
+  grid-template-columns:132px minmax(0,1fr);
+  gap:16px;
+  align-items:start;
+}
+
+.branding-logo-preview{
+  width:132px;
+  height:132px;
+  border-radius:18px;
+  border:1px solid rgba(245,217,122,.2);
+  background:rgba(255,255,255,.04);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  color:rgba(255,255,255,.45);
+  font-size:13px;
+  font-weight:700;
+  text-transform:uppercase;
+}
+
+.branding-logo-preview img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+
+.branding-logo-actions,
+.branding-phone-list{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.branding-text-input{
+  width:100%;
+  min-height:44px;
+  padding:0 14px;
+  border-radius:12px;
+  border:1px solid rgba(245,217,122,.22);
+  background:#0f0f0f;
+  color:#f8edd0;
+  font-size:14px;
+  transition:border-color .18s ease, box-shadow .18s ease;
+}
+
+.branding-text-input:focus{
+  outline:none;
+  border-color:#f5d97a;
+  box-shadow:0 0 0 2px rgba(245,217,122,.18);
+}
+
+.branding-upload-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:fit-content;
+  min-height:40px;
+  padding:0 16px;
+  border-radius:999px;
+  border:1px solid rgba(245,217,122,.28);
+  background:rgba(245,217,122,.08);
+  color:#f5d97a;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.branding-upload-btn:hover{
+  background:rgba(245,217,122,.12);
+}
+
 
 /* ===============================
    MOBILE
@@ -299,6 +404,15 @@
 .btn-save.primary{
   width:100%;
   height:44px;
+}
+
+.branding-logo-row{
+  grid-template-columns:1fr;
+}
+
+.branding-logo-preview{
+  width:100%;
+  max-width:180px;
 }
 
 }

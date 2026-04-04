@@ -22,6 +22,24 @@
   text-decoration: none;
   font-weight: 600;
 }
+
+.contact-secondary-list{
+  margin-top:12px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.contact-secondary-link{
+  color:#FFE9A9 !important;
+  text-decoration:none;
+  font-size:14px;
+  font-weight:600;
+}
+
+.contact-secondary-link:hover{
+  text-decoration:underline;
+}
 /* ============================================================
    TITLES – GOLD & CENTERED
 ============================================================ */
