@@ -79,6 +79,50 @@
   color: #C9B372;
 }
 
+.hero-service-modes {
+  margin: 8px 0 28px;
+}
+
+.hero-service-modes-label {
+  margin-bottom: 10px;
+  color: #C9B372;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hero-service-mode-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hero-service-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 210, 125, 0.45);
+  background: rgba(255, 210, 125, 0.08);
+  color: #FFEB9A;
+  font-weight: 700;
+}
+
+.hero-service-mode-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: rgba(255, 235, 154, 0.18);
+  color: #FFEB9A;
+  font-size: 12px;
+  line-height: 1;
+}
+
 /* ============================
    BUTTONS
 ============================ */
@@ -210,6 +254,10 @@
 
   .hero-img {
     max-width: 450px;
+  }
+
+  .hero-service-mode-list {
+    justify-content: center;
   }
 }
 

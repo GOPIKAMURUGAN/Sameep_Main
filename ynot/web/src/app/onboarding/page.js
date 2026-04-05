@@ -178,6 +178,20 @@ function OnboardingFlow() {
     .padStart(2, "0");
   const seconds = (elapsed % 60).toString().padStart(2, "0");
 
+  function toggleMultiSelectAnswer(questionId, option) {
+    setTrustAnswers((prev) => {
+      const current = Array.isArray(prev[questionId]) ? prev[questionId] : [];
+      const next = current.includes(option)
+        ? current.filter((item) => item !== option)
+        : [...current, option];
+
+      return {
+        ...prev,
+        [questionId]: next,
+      };
+    });
+  }
+
   function handleClose() {
     router.push("/");
   }
@@ -1039,9 +1053,14 @@ function OnboardingFlow() {
                       }
                     >
                       <option value="">Select years</option>
-                      {[...Array(51)].map((_, index) => (
-                        <option key={index} value={index}>
-                          {index} {index === 1 ? "year" : "years"}
+                      {(question.options?.length
+                        ? question.options
+                        : Array.from({ length: 51 }, (_, index) => String(index))
+                      ).map((option) => (
+                        <option key={option} value={option}>
+                          {question.options?.length
+                            ? option
+                            : `${option} ${option === "1" ? "year" : "years"}`}
                         </option>
                       ))}
                     </select>
@@ -1058,9 +1077,12 @@ function OnboardingFlow() {
                       }
                     >
                       <option value="">Select minimum count</option>
-                      {Array.from({ length: 20 }, (_, index) => index + 1).map((count) => (
-                        <option key={count} value={count}>
-                          {count}
+                      {(question.options?.length
+                        ? question.options
+                        : Array.from({ length: 20 }, (_, index) => String(index + 1))
+                      ).map((option) => (
+                        <option key={option} value={option}>
+                          {option}
                         </option>
                       ))}
                     </select>
@@ -1097,6 +1119,27 @@ function OnboardingFlow() {
                         placeholder="Enter value"
                       />
                     )
+                  ) : null}
+                  {question.type === "multi_select" ? (
+                    <div className="trust-multi-options">
+                      {(question.options || []).map((option) => {
+                        const selectedValues = Array.isArray(trustAnswers[question.id])
+                          ? trustAnswers[question.id]
+                          : [];
+                        const checked = selectedValues.includes(option);
+
+                        return (
+                          <label key={option} className="trust-multi-option">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleMultiSelectAnswer(question.id, option)}
+                            />
+                            <span>{option}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   ) : null}
                 </div>
               ))}

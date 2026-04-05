@@ -1350,6 +1350,25 @@ button {
   box-shadow: var(--shadow-card);
 }
 
+.trust-multi-options {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.trust-multi-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.trust-multi-option input {
+  width: 18px;
+  height: 18px;
+}
+
 .result-card {
   text-align: left;
   cursor: pointer;

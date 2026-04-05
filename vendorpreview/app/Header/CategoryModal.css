@@ -1301,6 +1301,25 @@ flex: 0 1 auto;
   color: #FFDFA0;
 }
 
+.trust-multi-options {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.trust-multi-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-weight: 500;
+}
+
+.trust-multi-option input {
+  width: 18px;
+  height: 18px;
+}
+
 
 
 /* ================= TRUST BUTTON FIX ================= */

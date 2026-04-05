@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config";
 import "./Hero.css";
 
 const HeroSection = ({
@@ -8,6 +9,7 @@ const HeroSection = ({
   googleReviews,
   googleMapsUrl,
   trustSummary = {},
+  trustCategoryId,
   tagline,
   description,
   button1Label,
@@ -17,18 +19,83 @@ const HeroSection = ({
 }) => {
   const [index, setIndex] = useState(0);
   const [slide, setSlide] = useState(false);
+  const [serviceModeLabel, setServiceModeLabel] = useState("Service Modes");
 
-  const experience = trustSummary?.experienceYears;
+  const prettifyLabel = (key) =>
+    String(key || "")
+      .replace(/_/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
-  const getStatLabel = (key) => {
-    const map = {
-      stylists: "Expert Stylists",
-      students_trained: "Students Trained",
-      vehicles_serviced: "Vehicles Serviced",
-      customers: "Happy Customers",
+  const trustEntries = Object.entries(trustSummary || {}).filter(
+    ([, value]) => value !== null && value !== undefined && value !== ""
+  );
+
+  const experienceEntry =
+    trustEntries.find(([key]) => key === "experienceYears") ||
+    trustEntries.find(([key]) => /experience/i.test(String(key)));
+
+  const serviceModeEntry = trustEntries.find(
+    ([key, value]) =>
+      Array.isArray(value) &&
+      /(service|mode|delivery|format|type)/i.test(String(key))
+  );
+
+  const serviceModes = Array.isArray(serviceModeEntry?.[1])
+    ? serviceModeEntry[1].map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTrustQuestionMeta() {
+      if (!trustCategoryId || !serviceModeEntry?.[0]) {
+        if (!cancelled) {
+          setServiceModeLabel("Service Modes");
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/trust/questions?categoryId=${encodeURIComponent(String(trustCategoryId))}`
+        );
+        const data = await response.json();
+        const questions = Array.isArray(data?.questions) ? data.questions : [];
+        const matched = questions.find(
+          (question) => String(question?.id || "").trim() === String(serviceModeEntry[0]).trim()
+        );
+
+        if (!cancelled) {
+          setServiceModeLabel(String(matched?.label || serviceModeEntry[0] || "Service Modes"));
+        }
+      } catch (_) {
+        if (!cancelled) {
+          setServiceModeLabel(String(serviceModeEntry[0] || "Service Modes"));
+        }
+      }
+    }
+
+    loadTrustQuestionMeta();
+
+    return () => {
+      cancelled = true;
     };
-    return map[key] || key;
+  }, [serviceModeEntry, trustCategoryId]);
+
+  const formatStatValue = (value) => {
+    if (value === null || value === undefined) return "";
+    const normalized = String(value).trim();
+    if (!normalized) return "";
+    return normalized.endsWith("+") ? normalized : `${normalized}+`;
   };
+
+  const statEntries = trustEntries.filter(([key, value]) => {
+    if (key === experienceEntry?.[0]) return false;
+    if (key === serviceModeEntry?.[0]) return false;
+    if (Array.isArray(value)) return false;
+    return true;
+  });
 
   const allImages = images;
 
@@ -84,21 +151,18 @@ const HeroSection = ({
         {description && <p className="hero-text">{description}</p>}
 
         <div className="stats">
-          {experience && (
+          {experienceEntry?.[1] && (
             <div className="stat-item">
-              <h2>{experience}+</h2>
-              <p>Years Experience</p>
+              <h2>{formatStatValue(experienceEntry[1])}</h2>
+              <p>{experienceEntry[0] === "experienceYears" ? "Years Experience" : prettifyLabel(experienceEntry[0])}</p>
             </div>
           )}
 
-          {Object.entries(trustSummary || {}).map(([key, value]) => {
-            if (key === "experienceYears") return null;
-            if (!value) return null;
-
+          {statEntries.map(([key, value]) => {
             return (
               <div className="stat-item" key={key}>
-                <h2>{value}+</h2>
-                <p>{getStatLabel(key)}</p>
+                <h2>{formatStatValue(value)}</h2>
+                <p>{prettifyLabel(key)}</p>
               </div>
             );
           })}
@@ -126,6 +190,20 @@ const HeroSection = ({
             )}
           </div>
         </div>
+
+        {serviceModes.length > 0 && (
+          <div className="hero-service-modes">
+            <p className="hero-service-modes-label">{serviceModeLabel}</p>
+            <div className="hero-service-mode-list">
+              {serviceModes.map((mode) => (
+                <span key={mode} className="hero-service-mode-chip">
+                  <span className="hero-service-mode-chip-icon">✓</span>
+                  {mode}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="hero-buttons">
           {button1Label && (

@@ -1,5 +1,6 @@
 const VendorTrustProfile = require("../models/VendorTrustProfile");
 const DummyVendor = require("../models/DummyVendor");
+const TrustQuestionnaireConfig = require("../models/TrustQuestionnaireConfig");
 const { CATEGORY_CLUSTER_MAP, CLUSTER_QUESTIONS } = require("../utils/trustClusters");
 
 function getCluster(category) {
@@ -7,21 +8,82 @@ function getCluster(category) {
   return CATEGORY_CLUSTER_MAP[category] || null;
 }
 
+async function findClusterConfig({ category, categoryId } = {}) {
+  const cleanCategory = String(category || "").trim();
+  const cleanCategoryId = String(categoryId || "").trim();
+
+  const or = [];
+  if (cleanCategoryId) or.push({ categoryIds: cleanCategoryId });
+  if (cleanCategory) or.push({ categoryNames: cleanCategory });
+
+  let config = null;
+  if (or.length > 0) {
+    config = await TrustQuestionnaireConfig.findOne({
+      isActive: true,
+      $or: or,
+    }).lean();
+  }
+
+  if (!config && cleanCategory) {
+    const clusterKey = getCluster(cleanCategory);
+    if (clusterKey) {
+      config = await TrustQuestionnaireConfig.findOne({
+        clusterKey,
+        isActive: true,
+      }).lean();
+    }
+  }
+
+  if (!config) return null;
+
+  const questions = Array.isArray(config.questions)
+    ? config.questions
+        .filter((question) => question && question.isActive !== false)
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
+    : [];
+
+  return {
+    clusterKey: config.clusterKey,
+    questions,
+  };
+}
+
 function normalizeAnswers(answers) {
   if (!answers || typeof answers !== "object") return {};
   return answers;
+}
+
+function pickTrustValue(trustSummary = {}, matcher) {
+  const entry = Object.entries(trustSummary).find(([key, value]) => {
+    if (value === null || value === undefined || value === "") return false;
+    if (Array.isArray(value)) return false;
+    return matcher.test(String(key));
+  });
+  return entry ? entry[1] : "";
 }
 
 // 1) Get trust questions for a category
 exports.getTrustQuestions = async (req, res) => {
   try {
     const category = String(req.query.category || "").trim();
+    const categoryId = String(req.query.categoryId || "").trim();
+    const config = await findClusterConfig({ category, categoryId });
+
+    if (config) {
+      return res.status(200).json({
+        cluster: config.clusterKey,
+        questions: config.questions,
+        source: "db",
+      });
+    }
+
     const cluster = getCluster(category);
     const questions = cluster ? CLUSTER_QUESTIONS[cluster] || [] : [];
 
     return res.status(200).json({
       cluster,
       questions,
+      source: "file",
     });
   } catch (err) {
     console.error("getTrustQuestions error:", err);
@@ -35,7 +97,7 @@ exports.getTrustQuestions = async (req, res) => {
 // 2) Save trust profile
 exports.saveTrustProfile = async (req, res) => {
   try {
-    const { vendorId, category, answers } = req.body || {};
+    const { vendorId, category, categoryId, answers } = req.body || {};
 
     console.log("🔥 TRUST ANSWERS RECEIVED:", answers);
 
@@ -43,7 +105,8 @@ exports.saveTrustProfile = async (req, res) => {
       return res.status(400).json({ success: false, message: "vendorId is required" });
     }
 
-    const cluster = getCluster(String(category || "").trim());
+    const config = await findClusterConfig({ category, categoryId });
+    const cluster = config?.clusterKey || getCluster(String(category || "").trim());
     if (!cluster) {
       return res.status(400).json({ success: false, message: "Unknown category cluster" });
     }
@@ -79,7 +142,8 @@ exports.saveTrustProfile = async (req, res) => {
       trustSummary.experienceYears = nowYear - updated.experienceStartYear;
     }
 
-    // ✅ Copy numeric answers dynamically (future-proof)
+    // ✅ Copy questionnaire answers dynamically.
+    // Preserve labeled range/select values like "5000+" instead of dropping them.
     Object.entries(updated.answers || {}).forEach(([key, value]) => {
       // ❌ Skip duplicate experience field
       if (key === "experience") return;
@@ -88,15 +152,52 @@ exports.saveTrustProfile = async (req, res) => {
 
       if (!isNaN(num) && value !== "" && value !== null) {
         trustSummary[key] = num;
+      } else if (Array.isArray(value)) {
+        const cleaned = value
+          .map((item) => String(item || "").trim())
+          .filter(Boolean);
+        if (cleaned.length > 0) trustSummary[key] = cleaned;
+      } else if (typeof value === "string" && value.trim() !== "") {
+        trustSummary[key] = value.trim();
       }
     });
 
-    // ⭐ Save summary into vendor doc
-    await DummyVendor.findByIdAndUpdate(
-      vendorId,
-      { $set: { trustSummary } },
-      { new: true }
-    );
+    const vendor = await DummyVendor.findById(vendorId);
+    if (vendor) {
+      const years = trustSummary.experienceYears || pickTrustValue(trustSummary, /experience/i);
+      const customers =
+        pickTrustValue(trustSummary, /(customer|customers|students|pets|clients|served)/i) || "";
+      const rating = vendor.googlePlace?.rating || "";
+      const areas = (vendor.serviceAreas?.targetAreas || []).slice(0, 3).join(", ");
+      const cityLabel = vendor.serviceAreas?.city || "";
+
+      const nextCustomFields = {
+        ...(vendor.customFields || {}),
+      };
+
+      if (!String(nextCustomFields.freeText1 || "").trim()) {
+        nextCustomFields.freeText1 = `${cityLabel || "Local"} Services`;
+      }
+
+      const yearsText = String(years || "").trim();
+      const normalizedYearsText = yearsText
+        ? yearsText.endsWith("+")
+          ? yearsText
+          : `${yearsText}+`
+        : "";
+
+      nextCustomFields.freeText2 = `Trusted by ${customers || "many"} clients${
+        normalizedYearsText ? ` with ${normalizedYearsText} years of experience` : ""
+      }, ${vendor.businessName} offers premium services in ${cityLabel || "your area"}${
+        areas ? ` including ${areas}` : ""
+      }. ${rating ? `Rated ${rating}★ on Google,` : ""} we deliver personalised experiences tailored for every customer.`
+        .replace(/\s+/g, " ")
+        .trim();
+
+      vendor.trustSummary = trustSummary;
+      vendor.customFields = nextCustomFields;
+      await vendor.save();
+    }
 
     return res.status(200).json({
       success: true,

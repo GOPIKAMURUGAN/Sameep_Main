@@ -2885,9 +2885,9 @@ function ExploreContent({ onReady, onOpenServices }) {
         googleReviews={vendorInfo?.googlePlace?.userRatingsTotal}
         googleMapsUrl={vendorInfo?.googlePlace?.mapsUrl}
 
-        // ⭐ TRUST (NEW)
-        //trustSummary={vendorInfo?.trustSummary}
-        trustSummary={vendorInfo?.trust || vendorInfo?.trustSummary}
+        // ⭐ TRUST
+        trustSummary={vendorInfo?.trustSummary || vendorInfo?.trust}
+        trustCategoryId={vendorInfo?.categoryId}
 
 
         // 🟢 CATEGORY (category API)

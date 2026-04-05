@@ -179,6 +179,19 @@ const normalizePhone = (phone) => {
     .trim();
   return digits.slice(-10);
 };
+  const toggleTrustMultiSelect = (questionId, option) => {
+    setTrustAnswers((prev) => {
+      const current = Array.isArray(prev[questionId]) ? prev[questionId] : [];
+      const next = current.includes(option)
+        ? current.filter((item) => item !== option)
+        : [...current, option];
+
+      return {
+        ...prev,
+        [questionId]: next,
+      };
+    });
+  };
   const openingHoursText = Array.isArray(selectedBusiness?.openingHoursText)
     ? selectedBusiness.openingHoursText
     : [];
@@ -1158,9 +1171,14 @@ onChange={(e) =>
                         }
                       >
                         <option value="">Select years</option>
-                        {[...Array(51)].map((_, i) => (
-                          <option key={i} value={i}>
-                            {i} {i === 1 ? "year" : "years"}
+                        {(q.options?.length
+                          ? q.options
+                          : Array.from({ length: 51 }, (_, i) => String(i))
+                        ).map((option) => (
+                          <option key={option} value={option}>
+                            {q.options?.length
+                              ? option
+                              : `${option} ${option === "1" ? "year" : "years"}`}
                           </option>
                         ))}
                       </select>
@@ -1175,11 +1193,14 @@ onChange={(e) =>
                         }
                       >
                         <option value="">Select minimum count</option>
-                       {Array.from({ length: 25 }, (_, i) => i + 1).map((n) => (
-  <option key={n} value={n}>
-    {n}
-  </option>
-))}
+                        {(q.options?.length
+                          ? q.options
+                          : Array.from({ length: 25 }, (_, i) => String(i + 1))
+                        ).map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
                       </select>
                     )}
 
@@ -1208,6 +1229,28 @@ onChange={(e) =>
                           ))}
                         </select>
                       )
+                    )}
+
+                    {q.type === "multi_select" && (
+                      <div className="trust-multi-options">
+                        {(q.options || []).map((opt) => {
+                          const selectedValues = Array.isArray(trustAnswers[q.id])
+                            ? trustAnswers[q.id]
+                            : [];
+                          const checked = selectedValues.includes(opt);
+
+                          return (
+                            <label key={opt} className="trust-multi-option">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleTrustMultiSelect(q.id, opt)}
+                              />
+                              <span>{opt}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 ))}

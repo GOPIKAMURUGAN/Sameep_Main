@@ -76,10 +76,6 @@ export default function Footer() {
           <h3 className="footer-title">
             {vendorInfo?.businessName || "Business"}
           </h3>
-          <p className="footer-text">
-            Where beauty meets perfection. Experience luxury grooming and
-            personalized care crafted to make you look and feel your absolute best.
-          </p>
         </div>
 
         {/* ✅ QUICK LINKS (NOW WORKS EVERYWHERE) */}

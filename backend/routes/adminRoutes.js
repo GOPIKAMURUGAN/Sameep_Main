@@ -14,6 +14,12 @@ const {
   getVendorSubscription,
   updateVendorSubscription,
 } = require("../controllers/vendorSubscriptionController");
+const {
+  listTrustQuestionnaireConfigs,
+  createTrustQuestionnaireConfig,
+  updateTrustQuestionnaireConfig,
+  deleteTrustQuestionnaireConfig,
+} = require("../controllers/trustQuestionnaireConfigController");
 
 const router = express.Router();
 
@@ -88,5 +94,10 @@ router.delete("/plans/:id", deletePlan);
 router.post("/vendor-subscriptions", assignVendorPlan);
 router.get("/vendor-subscriptions/:vendorId", getVendorSubscription);
 router.put("/vendor-subscriptions/:vendorId", updateVendorSubscription);
+
+router.get("/trust-questionnaires", listTrustQuestionnaireConfigs);
+router.post("/trust-questionnaires", createTrustQuestionnaireConfig);
+router.put("/trust-questionnaires/:id", updateTrustQuestionnaireConfig);
+router.delete("/trust-questionnaires/:id", deleteTrustQuestionnaireConfig);
 
 module.exports = router;
