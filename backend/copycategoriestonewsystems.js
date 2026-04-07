@@ -1,7 +1,11 @@
 const fetch = global.fetch;
 
-const SOURCE =
-  "http://localhost:5001/api/categories/tree?rootCategoryId=691abce2531f54c7d983a30e";
+console.log("🔥 CATEGORY CLONE SCRIPT STARTED");
+
+/******** CONFIG ********/
+const ROOT_ID = "69229001531f54c7d9883189";
+
+const SOURCE = `http://localhost:5001/api/categories/tree?rootCategoryId=${ROOT_ID}`;
 
 const TARGET = "https://api.ynot.co.in";
 
@@ -60,7 +64,6 @@ async function createCategory(node, parentId) {
     if (data.message === "Category already exists") {
       console.log(`↩ Exists → ${node.name}`);
 
-      // ⚠️ IMPORTANT: fetch existing category ID
       const existingId = await findExistingCategory(node.name, parentId);
       return existingId;
     }
@@ -93,11 +96,11 @@ async function findExistingCategory(name, parentId) {
 async function copyNode(node, parentId = null) {
   const newId = await createCategory(node, parentId);
 
-  if (!newId) return;
+  const effectiveParentId = newId || parentId;
 
   if (node.children?.length) {
     for (const child of node.children) {
-      await copyNode(child, newId);
+      await copyNode(child, effectiveParentId);
     }
   }
 }
@@ -109,16 +112,19 @@ async function migrate() {
   const res = await fetch(SOURCE);
   const data = await res.json();
 
+  console.log("📡 SOURCE:", SOURCE);
+  console.log("🎯 TARGET:", TARGET);
+  console.log("📁 ROOT FROM API:", data.name);
+  console.log("📦 CHILD COUNT:", data.children?.length);
+
   const root = data;
 
-  // 🔴 STEP 1: Create ROOT
-  const ROOT_ID = await createCategory(root, null);
+  const ROOT_ID_NEW = await createCategory(root, null);
 
-  console.log("📁 ROOT CREATED:", ROOT_ID);
+  console.log("📁 ROOT CREATED:", ROOT_ID_NEW);
 
-  // 🔴 STEP 2: Process children
   for (const child of root.children) {
-    await copyNode(child, ROOT_ID);
+    await copyNode(child, ROOT_ID_NEW);
   }
 
   console.log("✅ DONE — PERFECT CLONE");

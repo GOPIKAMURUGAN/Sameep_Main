@@ -1523,9 +1523,7 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }) {
             Edit
           </span>
         )}
-      </div>
 
-      <div className="service-bottom">
         <label className="switch">
           <input
             type="checkbox"

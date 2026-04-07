@@ -418,35 +418,39 @@ exports.saveServiceAreas = async (req, res) => {
       });
     }
 
-    const existingHeading = String(updated.customFields?.freeText1 || "").trim();
-    if (!existingHeading) {
-      let categoryName = "";
-      if (updated.categoryId) {
-        try {
-          const DummyCategory = require("../models/dummyCategory");
-          const cat = await DummyCategory.findById(updated.categoryId).lean();
-          categoryName = cat?.name || "";
-        } catch (_) {}
-      }
+    let categoryName = "";
+    if (updated.categoryId) {
+      try {
+        const DummyCategory = require("../models/dummyCategory");
+        const cat = await DummyCategory.findById(updated.categoryId).lean();
+        categoryName = String(cat?.name || "").trim();
+      } catch (_) {}
+    }
 
-      const years = updated.trustSummary?.experienceYears || "";
-      const customers = updated.trustSummary?.customers || updated.trustSummary?.customersServedMin || "";
-      const rating = updated.googlePlace?.rating || "";
-      const areas = (updated.serviceAreas?.targetAreas || []).slice(0, 3).join(", ");
-      const cityLabel = city || updated.serviceAreas?.city || "";
+    const years = updated.trustSummary?.experienceYears || "";
+    const customers = updated.trustSummary?.customers || updated.trustSummary?.customersServedMin || "";
+    const rating = updated.googlePlace?.rating || "";
+    const areas = (updated.serviceAreas?.targetAreas || []).slice(0, 3).join(", ");
+    const localityLabel = primaryLocality || updated.serviceAreas?.primaryLocality || "";
+    const cityLabel = city || updated.serviceAreas?.city || "";
 
-     const heading = `${categoryName || "Professional Services"} in ${cityLabel || "your area"}`;
-     const description = `Trusted by ${customers || "many"} clients${years ? ` with ${years}+ years of experience` : ""}, ${updated.businessName} offers premium services in ${cityLabel || "your area"}${areas ? ` including ${areas}` : ""}. ${rating ? `Rated ${rating}★ on Google,` : ""} we deliver personalised experiences tailored for every customer.`
-     .replace(/\s+/g, " ")
+    const locationLabel = [localityLabel, cityLabel].filter(Boolean).join(", ");
+    const heading = locationLabel
+      ? `${categoryName || "Professional Services"} in ${locationLabel}`
+      : categoryName || "Professional Services";
+
+    updated.customFields = updated.customFields || {};
+    updated.customFields.freeText1 = heading;
+
+    const locationCopy = locationLabel || cityLabel || "your area";
+    const areasCopy = areas || localityLabel || "";
+    const description = `Trusted by ${customers || "many"} clients${years ? ` with ${years}+ years of experience` : ""}, ${updated.businessName} offers premium services in ${locationCopy}${areasCopy ? ` including ${areasCopy}` : ""}. ${rating ? `Rated ${rating}★ on Google,` : ""} we deliver personalised experiences tailored for every customer.`
+      .replace(/\s+/g, " ")
       .trim();
 
-      updated.customFields = updated.customFields || {};
-      updated.customFields.freeText1 = heading;
-      updated.customFields.freeText2 = description;
-      await updated.save();
-     
+    updated.customFields.freeText2 = description;
 
-    }
+    await updated.save();
 
     return res.json({
       success: true,

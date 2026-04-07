@@ -175,25 +175,6 @@ exports.saveTrustProfile = async (req, res) => {
         ...(vendor.customFields || {}),
       };
 
-      if (!String(nextCustomFields.freeText1 || "").trim()) {
-        nextCustomFields.freeText1 = `${cityLabel || "Local"} Services`;
-      }
-
-      const yearsText = String(years || "").trim();
-      const normalizedYearsText = yearsText
-        ? yearsText.endsWith("+")
-          ? yearsText
-          : `${yearsText}+`
-        : "";
-
-      nextCustomFields.freeText2 = `Trusted by ${customers || "many"} clients${
-        normalizedYearsText ? ` with ${normalizedYearsText} years of experience` : ""
-      }, ${vendor.businessName} offers premium services in ${cityLabel || "your area"}${
-        areas ? ` including ${areas}` : ""
-      }. ${rating ? `Rated ${rating}★ on Google,` : ""} we deliver personalised experiences tailored for every customer.`
-        .replace(/\s+/g, " ")
-        .trim();
-
       vendor.trustSummary = trustSummary;
       vendor.customFields = nextCustomFields;
       await vendor.save();
