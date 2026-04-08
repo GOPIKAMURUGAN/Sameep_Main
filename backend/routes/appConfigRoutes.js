@@ -8,6 +8,18 @@ async function getConfigValue(key) {
   return doc ? doc.value : null;
 }
 
+function normalizePublicSiteContact(value) {
+  const config = value && typeof value === "object" ? value : {};
+
+  return {
+    addressLine1:
+      typeof config.addressLine1 === "string" ? config.addressLine1.trim() : "",
+    addressLine2:
+      typeof config.addressLine2 === "string" ? config.addressLine2.trim() : "",
+    phone: typeof config.phone === "string" ? config.phone.trim() : "",
+  };
+}
+
 // GET current session validity config
 // Returns: { availableHours: number[], selectedHour: number | null }
 router.get("/session-validity", async (req, res) => {
@@ -41,6 +53,17 @@ router.get("/admin-passcode", async (req, res) => {
   }
 });
 
+// GET public site contact details
+// Returns: { addressLine1: string, addressLine2: string, phone: string }
+router.get("/public-site-contact", async (req, res) => {
+  try {
+    const value = await getConfigValue("publicSiteContact");
+    res.json(normalizePublicSiteContact(value));
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // POST to update admin passcode
 // Body: { adminPasscode: string } (must be 4-digit string)
 router.post("/admin-passcode", async (req, res) => {
@@ -61,6 +84,24 @@ router.post("/admin-passcode", async (req, res) => {
     ).lean();
 
     res.json({ adminPasscode: updated.value });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// POST to update public site contact details
+// Body: { addressLine1?: string, addressLine2?: string, phone?: string }
+router.post("/public-site-contact", async (req, res) => {
+  try {
+    const value = normalizePublicSiteContact(req.body);
+
+    const updated = await AppConfig.findOneAndUpdate(
+      { key: "publicSiteContact" },
+      { key: "publicSiteContact", value },
+      { new: true, upsert: true }
+    ).lean();
+
+    res.json(normalizePublicSiteContact(updated.value));
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

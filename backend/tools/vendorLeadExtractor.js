@@ -94,10 +94,12 @@ async function fetchDetails(placeId) {
 
 async function run() {
   const queries = [
-    `salon near ${area}`,
-    `barber shop near ${area}`,
-    `hair salon near ${area}`,
-    `unisex salon near ${area}`,
+   // `salon near ${area}`,
+    //`barber shop near ${area}`,
+    //`hair salon near ${area}`,
+    //`unisex salon near ${area}`,
+    `Makeup Artists near ${area}`,
+
   ];
 
   for (const query of queries) {

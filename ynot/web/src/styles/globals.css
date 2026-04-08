@@ -809,18 +809,30 @@ button {
   font-size: 1.15rem;
 }
 
-.footerSocials {
-  display: flex;
-  gap: 16px;
-  margin-top: 32px;
+.footerContact {
+  margin-top: 24px;
+  display: grid;
+  gap: 8px;
 }
 
-.footerSocials span {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: 1px solid rgba(16, 26, 52, 0.12);
-  background: rgba(255, 255, 255, 0.6);
+.footerContactHeading {
+  color: var(--ink);
+  font-family: "Avenir Next Condensed", "Trebuchet MS", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.footerContactLine,
+.footerContactLink {
+  color: var(--muted);
+  line-height: 1.65;
+  font-size: 1.05rem;
+}
+
+.footerContactLink {
+  width: fit-content;
+  font-weight: 700;
 }
 
 .footerLinks {

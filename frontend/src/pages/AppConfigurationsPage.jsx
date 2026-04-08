@@ -9,6 +9,13 @@ function AppConfigurationsPage() {
   const [adminPasscode, setAdminPasscode] = useState("1234");
   const [savingAdminPasscode, setSavingAdminPasscode] = useState(false);
   const [adminPasscodeError, setAdminPasscodeError] = useState("");
+  const [publicSiteContact, setPublicSiteContact] = useState({
+    addressLine1: "",
+    addressLine2: "",
+    phone: "",
+  });
+  const [savingPublicSiteContact, setSavingPublicSiteContact] = useState(false);
+  const [publicSiteContactMessage, setPublicSiteContactMessage] = useState("");
 
   // Load config from backend on mount
   useEffect(() => {
@@ -31,6 +38,17 @@ function AppConfigurationsPage() {
       } catch (err) {
         console.error("Failed to load admin passcode", err);
       }
+
+      try {
+        const res = await API.get("/api/app-config/public-site-contact");
+        setPublicSiteContact({
+          addressLine1: res.data?.addressLine1 || "",
+          addressLine2: res.data?.addressLine2 || "",
+          phone: res.data?.phone || "",
+        });
+      } catch (err) {
+        console.error("Failed to load public site contact", err);
+      }
     };
 
     fetchConfig();
@@ -51,6 +69,20 @@ function AppConfigurationsPage() {
       setAdminPasscodeError("Failed to save passcode");
     } finally {
       setSavingAdminPasscode(false);
+    }
+  };
+
+  const handleSavePublicSiteContact = async () => {
+    try {
+      setSavingPublicSiteContact(true);
+      setPublicSiteContactMessage("");
+      await API.post("/api/app-config/public-site-contact", publicSiteContact);
+      setPublicSiteContactMessage("Contact details saved.");
+    } catch (err) {
+      console.error("Failed to save public site contact", err);
+      setPublicSiteContactMessage("Failed to save contact details.");
+    } finally {
+      setSavingPublicSiteContact(false);
     }
   };
 
@@ -215,6 +247,118 @@ function AppConfigurationsPage() {
         {adminPasscodeError && (
           <div style={{ color: "#b91c1c", fontSize: "13px" }}>{adminPasscodeError}</div>
         )}
+      </div>
+
+      <div
+        style={{
+          border: "1px solid #ddd",
+          borderRadius: "8px",
+          padding: "20px",
+          marginBottom: "20px",
+          background: "#fff",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        }}
+      >
+        <h2 style={{ fontSize: "18px", marginBottom: "10px", color: "#00AEEF" }}>
+          Public Contact Details
+        </h2>
+        <p style={{ marginBottom: "15px", color: "#555" }}>
+          Configure the address and phone number used by public-facing YNOT pages.
+        </p>
+
+        <div style={{ display: "grid", gap: "12px", maxWidth: "520px" }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
+            <span>Address line 1</span>
+            <input
+              type="text"
+              value={publicSiteContact.addressLine1}
+              onChange={(e) =>
+                setPublicSiteContact((prev) => ({
+                  ...prev,
+                  addressLine1: e.target.value,
+                }))
+              }
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+              }}
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
+            <span>Address line 2</span>
+            <input
+              type="text"
+              value={publicSiteContact.addressLine2}
+              onChange={(e) =>
+                setPublicSiteContact((prev) => ({
+                  ...prev,
+                  addressLine2: e.target.value,
+                }))
+              }
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+              }}
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
+            <span>Phone number</span>
+            <input
+              type="text"
+              value={publicSiteContact.phone}
+              onChange={(e) =>
+                setPublicSiteContact((prev) => ({
+                  ...prev,
+                  phone: e.target.value,
+                }))
+              }
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+              }}
+            />
+          </label>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
+            <button
+              type="button"
+              onClick={handleSavePublicSiteContact}
+              disabled={savingPublicSiteContact}
+              style={{
+                padding: "10px 14px",
+                borderRadius: "4px",
+                border: "1px solid #00AEEF",
+                background: savingPublicSiteContact ? "#93c5fd" : "#00AEEF",
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              {savingPublicSiteContact ? "Saving..." : "Save Contact Details"}
+            </button>
+
+            {publicSiteContactMessage ? (
+              <span
+                style={{
+                  fontSize: "13px",
+                  color: publicSiteContactMessage.includes("Failed")
+                    ? "#b91c1c"
+                    : "#166534",
+                }}
+              >
+                {publicSiteContactMessage}
+              </span>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       {showModal && (

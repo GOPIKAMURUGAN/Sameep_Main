@@ -3,11 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import CategoryCard from "../components/CategoryCard";
-import { getCategories } from "../services/api";
+import { getCategories, getSiteContact } from "../services/api";
 
 export default function Home() {
   const router = useRouter();
   const [categories, setCategories] = useState([]);
+  const [siteContact, setSiteContact] = useState({
+    addressLine1: "",
+    addressLine2: "",
+    phone: "",
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -26,6 +31,23 @@ export default function Home() {
     }
 
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    async function fetchSiteContact() {
+      try {
+        const data = await getSiteContact();
+        setSiteContact({
+          addressLine1: data?.addressLine1 || "",
+          addressLine2: data?.addressLine2 || "",
+          phone: data?.phone || "",
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    fetchSiteContact();
   }, []);
 
   const sortedCategories = useMemo(
@@ -61,6 +83,10 @@ export default function Home() {
     (sum, category) => sum + (category.vendorCount || category.totalVendors || 0),
     0
   );
+  const hasSiteContact =
+    Boolean(siteContact.addressLine1) ||
+    Boolean(siteContact.addressLine2) ||
+    Boolean(siteContact.phone);
 
   const scrollToSection = (id) => {
     const target = document.getElementById(id);
@@ -91,6 +117,9 @@ export default function Home() {
             </button>
             <button type="button" onClick={() => scrollToSection("categories")}>
               Categories
+            </button>
+            <button type="button" onClick={() => scrollToSection("contact")}>
+              Contact
             </button>
           </nav>
 
@@ -341,7 +370,7 @@ export default function Home() {
 
       <footer className="siteFooter">
         <div className="siteShell footerGrid">
-          <div className="footerBrand">
+          <div className="footerBrand" id="contact">
             <div className="footerLogo">
               <span className="brandMark">Y</span>
               <span className="brandWordmark">YNOT</span>
@@ -350,11 +379,22 @@ export default function Home() {
               Helping local businesses bridge the digital divide with simple,
               focused onboarding tools.
             </p>
-            <div className="footerSocials" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </div>
+            {hasSiteContact ? (
+              <div className="footerContact">
+                <p className="footerContactHeading">Contact</p>
+                {siteContact.addressLine1 ? (
+                  <p className="footerContactLine">{siteContact.addressLine1}</p>
+                ) : null}
+                {siteContact.addressLine2 ? (
+                  <p className="footerContactLine">{siteContact.addressLine2}</p>
+                ) : null}
+                {siteContact.phone ? (
+                  <a className="footerContactLink" href={`tel:${siteContact.phone}`}>
+                    {siteContact.phone}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className="footerLinks">
