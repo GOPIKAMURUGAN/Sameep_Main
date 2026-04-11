@@ -78,6 +78,9 @@ function AppConfigurationsPage() {
   });
   const [savingWhatsAppBilling, setSavingWhatsAppBilling] = useState(false);
   const [whatsAppBillingMessage, setWhatsAppBillingMessage] = useState("");
+  const requiresPublicBillBaseUrl =
+    whatsAppBillingConfig.templateProfile === "view_bill_dynamic_url" ||
+    whatsAppBillingConfig.templateProfile === "bill_url_7_param";
 
   // Load config from backend on mount
   useEffect(() => {
@@ -629,7 +632,7 @@ function AppConfigurationsPage() {
                 }))
               }
               placeholder="https://your-preview-domain.com"
-              disabled={whatsAppBillingConfig.templateProfile !== "view_bill_dynamic_url"}
+              disabled={!requiresPublicBillBaseUrl}
               style={{
                 width: "100%",
                 padding: "10px 12px",
@@ -699,7 +702,7 @@ function AppConfigurationsPage() {
             {whatsAppBillingConfig.templateProfile === "view_bill_dynamic_url"
               ? "Use this profile for templates like bill_production that have 6 body variables and a Visit Website button with a dynamic URL."
               : whatsAppBillingConfig.templateProfile === "bill_url_7_param"
-              ? "Use this profile for templates like bill_prod that have 7 body variables including the bill URL in the message body."
+              ? "Use this profile for templates like bill_prod that have 7 body variables including the bill URL in the message body. Public bill base URL is required."
               : "Use this profile for templates like bill that have 7 body variables and no button."}
           </p>
 
