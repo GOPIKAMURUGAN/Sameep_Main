@@ -2,7 +2,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import BootstrapClient from "./BootstrapClient";
-import Footer from "./Footer/Footer";
 import VendorClientShell from "./VendorClientShell";
 import { VendorProvider } from "./context/VendorContext";
 
@@ -76,7 +75,6 @@ export default async function RootLayout({ children }) {
           <BootstrapClient />
           <VendorClientShell>
             {children}
-            <Footer />
           </VendorClientShell>
         </VendorProvider>
       </body>

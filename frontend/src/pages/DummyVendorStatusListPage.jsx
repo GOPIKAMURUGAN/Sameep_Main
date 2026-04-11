@@ -48,6 +48,7 @@ export default function DummyVendorStatusListPage() {
   const [socialHandleIcons, setSocialHandleIcons] = useState({}); // normalized name -> iconUrl
   const [vendorSocialLinks, setVendorSocialLinks] = useState({}); // raw { [handleName]: url }
   const [socialLinksSaving, setSocialLinksSaving] = useState(false);
+  const previewBase = String(PREVIEW_BASE_URL || "").trim().replace(/\/$/, "");
 
   const isRegisteredStatus = String(status || "").trim().toLowerCase() === "registered";
 
@@ -374,6 +375,20 @@ export default function DummyVendorStatusListPage() {
     }
   };
 
+  const getVendorDomainUrl = (vendor) => {
+    const subdomain = String(vendor?.subdomain || "").trim().toLowerCase();
+    if (!subdomain || !previewBase) return "";
+
+    try {
+      return String(previewBase)
+        .trim()
+        .replace(/\/$/, "")
+        .replace("://", `://${subdomain}.`);
+    } catch {
+      return "";
+    }
+  };
+
   const loadPlans = async () => {
     try {
       const res = await axios.get(`${API_PREFIX}/api/admin/plans`);
@@ -539,6 +554,7 @@ export default function DummyVendorStatusListPage() {
             <tr>
               <th style={{ border: '1px solid #ccc', padding: 8 }}>Select</th>
               <th style={{ border: '1px solid #ccc', padding: 8 }}>Vendor Name</th>
+              <th style={{ border: '1px solid #ccc', padding: 8 }}>Domain</th>
               <th style={{ border: '1px solid #ccc', padding: 8 }}>Contact Number</th>
               <th style={{ border: '1px solid #ccc', padding: 8 }}>Business Name</th>
               <th style={{ border: '1px solid #ccc', padding: 8 }}>Home Location</th>
@@ -558,6 +574,29 @@ export default function DummyVendorStatusListPage() {
                   />
                 </td>
                 <td style={{ border: '1px solid #ccc', padding: 8 }}>{v.contactName || '-'}</td>
+                <td style={{ border: '1px solid #ccc', padding: 8, minWidth: 220 }}>
+                  {(() => {
+                    const subdomain = String(v.subdomain || "").trim().toLowerCase();
+                    const domainUrl = getVendorDomainUrl(v);
+                    if (!subdomain) {
+                      return <span style={{ color: '#6b7280' }}>Not assigned</span>;
+                    }
+                    if (!domainUrl) {
+                      return <span>{subdomain}</span>;
+                    }
+                    return (
+                      <a
+                        href={domainUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: '#0ea5e9', textDecoration: 'none', wordBreak: 'break-all' }}
+                        title={domainUrl}
+                      >
+                        {domainUrl.replace(/^https?:\/\//, "")}
+                      </a>
+                    );
+                  })()}
+                </td>
                 <td style={{ border: '1px solid #ccc', padding: 8 }}>{v.customerId?.fullNumber || v.phone || '-'}</td>
                 <td style={{ border: '1px solid #ccc', padding: 8 }}>{v.businessName || '-'}</td>
                 <td style={{ border: '1px solid #ccc', padding: 8 }}>

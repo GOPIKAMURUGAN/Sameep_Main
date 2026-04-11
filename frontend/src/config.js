@@ -34,6 +34,9 @@ const API_BASE_URL = (() => {
 
 /* 🔹 ADD THESE BACK */
 export const PREVIEW_BASE_URL =
+  process.env.REACT_APP_VENDOR_PREVIEW_ROOT_URL ||
+  process.env.VITE_VENDOR_PREVIEW_ROOT_URL ||
+  process.env.NEXT_PUBLIC_VENDOR_PREVIEW_ROOT_URL ||
   process.env.REACT_APP_PREVIEW_BASE_URL ||
   process.env.VITE_PREVIEW_BASE_URL ||
   process.env.NEXT_PUBLIC_PREVIEW_BASE_URL ||

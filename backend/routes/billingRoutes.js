@@ -5,6 +5,8 @@ const billingController = require("../controllers/billingController");
 
 router.post("/create", billingController.createBillingSession);
 router.post("/update", billingController.updateBillingCart);
+router.get("/public/code/:code", billingController.getPublicBillDetailsByCode);
+router.get("/public/:id", billingController.getPublicBillDetails);
 router.get("/:id", billingController.getBillingSession);
 
 router.post("/request-otp", billingController.requestRedeemOTP);

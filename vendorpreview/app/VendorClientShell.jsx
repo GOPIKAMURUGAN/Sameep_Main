@@ -1,12 +1,5 @@
-"use client";
-
-import VendorTitleUpdater from "./VendorTitleUpdater";
+import AppChrome from "./AppChrome";
 
 export default function VendorClientShell({ children }) {
-  return (
-    <>
-      <VendorTitleUpdater />
-      {children}
-    </>
-  );
+  return <AppChrome>{children}</AppChrome>;
 }

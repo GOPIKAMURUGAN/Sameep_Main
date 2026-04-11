@@ -79,11 +79,22 @@ const BillingSessionSchema = new mongoose.Schema(
       enum: ["ACTIVE", "COMPLETED", "CANCELLED"],
       default: "ACTIVE",
     },
+
+    publicAccessCode: {
+      type: String,
+      trim: true,
+    },
+
+    publicAccessExpiresAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
 BillingSessionSchema.index({ vendorId: 1, createdAt: -1 });
 BillingSessionSchema.index({ customerId: 1 });
+BillingSessionSchema.index({ publicAccessCode: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model("BillingSession", BillingSessionSchema);

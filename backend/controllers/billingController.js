@@ -8,6 +8,102 @@ const Vendor = require("../models/DummyVendor");
 const { sendBillWhatsapp } = require("../utils/whatsappService");
 const { calculateCustomerBalance } = require("../services/loyaltyService");
 const { deductOTP, deductWhatsApp } = require("../services/vendorWalletService");
+const {
+  buildPublicBillPath,
+  buildPublicBillUrl,
+  createBillAccessToken,
+  findBillingIdByCode,
+  verifyBillAccessToken,
+} = require("../utils/billLink");
+
+async function buildPublicBillResponse(bill) {
+  const [customer, vendor] = await Promise.all([
+    bill.customerId ? Customer.findById(bill.customerId).lean() : null,
+    Vendor.findById(bill.vendorId).lean(),
+  ]);
+  const previewRoot =
+    process.env.VENDOR_PREVIEW_ROOT_URL ||
+    process.env.NEXT_PUBLIC_VENDOR_PREVIEW_ROOT_URL ||
+    process.env.REACT_APP_VENDOR_PREVIEW_ROOT_URL ||
+    process.env.PUBLIC_VENDOR_SITE_ROOT_URL ||
+    process.env.NEXT_PUBLIC_HARISH_PREVIEW_BASE_URL ||
+    process.env.PREVIEW_BASE_URL ||
+    process.env.REACT_APP_PREVIEW_BASE_URL ||
+    process.env.NEXT_PUBLIC_PREVIEW_BASE_URL ||
+    "";
+
+  const websiteFromSocial = String(vendor?.socialLinks?.website || "").trim();
+  let websiteUrl = "";
+
+  if (!websiteUrl && vendor?.subdomain && previewRoot) {
+    try {
+      websiteUrl = String(previewRoot)
+        .trim()
+        .replace(/\/$/, "")
+        .replace("://", `://${String(vendor.subdomain).trim().toLowerCase()}.`);
+    } catch (err) {
+      websiteUrl = "";
+    }
+  }
+
+  if (!websiteUrl) {
+    websiteUrl = websiteFromSocial;
+  }
+
+  let balance = 0;
+  if (bill.customerId) {
+    try {
+      balance = await calculateCustomerBalance(bill.customerId, bill.vendorId);
+    } catch (err) {
+      balance = 0;
+    }
+  }
+
+  const items = Array.isArray(bill.cartItems) ? bill.cartItems : [];
+
+  return {
+    billId: String(bill._id),
+    createdAt: bill.createdAt,
+    billingMode: bill.billingMode,
+    status: bill.status,
+    vendor: vendor
+      ? {
+          id: String(vendor._id),
+          businessName: vendor.businessName || "Vendor",
+          phone: vendor.phone || "",
+          secondaryPhones: Array.isArray(vendor.secondaryPhones) ? vendor.secondaryPhones : [],
+          logoUrl: vendor.logoUrl || "",
+          address: vendor.location?.address || "",
+          websiteUrl,
+        }
+      : null,
+    customer: customer
+      ? {
+          id: String(customer._id),
+          name: customer.name || "Customer",
+          phone: customer.phone || customer.fullNumber || "",
+        }
+      : null,
+    items: items.map((item) => ({
+      itemId: item.itemId ? String(item.itemId) : "",
+      name: item.name || "Item",
+      qty: Number(item.qty || 0),
+      price: Number(item.price || 0),
+      total: Number(item.total || 0),
+      resourceName: item.resourceName || "",
+      hierarchy: Array.isArray(item.nodePath)
+        ? item.nodePath.filter(Boolean).join(" / ")
+        : "",
+    })),
+    totals: {
+      billAmount: Number(bill.totalAmount || 0),
+      pointsEarned: Number(bill.pointsEarned || 0),
+      pointsRedeemed: Number(bill.pointsRedeemed || 0),
+      finalPaid: Number(bill.totalAmount || 0) - Number(bill.pointsRedeemed || 0),
+      balance: Number(balance || 0),
+    },
+  };
+}
 
 
 // ✅ Create Billing Session
@@ -87,6 +183,96 @@ exports.getBillingSession = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Failed to fetch billing session" });
+  }
+};
+
+exports.getPublicBillDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const token = String(req.query.token || "").trim();
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Bill token required",
+      });
+    }
+
+    let decoded;
+    try {
+      decoded = verifyBillAccessToken(token);
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired bill link",
+      });
+    }
+
+    if (decoded?.scope !== "bill_link" || String(decoded?.billingId || "") !== String(id)) {
+      return res.status(403).json({
+        success: false,
+        message: "Bill link does not match this bill",
+      });
+    }
+
+    const bill = await BillingSession.findById(id).lean();
+    if (!bill || bill.status !== "COMPLETED") {
+      return res.status(404).json({
+        success: false,
+        message: "Bill not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: await buildPublicBillResponse(bill),
+    });
+  } catch (err) {
+    console.error("getPublicBillDetails error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load bill details",
+    });
+  }
+};
+
+exports.getPublicBillDetailsByCode = async (req, res) => {
+  try {
+    const code = String(req.params.code || "").trim();
+
+    if (!code) {
+      return res.status(400).json({
+        success: false,
+        message: "Bill code required",
+      });
+    }
+
+    const billingId = await findBillingIdByCode(code);
+    if (!billingId) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid or expired bill link",
+      });
+    }
+
+    const bill = await BillingSession.findById(billingId).lean();
+    if (!bill || bill.status !== "COMPLETED") {
+      return res.status(404).json({
+        success: false,
+        message: "Bill not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: await buildPublicBillResponse(bill),
+    });
+  } catch (err) {
+    console.error("getPublicBillDetailsByCode error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load bill details",
+    });
   }
 };
 
@@ -394,6 +580,15 @@ if (!closed) {
           billing.customerId,
           billing.vendorId
         );
+        const billToken = await createBillAccessToken({
+          billingId: billing._id,
+        });
+        const billUrl = await buildPublicBillUrl({
+          token: billToken,
+        });
+        const billPath = buildPublicBillPath({
+          token: billToken,
+        });
 
         await sendBillWhatsapp({
           mobile,
@@ -404,6 +599,8 @@ if (!closed) {
           redeemed: billing.pointsRedeemed || 0,
           finalPaid: billing.totalAmount - (billing.pointsRedeemed || 0),
           balance,
+          billUrl,
+          billPath,
         });
 
         await deductWhatsApp(billing.vendorId, `billing:${billing._id}`);

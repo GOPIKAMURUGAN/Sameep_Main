@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { getWhatsAppBillingConfig } = require("./whatsappBillingConfig");
 
 async function sendBillWhatsapp(data) {
   try {
@@ -11,9 +12,49 @@ async function sendBillWhatsapp(data) {
       redeemed,
       finalPaid,
       balance,
+      billUrl,
+      billPath,
     } = data;
+    const config = await getWhatsAppBillingConfig();
+    const variableMap = {
+      customerName,
+      vendorName,
+      billAmount,
+      earned,
+      redeemed,
+      finalPaid,
+      balance,
+      billUrl,
+      billPath,
+    };
 
     const cleanMobile = mobile.replace("+", "");
+    const bodyVariables = Array.isArray(config.bodyVariables) ? config.bodyVariables : [];
+    const bodyParameters = bodyVariables.map((variableName) => ({
+      type: "text",
+      text: String(variableMap[variableName] ?? ""),
+    }));
+
+    const components = [
+      {
+        type: "body",
+        parameters: bodyParameters,
+      },
+    ];
+
+    if (config.buttonUrlVariable && (billPath || billUrl)) {
+      components.push({
+        type: "button",
+        sub_type: "url",
+        index: String(config.buttonIndex ?? 0),
+        parameters: [
+          {
+            type: "text",
+            text: String(variableMap[config.buttonUrlVariable] ?? ""),
+          },
+        ],
+      });
+    }
 
     const payload = {
       integrated_number: process.env.MSG91_WHATSAPP_NUMBER,
@@ -22,24 +63,11 @@ async function sendBillWhatsapp(data) {
         messaging_product: "whatsapp",
         type: "template",
         template: {
-          name: "bill",
+          name: config.templateName,
           language: {
-            code: "en",
+            code: config.language,
           },
-          components: [
-            {
-              type: "body",
-              parameters: [
-                { type: "text", text: String(customerName ?? "") },
-                { type: "text", text: String(vendorName ?? "") },
-                { type: "text", text: String(billAmount ?? 0) },
-                { type: "text", text: String(earned ?? 0) },
-                { type: "text", text: String(redeemed ?? 0) },
-                { type: "text", text: String(finalPaid ?? 0) },
-                { type: "text", text: String(balance ?? 0) },
-              ],
-            },
-          ],
+          components,
         },
         to: cleanMobile,
       },

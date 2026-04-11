@@ -1,6 +1,56 @@
 import React, { useState, useEffect } from "react";
 import API from "../api";
 
+const WHATSAPP_BILLING_VARIABLE_OPTIONS = [
+  { value: "customerName", label: "Customer Name" },
+  { value: "vendorName", label: "Vendor Name" },
+  { value: "billAmount", label: "Bill Amount" },
+  { value: "earned", label: "Points Earned" },
+  { value: "redeemed", label: "Points Redeemed" },
+  { value: "finalPaid", label: "Final Paid" },
+  { value: "balance", label: "Loyalty Balance" },
+  { value: "billUrl", label: "Bill URL" },
+  { value: "billPath", label: "Bill Path" },
+];
+
+const TEMPLATE_PROFILE_PRESETS = {
+  legacy_7_param: {
+    bodyVariables: [
+      "customerName",
+      "vendorName",
+      "billAmount",
+      "earned",
+      "redeemed",
+      "finalPaid",
+      "balance",
+    ],
+    buttonUrlVariable: "",
+  },
+  bill_url_7_param: {
+    bodyVariables: [
+      "vendorName",
+      "billAmount",
+      "earned",
+      "redeemed",
+      "finalPaid",
+      "balance",
+      "billUrl",
+    ],
+    buttonUrlVariable: "",
+  },
+  view_bill_dynamic_url: {
+    bodyVariables: [
+      "vendorName",
+      "billAmount",
+      "earned",
+      "redeemed",
+      "finalPaid",
+      "balance",
+    ],
+    buttonUrlVariable: "billPath",
+  },
+};
+
 function AppConfigurationsPage() {
   const [availableHours, setAvailableHours] = useState([]);
   const [selectedHour, setSelectedHour] = useState(null);
@@ -16,6 +66,18 @@ function AppConfigurationsPage() {
   });
   const [savingPublicSiteContact, setSavingPublicSiteContact] = useState(false);
   const [publicSiteContactMessage, setPublicSiteContactMessage] = useState("");
+  const [whatsAppBillingConfig, setWhatsAppBillingConfig] = useState({
+    templateProfile: "legacy_7_param",
+    templateName: "",
+    language: "en",
+    buttonIndex: 0,
+    publicBillBaseUrl: "",
+    ttlDays: 30,
+    bodyVariables: TEMPLATE_PROFILE_PRESETS.legacy_7_param.bodyVariables,
+    buttonUrlVariable: "",
+  });
+  const [savingWhatsAppBilling, setSavingWhatsAppBilling] = useState(false);
+  const [whatsAppBillingMessage, setWhatsAppBillingMessage] = useState("");
 
   // Load config from backend on mount
   useEffect(() => {
@@ -48,6 +110,30 @@ function AppConfigurationsPage() {
         });
       } catch (err) {
         console.error("Failed to load public site contact", err);
+      }
+
+      try {
+        const res = await API.get("/api/app-config/whatsapp-billing");
+        setWhatsAppBillingConfig({
+          templateProfile: res.data?.templateProfile || "legacy_7_param",
+          templateName: res.data?.templateName || "",
+          language: res.data?.language || "en",
+          buttonIndex: Number(res.data?.buttonIndex || 0),
+          publicBillBaseUrl: res.data?.publicBillBaseUrl || "",
+          ttlDays: Number(res.data?.ttlDays || 30),
+          bodyVariables:
+            Array.isArray(res.data?.bodyVariables) && res.data.bodyVariables.length > 0
+              ? res.data.bodyVariables
+              : TEMPLATE_PROFILE_PRESETS[res.data?.templateProfile || "legacy_7_param"]
+                  ?.bodyVariables || TEMPLATE_PROFILE_PRESETS.legacy_7_param.bodyVariables,
+          buttonUrlVariable:
+            res.data?.buttonUrlVariable ||
+            TEMPLATE_PROFILE_PRESETS[res.data?.templateProfile || "legacy_7_param"]
+              ?.buttonUrlVariable ||
+            "",
+        });
+      } catch (err) {
+        console.error("Failed to load WhatsApp billing config", err);
       }
     };
 
@@ -84,6 +170,54 @@ function AppConfigurationsPage() {
     } finally {
       setSavingPublicSiteContact(false);
     }
+  };
+
+  const handleSaveWhatsAppBilling = async () => {
+    try {
+      setSavingWhatsAppBilling(true);
+      setWhatsAppBillingMessage("");
+      await API.post("/api/app-config/whatsapp-billing", {
+        templateProfile: whatsAppBillingConfig.templateProfile || "legacy_7_param",
+        templateName: (whatsAppBillingConfig.templateName || "").trim(),
+        language: (whatsAppBillingConfig.language || "en").trim() || "en",
+        buttonIndex: Number(whatsAppBillingConfig.buttonIndex || 0),
+        publicBillBaseUrl: (whatsAppBillingConfig.publicBillBaseUrl || "").trim(),
+        ttlDays: Number(whatsAppBillingConfig.ttlDays || 30),
+        bodyVariables: Array.isArray(whatsAppBillingConfig.bodyVariables)
+          ? whatsAppBillingConfig.bodyVariables
+          : [],
+        buttonUrlVariable: whatsAppBillingConfig.buttonUrlVariable || "",
+      });
+      setWhatsAppBillingMessage("WhatsApp billing configuration saved.");
+    } catch (err) {
+      console.error("Failed to save WhatsApp billing config", err);
+      setWhatsAppBillingMessage(
+        err?.response?.data?.message || "Failed to save WhatsApp billing configuration."
+      );
+    } finally {
+      setSavingWhatsAppBilling(false);
+    }
+  };
+
+  const handleTemplateProfileChange = (nextProfile) => {
+    const preset = TEMPLATE_PROFILE_PRESETS[nextProfile] || TEMPLATE_PROFILE_PRESETS.legacy_7_param;
+    setWhatsAppBillingConfig((prev) => ({
+      ...prev,
+      templateProfile: nextProfile,
+      bodyVariables: preset.bodyVariables,
+      buttonUrlVariable: preset.buttonUrlVariable,
+    }));
+  };
+
+  const handleBodyVariableChange = (index, value) => {
+    setWhatsAppBillingConfig((prev) => {
+      const nextBodyVariables = Array.isArray(prev.bodyVariables) ? [...prev.bodyVariables] : [];
+      nextBodyVariables[index] = value;
+      return {
+        ...prev,
+        bodyVariables: nextBodyVariables,
+      };
+    });
   };
 
   const saveConfig = async (hours, selected) => {
@@ -355,6 +489,248 @@ function AppConfigurationsPage() {
                 }}
               >
                 {publicSiteContactMessage}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          border: "1px solid #ddd",
+          borderRadius: "8px",
+          padding: "20px",
+          marginBottom: "20px",
+          background: "#fff",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        }}
+      >
+        <h2 style={{ fontSize: "18px", marginBottom: "10px", color: "#00AEEF" }}>
+          WhatsApp Billing
+        </h2>
+        <p style={{ marginBottom: "15px", color: "#555" }}>
+          Configure the approved bill template and secure bill link used in WhatsApp.
+        </p>
+
+        <div style={{ display: "grid", gap: "12px", maxWidth: "640px" }}>
+          <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
+            <span>Template profile</span>
+            <select
+              value={whatsAppBillingConfig.templateProfile}
+              onChange={(e) => handleTemplateProfileChange(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+                background: "#fff",
+              }}
+            >
+              <option value="legacy_7_param">Legacy Bill (7 params, no button)</option>
+              <option value="bill_url_7_param">Bill URL In Body (7 params, no button)</option>
+              <option value="view_bill_dynamic_url">View Bill Button (6 params + URL button)</option>
+            </select>
+          </label>
+
+          <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
+            <span>Template name</span>
+            <input
+              type="text"
+              value={whatsAppBillingConfig.templateName}
+              onChange={(e) =>
+                setWhatsAppBillingConfig((prev) => ({
+                  ...prev,
+                  templateName: e.target.value,
+                }))
+              }
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+              }}
+            />
+          </label>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px" }}>
+            <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
+              <span>Language</span>
+              <input
+                type="text"
+                value={whatsAppBillingConfig.language}
+                onChange={(e) =>
+                  setWhatsAppBillingConfig((prev) => ({
+                    ...prev,
+                    language: e.target.value,
+                  }))
+                }
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                }}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
+              <span>Button index</span>
+              <input
+                type="number"
+                min="0"
+                value={whatsAppBillingConfig.buttonIndex}
+                onChange={(e) =>
+                  setWhatsAppBillingConfig((prev) => ({
+                    ...prev,
+                    buttonIndex: e.target.value,
+                  }))
+                }
+                disabled={whatsAppBillingConfig.templateProfile !== "view_bill_dynamic_url"}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                }}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
+              <span>Link validity (days)</span>
+              <input
+                type="number"
+                min="1"
+                value={whatsAppBillingConfig.ttlDays}
+                onChange={(e) =>
+                  setWhatsAppBillingConfig((prev) => ({
+                    ...prev,
+                    ttlDays: e.target.value,
+                  }))
+                }
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                }}
+              />
+            </label>
+          </div>
+
+          <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
+            <span>Public bill base URL</span>
+            <input
+              type="text"
+              value={whatsAppBillingConfig.publicBillBaseUrl}
+              onChange={(e) =>
+                setWhatsAppBillingConfig((prev) => ({
+                  ...prev,
+                  publicBillBaseUrl: e.target.value,
+                }))
+              }
+              placeholder="https://your-preview-domain.com"
+              disabled={whatsAppBillingConfig.templateProfile !== "view_bill_dynamic_url"}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+              }}
+            />
+          </label>
+
+          <div style={{ display: "grid", gap: "10px" }}>
+            <span style={{ fontSize: "14px", color: "#333" }}>Body variable order</span>
+            {Array.isArray(whatsAppBillingConfig.bodyVariables)
+              ? whatsAppBillingConfig.bodyVariables.map((variableName, index) => (
+                  <label
+                    key={`billing-body-variable-${index}`}
+                    style={{ display: "grid", gap: "6px", fontSize: "13px", color: "#555" }}
+                  >
+                    <span>{`Variable ${index + 1}`}</span>
+                    <select
+                      value={variableName}
+                      onChange={(e) => handleBodyVariableChange(index, e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: "4px",
+                        border: "1px solid #ccc",
+                        background: "#fff",
+                      }}
+                    >
+                      {WHATSAPP_BILLING_VARIABLE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))
+              : null}
+          </div>
+
+          {whatsAppBillingConfig.templateProfile === "view_bill_dynamic_url" ? (
+            <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
+              <span>Button URL variable</span>
+              <select
+                value={whatsAppBillingConfig.buttonUrlVariable || "billPath"}
+                onChange={(e) =>
+                  setWhatsAppBillingConfig((prev) => ({
+                    ...prev,
+                    buttonUrlVariable: e.target.value,
+                  }))
+                }
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                  background: "#fff",
+                }}
+              >
+                <option value="billPath">Bill Path</option>
+                <option value="billUrl">Bill URL</option>
+              </select>
+            </label>
+          ) : null}
+
+          <p style={{ margin: 0, fontSize: "13px", color: "#666" }}>
+            {whatsAppBillingConfig.templateProfile === "view_bill_dynamic_url"
+              ? "Use this profile for templates like bill_production that have 6 body variables and a Visit Website button with a dynamic URL."
+              : whatsAppBillingConfig.templateProfile === "bill_url_7_param"
+              ? "Use this profile for templates like bill_prod that have 7 body variables including the bill URL in the message body."
+              : "Use this profile for templates like bill that have 7 body variables and no button."}
+          </p>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
+            <button
+              type="button"
+              onClick={handleSaveWhatsAppBilling}
+              disabled={savingWhatsAppBilling}
+              style={{
+                padding: "10px 14px",
+                borderRadius: "4px",
+                border: "1px solid #00AEEF",
+                background: savingWhatsAppBilling ? "#93c5fd" : "#00AEEF",
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              {savingWhatsAppBilling ? "Saving..." : "Save WhatsApp Billing"}
+            </button>
+
+            {whatsAppBillingMessage ? (
+              <span
+                style={{
+                  fontSize: "13px",
+                  color: whatsAppBillingMessage.includes("Failed")
+                    ? "#b91c1c"
+                    : "#166534",
+                }}
+              >
+                {whatsAppBillingMessage}
               </span>
             ) : null}
           </div>

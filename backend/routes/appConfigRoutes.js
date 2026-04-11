@@ -1,6 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const AppConfig = require("../models/AppConfig");
+const {
+  getAllowedTemplateProfiles,
+  getStoredWhatsAppBillingConfig,
+  normalizeWhatsAppBillingConfig,
+} = require("../utils/whatsappBillingConfig");
 
 // Helper to get a config value by key, or null if not set
 async function getConfigValue(key) {
@@ -17,6 +22,29 @@ function normalizePublicSiteContact(value) {
     addressLine2:
       typeof config.addressLine2 === "string" ? config.addressLine2.trim() : "",
     phone: typeof config.phone === "string" ? config.phone.trim() : "",
+  };
+}
+
+function normalizeWhatsAppBillingInput(value) {
+  const config = normalizeWhatsAppBillingConfig(value);
+
+  return {
+    templateProfile: getAllowedTemplateProfiles().includes(config.templateProfile)
+      ? config.templateProfile
+      : "legacy_7_param",
+    templateName: config.templateName,
+    language: config.language,
+    buttonIndex:
+      Number.isFinite(config.buttonIndex) && config.buttonIndex >= 0
+        ? config.buttonIndex
+        : 0,
+    publicBillBaseUrl: config.publicBillBaseUrl,
+    ttlDays:
+      Number.isFinite(config.ttlDays) && config.ttlDays > 0
+        ? Math.floor(config.ttlDays)
+        : 30,
+    bodyVariables: Array.isArray(config.bodyVariables) ? config.bodyVariables : [],
+    buttonUrlVariable: config.buttonUrlVariable || "",
   };
 }
 
@@ -64,6 +92,26 @@ router.get("/public-site-contact", async (req, res) => {
   }
 });
 
+router.get("/whatsapp-billing", async (req, res) => {
+  try {
+    const value = await getStoredWhatsAppBillingConfig();
+    res.json(
+      normalizeWhatsAppBillingInput({
+        templateProfile: value.templateProfile,
+        templateName: value.templateName,
+        language: value.language || "en",
+        buttonIndex: value.buttonIndex,
+        publicBillBaseUrl: value.publicBillBaseUrl,
+        ttlDays: value.ttlDays,
+        bodyVariables: value.bodyVariables,
+        buttonUrlVariable: value.buttonUrlVariable,
+      })
+    );
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // POST to update admin passcode
 // Body: { adminPasscode: string } (must be 4-digit string)
 router.post("/admin-passcode", async (req, res) => {
@@ -102,6 +150,34 @@ router.post("/public-site-contact", async (req, res) => {
     ).lean();
 
     res.json(normalizePublicSiteContact(updated.value));
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+router.post("/whatsapp-billing", async (req, res) => {
+  try {
+    const value = normalizeWhatsAppBillingInput(req.body);
+
+    if (!value.templateName) {
+      return res.status(400).json({ message: "templateName is required" });
+    }
+
+    if (value.templateProfile === "view_bill_dynamic_url" && !value.publicBillBaseUrl) {
+      return res.status(400).json({ message: "publicBillBaseUrl is required" });
+    }
+
+    if (!Array.isArray(value.bodyVariables) || value.bodyVariables.length === 0) {
+      return res.status(400).json({ message: "At least one body variable is required" });
+    }
+
+    const updated = await AppConfig.findOneAndUpdate(
+      { key: "whatsAppBillingConfig" },
+      { key: "whatsAppBillingConfig", value },
+      { new: true, upsert: true }
+    ).lean();
+
+    res.json(normalizeWhatsAppBillingInput(updated.value));
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
