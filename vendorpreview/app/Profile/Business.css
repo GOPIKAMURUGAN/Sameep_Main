@@ -350,6 +350,26 @@
   box-shadow:0 0 0 2px rgba(245,217,122,.18);
 }
 
+.branding-textarea-input{
+  width:100%;
+  min-height:160px;
+  padding:14px;
+  border-radius:12px;
+  border:1px solid rgba(245,217,122,.22);
+  background:#0f0f0f;
+  color:#f8edd0;
+  font-size:14px;
+  line-height:1.6;
+  resize:vertical;
+  transition:border-color .18s ease, box-shadow .18s ease;
+}
+
+.branding-textarea-input:focus{
+  outline:none;
+  border-color:#f5d97a;
+  box-shadow:0 0 0 2px rgba(245,217,122,.18);
+}
+
 .branding-upload-btn{
   display:inline-flex;
   align-items:center;

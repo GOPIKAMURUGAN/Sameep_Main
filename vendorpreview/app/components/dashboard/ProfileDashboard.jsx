@@ -8,6 +8,7 @@ import HomeLocationModal from "../../Profile/HomeLocationModal";
 import BusinessLocationsModal from "../../Profile/BusinessLocationsModal";
 import BusinessHoursModal from "../../Profile/BusinessHoursModal";
 import BrandingContactModal from "../../Profile/BrandingContactModal";
+import HeroTextModal from "../../Profile/HeroTextModal";
 
 function ProfileDashboard({
   vendorInfo,
@@ -22,6 +23,7 @@ function ProfileDashboard({
   const [showBusinessLocations, setShowBusinessLocations] = useState(false);
   const [showBusinessHours, setShowBusinessHours] = useState(false);
   const [showBrandingContact, setShowBrandingContact] = useState(false);
+  const [showHeroText, setShowHeroText] = useState(false);
   const [hoursVendor, setHoursVendor] = useState(null);
   const [loadingVendor, setLoadingVendor] = useState(false);
   const currentVendorInfo = contextVendorInfo || vendorInfo;
@@ -54,6 +56,9 @@ function ProfileDashboard({
       }
     : undefined;
   const hoursCount = currentVendorInfo?.businessHours?.length || currentVendorInfo?.hours?.length || 0;
+  const heroTextCount =
+    (currentVendorInfo?.customFields?.freeText1 ? 1 : 0) +
+    (currentVendorInfo?.customFields?.freeText2 ? 1 : 0);
   const openService = (serviceKey) => {
     onOpenServices?.(serviceKey);
   };
@@ -105,6 +110,7 @@ function ProfileDashboard({
 
 const cardHandlers = {
   brandingContact: () => setShowBrandingContact(true),
+  heroText: () => setShowHeroText(true),
   gallery: () => openService("gallery"),
   locations: () => setShowHomeLocation(true),
   targetedLocations: () => setShowBusinessLocations(true),
@@ -116,6 +122,11 @@ const cardHandlers = {
       key: "brandingContact",
       title: "Branding & Contact",
       description: `Manage logo and backup phone numbers. ${brandingDetailsCount} branding detail${brandingDetailsCount === 1 ? "" : "s"} configured.`,
+    },
+    {
+      key: "heroText",
+      title: "Hero Text",
+      description: `Update the homepage heading and description. ${heroTextCount} text field${heroTextCount === 1 ? "" : "s"} configured.`,
     },
     {
       key: "social-panel",
@@ -206,6 +217,16 @@ const cardHandlers = {
           initialLogoUrl={currentVendorInfo?.logoUrl || ""}
           initialSecondaryPhones={currentVendorInfo?.secondaryPhones || []}
           onClose={() => setShowBrandingContact(false)}
+        />
+      )}
+
+      {showHeroText && (
+        <HeroTextModal
+          vendorId={vendorId}
+          businessName={currentVendorInfo?.businessName || ""}
+          initialHeading={currentVendorInfo?.customFields?.freeText1 || ""}
+          initialDescription={currentVendorInfo?.customFields?.freeText2 || ""}
+          onClose={() => setShowHeroText(false)}
         />
       )}
 
