@@ -51,6 +51,8 @@ const TEMPLATE_PROFILE_PRESETS = {
   },
 };
 
+const WHATSAPP_BILLING_TEMPLATE_LIBRARY_KEY = "whatsapp_billing_template_library_v1";
+
 function AppConfigurationsPage() {
   const [availableHours, setAvailableHours] = useState([]);
   const [selectedHour, setSelectedHour] = useState(null);
@@ -78,13 +80,50 @@ function AppConfigurationsPage() {
   });
   const [savingWhatsAppBilling, setSavingWhatsAppBilling] = useState(false);
   const [whatsAppBillingMessage, setWhatsAppBillingMessage] = useState("");
+  const [templateLibrary, setTemplateLibrary] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [templateDraftName, setTemplateDraftName] = useState("");
   const requiresPublicBillBaseUrl =
     whatsAppBillingConfig.templateProfile === "view_bill_dynamic_url" ||
     whatsAppBillingConfig.templateProfile === "bill_url_7_param";
 
+  const persistTemplateLibrary = (nextTemplates) => {
+    setTemplateLibrary(nextTemplates);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        WHATSAPP_BILLING_TEMPLATE_LIBRARY_KEY,
+        JSON.stringify(nextTemplates)
+      );
+    }
+  };
+
+  const buildTemplateSnapshot = (forcedId) => ({
+    id: forcedId || selectedTemplateId || `tpl_${Date.now()}`,
+    name: (templateDraftName || whatsAppBillingConfig.templateName || "Untitled Template").trim(),
+    config: {
+      ...whatsAppBillingConfig,
+      bodyVariables: Array.isArray(whatsAppBillingConfig.bodyVariables)
+        ? [...whatsAppBillingConfig.bodyVariables]
+        : [],
+    },
+    updatedAt: new Date().toISOString(),
+  });
+
   // Load config from backend on mount
   useEffect(() => {
     const fetchConfig = async () => {
+      if (typeof window !== "undefined") {
+        try {
+          const rawTemplates = localStorage.getItem(WHATSAPP_BILLING_TEMPLATE_LIBRARY_KEY);
+          const parsedTemplates = rawTemplates ? JSON.parse(rawTemplates) : [];
+          if (Array.isArray(parsedTemplates)) {
+            setTemplateLibrary(parsedTemplates);
+          }
+        } catch (err) {
+          console.error("Failed to load WhatsApp billing template library", err);
+        }
+      }
+
       try {
         const res = await API.get("/api/app-config/session-validity");
         const { availableHours: hrs = [], selectedHour: sel = null } = res.data || {};
@@ -135,6 +174,7 @@ function AppConfigurationsPage() {
               ?.buttonUrlVariable ||
             "",
         });
+        setTemplateDraftName(res.data?.templateName || "");
       } catch (err) {
         console.error("Failed to load WhatsApp billing config", err);
       }
@@ -210,6 +250,53 @@ function AppConfigurationsPage() {
       bodyVariables: preset.bodyVariables,
       buttonUrlVariable: preset.buttonUrlVariable,
     }));
+  };
+
+  const handleLoadTemplate = (templateId) => {
+    const selectedTemplate = templateLibrary.find((template) => template.id === templateId);
+    if (!selectedTemplate?.config) return;
+
+    setSelectedTemplateId(selectedTemplate.id);
+    setTemplateDraftName(selectedTemplate.name || selectedTemplate.config.templateName || "");
+    setWhatsAppBillingConfig({
+      ...selectedTemplate.config,
+      bodyVariables: Array.isArray(selectedTemplate.config.bodyVariables)
+        ? [...selectedTemplate.config.bodyVariables]
+        : [],
+    });
+    setWhatsAppBillingMessage(`Loaded template "${selectedTemplate.name || selectedTemplate.config.templateName}".`);
+  };
+
+  const handleSaveTemplateAsNew = () => {
+    const snapshot = buildTemplateSnapshot(`tpl_${Date.now()}`);
+    const nextTemplates = [snapshot, ...templateLibrary];
+    persistTemplateLibrary(nextTemplates);
+    setSelectedTemplateId(snapshot.id);
+    setTemplateDraftName(snapshot.name);
+    setWhatsAppBillingMessage(`Saved template "${snapshot.name}" in this admin browser.`);
+  };
+
+  const handleUpdateSelectedTemplate = () => {
+    if (!selectedTemplateId) {
+      setWhatsAppBillingMessage("Select or save a template first.");
+      return;
+    }
+
+    const snapshot = buildTemplateSnapshot(selectedTemplateId);
+    const nextTemplates = templateLibrary.map((template) =>
+      template.id === selectedTemplateId ? snapshot : template
+    );
+    persistTemplateLibrary(nextTemplates);
+    setTemplateDraftName(snapshot.name);
+    setWhatsAppBillingMessage(`Updated template "${snapshot.name}" in this admin browser.`);
+  };
+
+  const handleDeleteTemplate = (templateId) => {
+    const nextTemplates = templateLibrary.filter((template) => template.id !== templateId);
+    persistTemplateLibrary(nextTemplates);
+    if (selectedTemplateId === templateId) {
+      setSelectedTemplateId("");
+    }
   };
 
   const handleBodyVariableChange = (index, value) => {
@@ -516,6 +603,139 @@ function AppConfigurationsPage() {
         </p>
 
         <div style={{ display: "grid", gap: "12px", maxWidth: "640px" }}>
+          <div
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: "8px",
+              padding: "14px",
+              background: "#f8fafc",
+              display: "grid",
+              gap: "12px",
+            }}
+          >
+            <div style={{ display: "grid", gap: "6px" }}>
+              <span style={{ fontSize: "14px", color: "#333", fontWeight: 600 }}>
+                Template Library
+              </span>
+              <input
+                type="text"
+                value={templateDraftName}
+                onChange={(e) => setTemplateDraftName(e.target.value)}
+                placeholder="Template label for admin use"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                  background: "#fff",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={handleSaveTemplateAsNew}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #0284c7",
+                  background: "#0284c7",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                }}
+              >
+                Save As New
+              </button>
+              <button
+                type="button"
+                onClick={handleUpdateSelectedTemplate}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #94a3b8",
+                  background: "#fff",
+                  color: "#334155",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                }}
+              >
+                Update Selected
+              </button>
+            </div>
+
+            {templateLibrary.length > 0 ? (
+              <div style={{ display: "grid", gap: "8px" }}>
+                {templateLibrary.map((template) => (
+                  <div
+                    key={template.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      alignItems: "center",
+                      padding: "10px 12px",
+                      borderRadius: "6px",
+                      border:
+                        template.id === selectedTemplateId
+                          ? "1px solid #38bdf8"
+                          : "1px solid #e5e7eb",
+                      background: "#fff",
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                        {template.name || template.config?.templateName || "Untitled Template"}
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#64748b" }}>
+                        {template.config?.templateName || "No template name"} ·{" "}
+                        {template.config?.templateProfile || "legacy_7_param"}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleLoadTemplate(template.id)}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: "4px",
+                          border: "1px solid #22c55e",
+                          background: "#22c55e",
+                          color: "#fff",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                        }}
+                      >
+                        Load
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTemplate(template.id)}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: "4px",
+                          border: "1px solid #ef4444",
+                          background: "#fff",
+                          color: "#ef4444",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ margin: 0, fontSize: "12px", color: "#64748b" }}>
+                Save reusable WhatsApp billing templates here for quick switching in this admin
+                browser. The active config is still saved separately below.
+              </p>
+            )}
+          </div>
+
           <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
             <span>Template profile</span>
             <select
