@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import API_BASE_URL from "../config";
 
+const fallbackCountries = [
+  { name: "India", code: "91" },
+];
+
 function AddCustomerModal({ show, onClose, onAdded }) {
   const [step, setStep] = useState(1);
   const [countries, setCountries] = useState([]);
@@ -12,8 +16,20 @@ function AddCustomerModal({ show, onClose, onAdded }) {
   const [countriesLoading, setCountriesLoading] = useState(true);
 
  useEffect(() => {
+  if (!show) return;
+  if (countries.length > 0) {
+    setCountriesLoading(false);
+    if (!countryCode) {
+      setCountryCode(countries[0]?.code || "91");
+    }
+    return;
+  }
+
+  let cancelled = false;
+
   const fetchCountries = async () => {
     try {
+      setCountriesLoading(true);
       const res = await axios.get(
         `${API_BASE_URL}/api/countries/codes`
       );
@@ -25,27 +41,35 @@ function AddCustomerModal({ show, onClose, onAdded }) {
       }
 
       const countryList = data
-        .map(c => ({
+        .map((c) => ({
           name: c.name,
-          code: c.dial_code.replace("+", ""), // remove '+' from code
+          code: c.dial_code.replace("+", ""),
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
 
-      setCountries(countryList);
+      const finalList = countryList.length > 0 ? countryList : fallbackCountries;
 
-      if (countryList.length > 0) {
-        setCountryCode(countryList[0].code);
-      }
+      if (cancelled) return;
+      setCountries(finalList);
+      setCountryCode((current) => current || finalList[0]?.code || "91");
     } catch (err) {
       console.error("Failed to fetch countries:", err);
-      alert("Failed to load country codes");
+      if (cancelled) return;
+      setCountries(fallbackCountries);
+      setCountryCode((current) => current || fallbackCountries[0].code);
     } finally {
-      setCountriesLoading(false);
+      if (!cancelled) {
+        setCountriesLoading(false);
+      }
     }
   };
 
   fetchCountries();
-}, []);
+
+  return () => {
+    cancelled = true;
+  };
+}, [show, countries.length, countryCode]);
 
 
   useEffect(() => {
@@ -53,9 +77,10 @@ function AddCustomerModal({ show, onClose, onAdded }) {
       setStep(1);
       setPhone("");
       setOtp("");
-      setCountryCode("");
+      setCountryCode(countries[0]?.code || "91");
+      setCountriesLoading(countries.length === 0);
     }
-  }, [show]);
+  }, [show, countries]);
 
   if (!show) return null;
 

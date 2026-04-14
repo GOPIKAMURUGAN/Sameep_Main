@@ -101,6 +101,12 @@ function normalizeSecondaryPhones(value) {
     });
 }
 
+function normalizePrimaryPhone(value) {
+  return String(value || "")
+    .replace(/\D/g, "")
+    .slice(-10);
+}
+
 function getDummyVendorDisplayName(vendor) {
   return (
     vendor?.name || vendor?.contactName || vendor?.businessName || "Vendor"
@@ -357,7 +363,9 @@ router.post("/", async (req, res) => {
       googlePlaceDetails // 👈 optional
     } = req.body;
 
-    if (!customerId || !phone || !businessName || !contactName || !categoryId) {
+    const normalizedPhone = normalizePrimaryPhone(phone);
+
+    if (!customerId || !normalizedPhone || !businessName || !contactName || !categoryId) {
       return res.status(400).json({
         message: "customerId, phone, businessName, contactName, categoryId are required",
       });
@@ -395,20 +403,22 @@ router.post("/", async (req, res) => {
     const cat = await DummyCategory.findById(categoryId).lean();
     if (!cat) return res.status(404).json({ message: "Dummy category not found" });
 
-    // Idempotent: avoid duplicate vendors for same customer + category
+    // Idempotent: avoid duplicate vendors for same verified phone number
     console.log(
   "CHECK EXISTING vendor for",
   "customerId =", customerId,
-  "categoryId =", categoryId
+  "phone =", normalizedPhone
 );
 
-    const existing = await DummyVendor.findOne({ customerId, categoryId });
+    const existing = await DummyVendor.findOne({
+      $or: [{ phone: normalizedPhone }, { customerId }],
+    });
 
     /* ===========================
        UPDATE EXISTING VENDOR
        =========================== */
     if (existing) {
-      existing.phone = phone;
+      existing.phone = normalizedPhone;
       existing.businessName = businessName;
       existing.contactName = contactName;
 
@@ -447,7 +457,11 @@ router.post("/", async (req, res) => {
       }
 
       await existing.save();
-      return res.json(existing);
+      return res.json({
+        ...existing.toObject(),
+        success: true,
+        existingVendor: true,
+      });
     }
 
     /* ===========================
@@ -455,7 +469,7 @@ router.post("/", async (req, res) => {
        =========================== */
     const vendorPayload = {
       customerId,
-      phone,
+      phone: normalizedPhone,
       businessName,
       contactName,
       categoryId,
@@ -495,7 +509,11 @@ router.post("/", async (req, res) => {
     }
 
     const vendor = await DummyVendor.create(vendorPayload);
-    return res.status(201).json(vendor);
+    return res.status(201).json({
+      ...vendor.toObject(),
+      success: true,
+      existingVendor: false,
+    });
 
   } catch (err) {
     console.error("POST /dummy-vendors error:", err);

@@ -13,7 +13,11 @@ const EMPTY_FORM = {
   role: "",
 };
 
-export default function MyStylists({ vendorId }) {
+export default function MyStylists({
+  vendorId,
+  resourceLabelPlural = "Stylists",
+  resourceLabelSingular = "Stylist",
+}) {
   const [stylists, setStylists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -48,7 +52,7 @@ export default function MyStylists({ vendorId }) {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to load stylists");
+        throw new Error(`Failed to load ${resourceLabelPlural.toLowerCase()}`);
       }
 
       const data = await response.json();
@@ -56,7 +60,7 @@ export default function MyStylists({ vendorId }) {
       setStylists(nextStylists);
       setVendorInfo((prev) => (prev ? { ...prev, resources: nextStylists } : prev));
     } catch (error) {
-      console.error("Failed to fetch stylists", error);
+      console.error(`Failed to fetch ${resourceLabelPlural.toLowerCase()}`, error);
       setStylists([]);
     } finally {
       setLoading(false);
@@ -103,15 +107,15 @@ export default function MyStylists({ vendorId }) {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create stylist");
+        throw new Error(`Failed to create ${resourceLabelSingular.toLowerCase()}`);
       }
 
       setFormData(EMPTY_FORM);
       setShowModal(false);
       await loadStylists();
     } catch (error) {
-      console.error("Failed to create stylist", error);
-      alert(error.message || "Failed to create stylist");
+      console.error(`Failed to create ${resourceLabelSingular.toLowerCase()}`, error);
+      alert(error.message || `Failed to create ${resourceLabelSingular.toLowerCase()}`);
     } finally {
       setSubmitting(false);
     }
@@ -143,7 +147,7 @@ const handleToggleStatus = async (stylistId, currentStatus) => {
     );
 
     if (!response.ok) {
-      throw new Error("Failed to update stylist status");
+      throw new Error(`Failed to update ${resourceLabelSingular.toLowerCase()} status`);
     }
 
     const nextStylists = stylists.map((stylist) =>
@@ -159,31 +163,31 @@ const handleToggleStatus = async (stylistId, currentStatus) => {
     );
 
   } catch (error) {
-    console.error("Failed to update stylist status", error);
-    alert(error.message || "Failed to update stylist status");
+    console.error(`Failed to update ${resourceLabelSingular.toLowerCase()} status`, error);
+    alert(error.message || `Failed to update ${resourceLabelSingular.toLowerCase()} status`);
   } finally {
     setUpdatingStatusId(null);
   }
 };
 
   return (
-    <div className="stylists-page">
+      <div className="stylists-page">
       <div className="stylists-header">
-        <h2>My Stylists</h2>
+        <h2>{`My ${resourceLabelPlural}`}</h2>
 
         <button
           className="add-stylist-btn"
           type="button"
           onClick={() => setShowModal(true)}
         >
-          + Add Stylist
+          {`+ Add ${resourceLabelSingular}`}
         </button>
       </div>
 
       {loading ? (
-        <div className="stylists-state">Loading stylists...</div>
+        <div className="stylists-state">{`Loading ${resourceLabelPlural.toLowerCase()}...`}</div>
       ) : stylists.length === 0 ? (
-        <div className="stylists-state">No stylists found.</div>
+        <div className="stylists-state">{`No ${resourceLabelPlural.toLowerCase()} found.`}</div>
       ) : (
         <div className="stylists-grid">
           {stylists.map((stylist) => (
@@ -192,7 +196,7 @@ const handleToggleStatus = async (stylistId, currentStatus) => {
               className="stylist-card"
             >
               <div className="stylist-card-top">
-                <div className="stylist-card-label">Stylist</div>
+                <div className="stylist-card-label">{resourceLabelSingular}</div>
                 <span
                   className={`stylist-status-badge ${
                     stylist.status === "Active"
@@ -246,7 +250,7 @@ const handleToggleStatus = async (stylistId, currentStatus) => {
             className="stylist-modal"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3>Add Stylist</h3>
+            <h3>{`Add ${resourceLabelSingular}`}</h3>
 
             <form className="stylist-form" onSubmit={handleSubmit}>
               <label className="stylist-field">
@@ -254,7 +258,7 @@ const handleToggleStatus = async (stylistId, currentStatus) => {
                 <input
                   value={formData.name}
                   onChange={(event) => handleChange("name", event.target.value)}
-                  placeholder="Enter stylist name"
+                  placeholder={`Enter ${resourceLabelSingular.toLowerCase()} name`}
                 />
               </label>
 
@@ -295,7 +299,7 @@ const handleToggleStatus = async (stylistId, currentStatus) => {
                     !formData.role.trim()
                   }
                 >
-                  {submitting ? "Saving..." : "Save Stylist"}
+                  {submitting ? "Saving..." : `Save ${resourceLabelSingular}`}
                 </button>
               </div>
             </form>

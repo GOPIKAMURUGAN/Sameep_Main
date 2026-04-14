@@ -2,6 +2,9 @@ const VendorFlow = require("../models/VendorFlow");
 const Vendor = require("../models/Vendor");
 const Category = require("../models/Category");
 const DummyVendor = require("../models/DummyVendor");
+const Plan = require("../models/Plan");
+const VendorSubscription = require("../models/VendorSubscription");
+const { assignPlanToVendor } = require("../services/vendorSubscriptionService");
 
 // GET all services for a specific vendor (flattened, frontend-ready)
 exports.getVendorFlows = async (req, res) => {
@@ -322,8 +325,32 @@ exports.setSubdomain = async (req, res) => {
     if (exists)
       return res.status(400).json({ error: 'Subdomain taken' });
 
+    const existingSubscription = await VendorSubscription.findOne({
+      vendorId: vendor._id,
+    }).lean();
+
+    let trialPlan = null;
+    if (!existingSubscription) {
+      trialPlan = await Plan.findOne({
+        name: /^trial$/i,
+        active: true,
+      }).lean();
+
+      if (!trialPlan) {
+        return res.status(500).json({ error: "Active Trial plan not found" });
+      }
+    }
+
     vendor.subdomain = subdomain.toLowerCase();
     await vendor.save();
+
+    if (!existingSubscription) {
+      await assignPlanToVendor({
+        vendorId: vendor._id,
+        planId: trialPlan._id,
+        active: true,
+      });
+    }
 
     res.json({ subdomain: vendor.subdomain });
   } catch (err) {

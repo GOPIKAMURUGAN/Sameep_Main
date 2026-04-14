@@ -101,6 +101,25 @@ function buildImageMapFromTree(nodes) {
   return map;
 }
 
+const SUBSCRIPTION_WARNING_WINDOW_DAYS = 7;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function singularizeHumanResourceLabel(label) {
+  const cleaned = String(label || "").trim();
+  if (!cleaned) return "Resource";
+
+  const parts = cleaned.split(/\s+/);
+  const last = parts[parts.length - 1];
+  let singular = last;
+
+  if (/ies$/i.test(last)) singular = last.replace(/ies$/i, "y");
+  else if (/(ches|shes|sses|xes|zes)$/i.test(last)) singular = last.replace(/es$/i, "");
+  else if (/s$/i.test(last) && !/ss$/i.test(last)) singular = last.replace(/s$/i, "");
+
+  parts[parts.length - 1] = singular;
+  return parts.join(" ");
+}
+
 function cloneCustomPackageNode(node) {
   return {
     _id: node._id,
@@ -1035,7 +1054,6 @@ function ExploreContent({ onReady, onOpenServices }) {
     setViewMode(nextMode);
   };
 
-
   useEffect(() => {
     const handleSessionExpired = () => {
       vendorLogout();
@@ -1284,6 +1302,9 @@ function ExploreContent({ onReady, onOpenServices }) {
   const searchParams = useSearchParams();
   const queryRootCategoryId = searchParams.get("rootCategoryId");
   const queryVendorId = searchParams.get("vendorId");
+  const [subscriptionPopup, setSubscriptionPopup] = useState(null);
+  const [dismissedSubscriptionPopupKey, setDismissedSubscriptionPopupKey] =
+    useState(null);
   const vendorId =
     queryVendorId ||
     vendorInfo?._id ||
@@ -1300,6 +1321,26 @@ function ExploreContent({ onReady, onOpenServices }) {
     vendorInfo?.category?._id ||
     vendorInfo?.rootCategoryId ||
     null;
+  const hrEnabled = Boolean(hrCategory?.enableHumanResources);
+  const hrPluralLabel = useMemo(() => {
+    const raw = String(hrCategory?.humanResourceLabel || "").trim();
+    if (!raw) return "Resources";
+    return raw.replace(/^manage\s+/i, "").trim() || "Resources";
+  }, [hrCategory?.humanResourceLabel]);
+  const hrSingularLabel = useMemo(
+    () => singularizeHumanResourceLabel(hrPluralLabel),
+    [hrPluralLabel]
+  );
+  const hrDashboardTitle = `My ${hrPluralLabel}`;
+  const hrDashboardDescription = `View and manage ${resources.length} ${hrPluralLabel.toLowerCase()} records.`;
+  const hrSelectorLabel = hrSingularLabel;
+  const hrSelectorPlaceholder = `Select ${hrSingularLabel}`;
+  const hrPerformanceTitle = `${hrSingularLabel} Performance`;
+  useEffect(() => {
+    if (!hrEnabled && viewMode === "stylists-dashboard") {
+      setViewMode("new-dashboard");
+    }
+  }, [hrEnabled, viewMode]);
   const canGenerateBill =
     cartItems.length > 0 &&
     !!vendorId &&
@@ -1508,6 +1549,128 @@ function ExploreContent({ onReady, onOpenServices }) {
 
     fetchVendor();
   }, [queryVendorId, setVendorInfo]);
+
+  useEffect(() => {
+    if (!vendorId) {
+      setSubscriptionPopup(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadSubscriptionPopup() {
+      try {
+        const [subscriptionRes, contactRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/admin/vendor-subscriptions/${vendorId}`, {
+            cache: "no-store",
+          }),
+          fetch(`${API_BASE_URL}/api/app-config/public-site-contact`, {
+            cache: "no-store",
+          }),
+        ]);
+
+        const subscriptionJson = await subscriptionRes.json().catch(() => null);
+        const contactJson = await contactRes.json().catch(() => null);
+
+        if (cancelled) return;
+
+        const supportPhone = String(contactJson?.phone || "").trim();
+        const expiryValue = subscriptionJson?.data?.subscription?.expiryDate;
+
+        if (!subscriptionRes.ok || !subscriptionJson?.success) {
+          setSubscriptionPopup({
+            key: "expired:no-subscription",
+            type: "expired",
+            supportPhone,
+          });
+          return;
+        }
+
+        if (!expiryValue) {
+          setSubscriptionPopup({
+            key: "expired:missing-expiry",
+            type: "expired",
+            supportPhone,
+          });
+          return;
+        }
+
+        const expiryDate = new Date(expiryValue);
+        if (Number.isNaN(expiryDate.getTime())) {
+          setSubscriptionPopup(null);
+          return;
+        }
+
+        const now = new Date();
+
+        if (expiryDate.getTime() < now.getTime()) {
+          setSubscriptionPopup({
+            key: `expired:${expiryDate.toISOString()}`,
+            type: "expired",
+            supportPhone,
+          });
+          return;
+        }
+
+        const daysRemaining = Math.ceil(
+          (expiryDate.getTime() - now.getTime()) / MS_PER_DAY
+        );
+
+        if (daysRemaining <= SUBSCRIPTION_WARNING_WINDOW_DAYS) {
+          const nextPopup = {
+            key: `warning:${expiryDate.toISOString()}`,
+            type: "warning",
+            supportPhone,
+            daysRemaining,
+          };
+
+          if (dismissedSubscriptionPopupKey === nextPopup.key) {
+            setSubscriptionPopup(null);
+            return;
+          }
+
+          setSubscriptionPopup(nextPopup);
+          return;
+        }
+
+        setSubscriptionPopup(null);
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Subscription popup fetch failed", error);
+          setSubscriptionPopup(null);
+        }
+      }
+    }
+
+    loadSubscriptionPopup();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [vendorId, dismissedSubscriptionPopupKey]);
+
+  const closeSubscriptionPopup = () => {
+    if (!subscriptionPopup || subscriptionPopup.type !== "warning") return;
+    setDismissedSubscriptionPopupKey(subscriptionPopup.key);
+    setSubscriptionPopup(null);
+  };
+
+  const subscriptionPopupMessage = useMemo(() => {
+    if (!subscriptionPopup) return "";
+
+    const contactLine = subscriptionPopup.supportPhone
+      ? ` Please contact ${subscriptionPopup.supportPhone}.`
+      : " Please contact support.";
+
+    if (subscriptionPopup.type === "expired") {
+      return `Your subscription has expired.${contactLine}`;
+    }
+
+    const dayLabel =
+      subscriptionPopup.daysRemaining === 1 ? "day" : "days";
+
+    return `Your subscription will expire in ${subscriptionPopup.daysRemaining} ${dayLabel}.${contactLine}`;
+  }, [subscriptionPopup]);
 
 
   const handleVerifyOtp = async () => {
@@ -3186,9 +3349,9 @@ function ExploreContent({ onReady, onOpenServices }) {
                                   ₹ {item.total}
                                 </span>
                               </div>
-                              {item.resourceName ? (
+                              {hrEnabled && item.resourceName ? (
                                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
-                                  Stylist: {item.resourceName}
+                                  {hrSelectorLabel}: {item.resourceName}
                                 </div>
                               ) : null}
                               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -3243,6 +3406,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                   </button>
                                 </div>
                               </div>
+                              {hrEnabled ? (
                               <div style={{ marginTop: 8 }}>
                                 <div
                                   style={{
@@ -3252,7 +3416,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                     marginBottom: 4,
                                   }}
                                 >
-                                  Stylist
+                                  {hrSelectorLabel}
                                 </div>
                                 <select
                                   value={item.resourceId || ""}
@@ -3267,7 +3431,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                     borderRadius: 6,
                                   }}
                                 >
-                                  <option value="">Select Stylist</option>
+                                  <option value="">{hrSelectorPlaceholder}</option>
                                   {resources
                                     .filter((r) => r.status === "Active")
                                     .map((r) => (
@@ -3277,6 +3441,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                     ))}
                                 </select>
                               </div>
+                              ) : null}
                             </div>
                           ))}
                           <div
@@ -3640,9 +3805,9 @@ function ExploreContent({ onReady, onOpenServices }) {
                                     ₹ {item.total}
                                   </span>
                                 </div>
-                                {item.resourceName ? (
+                                {hrEnabled && item.resourceName ? (
                                   <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
-                                    Stylist: {item.resourceName}
+                                    {hrSelectorLabel}: {item.resourceName}
                                   </div>
                                 ) : null}
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -3697,6 +3862,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                     </button>
                                   </div>
                                 </div>
+                                {hrEnabled ? (
                                 <div style={{ marginTop: 8 }}>
                                   <div
                                     style={{
@@ -3706,7 +3872,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                       marginBottom: 4,
                                     }}
                                   >
-                                    Stylist
+                                    {hrSelectorLabel}
                                   </div>
                                   <select
                                     value={item.resourceId || ""}
@@ -3721,7 +3887,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                       borderRadius: 6,
                                     }}
                                   >
-                                    <option value="">Select Stylist</option>
+                                    <option value="">{hrSelectorPlaceholder}</option>
                                     {resources
                                       .filter((r) => r.status === "Active")
                                       .map((r) => (
@@ -3731,6 +3897,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                                       ))}
                                   </select>
                                 </div>
+                                ) : null}
                               </div>
                             ))}
                             <div
@@ -4171,13 +4338,15 @@ function ExploreContent({ onReady, onOpenServices }) {
                     setViewMode("revenue-dashboard");
                   },
                 },
-                {
-                  title: "My Stylists",
-                  description: `View and manage ${resources.length} stylist records.`,
-                  onClick: () => {
-                    setViewMode("stylists-dashboard");
-                  },
-                },
+                ...(hrEnabled
+                  ? [{
+                      title: hrDashboardTitle,
+                      description: hrDashboardDescription,
+                      onClick: () => {
+                        setViewMode("stylists-dashboard");
+                      },
+                    }]
+                  : []),
                 {
                   title: "Loyalty",
                   description: "Configure loyalty rules, earning, and expiry settings.",
@@ -4374,15 +4543,31 @@ function ExploreContent({ onReady, onOpenServices }) {
             {activeRevenueTab && (
               <div className="revenue-data-container">
                 {activeRevenueTab === "today" && (
-                  <TodayRevenue vendorId={vendorId} embedded />
+                  <TodayRevenue
+                    vendorId={vendorId}
+                    embedded
+                    hrEnabled={hrEnabled}
+                    hrLabelSingular={hrSingularLabel}
+                    hrPerformanceTitle={hrPerformanceTitle}
+                  />
                 )}
 
                 {activeRevenueTab === "month" && (
-                  <MonthRevenue vendorId={vendorId} />
+                  <MonthRevenue
+                    vendorId={vendorId}
+                    hrEnabled={hrEnabled}
+                    hrLabelSingular={hrSingularLabel}
+                    hrPerformanceTitle={hrPerformanceTitle}
+                  />
                 )}
 
                 {activeRevenueTab === "year" && (
-                  <YearRevenue vendorId={vendorId} />
+                  <YearRevenue
+                    vendorId={vendorId}
+                    hrEnabled={hrEnabled}
+                    hrLabelSingular={hrSingularLabel}
+                    hrPerformanceTitle={hrPerformanceTitle}
+                  />
                 )}
 
                 {activeRevenueTab === "customer" && (
@@ -4394,12 +4579,12 @@ function ExploreContent({ onReady, onOpenServices }) {
         </div>
       )}
 
-      {viewMode === "stylists-dashboard" && (
+      {viewMode === "stylists-dashboard" && hrEnabled && (
         <div className="new-dashboard-overlay">
           <div className="new-dashboard-shell">
             <div className="new-dashboard-header">
               <div className="new-dashboard-title">
-                My Stylists
+                {hrDashboardTitle}
               </div>
               <button
                 className="new-dashboard-close-btn"
@@ -4410,7 +4595,11 @@ function ExploreContent({ onReady, onOpenServices }) {
               </button>
             </div>
 
-            <MyStylists vendorId={vendorId} />
+            <MyStylists
+              vendorId={vendorId}
+              resourceLabelPlural={hrPluralLabel}
+              resourceLabelSingular={hrSingularLabel}
+            />
           </div>
         </div>
       )}
@@ -4474,6 +4663,33 @@ function ExploreContent({ onReady, onOpenServices }) {
       {serviceLoading && (
         <div className="profile-loader-overlay">
           <div className="profile-loader-spinner" />
+        </div>
+      )}
+
+      {subscriptionPopup && (
+        <div className="subscription-expiry-overlay">
+          <div className="subscription-expiry-modal">
+            <div className="subscription-expiry-badge">
+              {subscriptionPopup.type === "expired" ? "Expired" : "Reminder"}
+            </div>
+            <h3 className="subscription-expiry-title">
+              {subscriptionPopup.type === "expired"
+                ? "Subscription expired"
+                : "Subscription expiring soon"}
+            </h3>
+            <p className="subscription-expiry-text">
+              {subscriptionPopupMessage}
+            </p>
+            {subscriptionPopup.type === "warning" && (
+              <button
+                type="button"
+                className="subscription-expiry-close"
+                onClick={closeSubscriptionPopup}
+              >
+                Close
+              </button>
+            )}
+          </div>
         </div>
       )}
 

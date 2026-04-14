@@ -54,6 +54,8 @@ async function run() {
           expiryDate.setFullYear(expiryDate.getFullYear() + 1);
         } else if (plan.billingCycle === "monthly") {
           expiryDate.setMonth(expiryDate.getMonth() + 1);
+        } else if (plan.billingCycle === "daily") {
+          expiryDate.setDate(expiryDate.getDate() + 1);
         } else {
           skippedCount += 1;
           console.warn(

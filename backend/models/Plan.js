@@ -6,7 +6,7 @@ const PlanSchema = new mongoose.Schema({
 
   billingCycle: {
     type: String,
-    enum: ["monthly", "yearly"],
+    enum: ["daily", "monthly", "yearly"],
     default: "yearly",
   },
 

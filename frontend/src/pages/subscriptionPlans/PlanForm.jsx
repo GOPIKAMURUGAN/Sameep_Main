@@ -118,6 +118,7 @@ export default function PlanForm({ initialData, onSubmit, onClose }) {
           >
             <option value="yearly">Yearly</option>
             <option value="monthly">Monthly</option>
+            <option value="daily">Daily</option>
           </select>
 
           <label style={{ display: "flex", gap: 8, alignItems: "center" }}>

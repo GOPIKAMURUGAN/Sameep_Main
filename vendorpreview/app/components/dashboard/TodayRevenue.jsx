@@ -50,13 +50,26 @@ function getTodayRange() {
   };
 }
 
-function TodayRevenue({ vendorId, onBack, embedded = false }) {
+function TodayRevenue({
+  vendorId,
+  onBack,
+  embedded = false,
+  hrEnabled = true,
+  hrLabelSingular = "Stylist",
+  hrPerformanceTitle = "Stylist Performance",
+}) {
   const [activeSection, setActiveSection] = useState("revenue");
   const [bills, setBills] = useState([]);
   const [stylists, setStylists] = useState([]);
   const [loadingRevenue, setLoadingRevenue] = useState(true);
   const [loadingStylists, setLoadingStylists] = useState(true);
   const [expandedBills, setExpandedBills] = useState({});
+
+  useEffect(() => {
+    if (!hrEnabled && activeSection === "stylists") {
+      setActiveSection("revenue");
+    }
+  }, [hrEnabled, activeSection]);
 
   useEffect(() => {
     if (!vendorId) {
@@ -112,6 +125,14 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
     };
 
     const loadStylists = async () => {
+      if (!hrEnabled) {
+        if (!cancelled) {
+          setStylists([]);
+          setLoadingStylists(false);
+        }
+        return;
+      }
+
       try {
         setLoadingStylists(true);
         const res = await fetch(
@@ -120,7 +141,7 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
         );
 
         if (!res.ok) {
-          throw new Error("Failed to load stylist performance");
+          throw new Error(`Failed to load ${hrLabelSingular.toLowerCase()} performance`);
         }
 
         const json = await res.json();
@@ -134,7 +155,7 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
           setStylists(rawStylists);
         }
       } catch (error) {
-        console.error("Failed to fetch stylist performance", error);
+        console.error(`Failed to fetch ${hrLabelSingular.toLowerCase()} performance`, error);
         if (!cancelled) {
           setStylists([]);
         }
@@ -151,7 +172,7 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
     return () => {
       cancelled = true;
     };
-  }, [vendorId]);
+  }, [vendorId, hrEnabled, hrLabelSingular]);
 
   const summary = useMemo(() => {
     return bills.reduce(
@@ -209,13 +230,15 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
         >
           Revenue
         </button>
-        <button
-          type="button"
-          className={`today-revenue-tab ${activeSection === "stylists" ? "active" : ""}`}
-          onClick={() => setActiveSection("stylists")}
-        >
-          Stylist Performance
-        </button>
+        {hrEnabled ? (
+          <button
+            type="button"
+            className={`today-revenue-tab ${activeSection === "stylists" ? "active" : ""}`}
+            onClick={() => setActiveSection("stylists")}
+          >
+            {hrPerformanceTitle}
+          </button>
+        ) : null}
       </div>
 
       {activeSection === "revenue" ? (
@@ -309,17 +332,17 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
             )}
           </>
         )
-      ) : (
+      ) : hrEnabled ? (
         loadingStylists ? (
           <div className="today-revenue-loading">
             <div className="today-revenue-spinner" />
           </div>
         ) : (
           <>
-            <div className="today-revenue-section-title">Stylist Performance</div>
+            <div className="today-revenue-section-title">{hrPerformanceTitle}</div>
             {stylists.length === 0 ? (
               <div className="today-revenue-empty">
-                No stylist performance data available for today.
+                {`No ${hrLabelSingular.toLowerCase()} performance data available for today.`}
               </div>
             ) : (
               <div className="today-revenue-stylist-list">
@@ -329,7 +352,7 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
                     className="today-revenue-stylist-row"
                   >
                     <div className="today-revenue-stylist-name">
-                      {row.stylist || `Stylist ${index + 1}`}
+                      {row.stylist || `${hrLabelSingular} ${index + 1}`}
                     </div>
                     <div className="today-revenue-stylist-value">
                       {currencyFmt.format(Number(row.revenue || 0))}
@@ -340,7 +363,7 @@ function TodayRevenue({ vendorId, onBack, embedded = false }) {
             )}
           </>
         )
-      )}
+      ) : null}
     </div>
   );
 }

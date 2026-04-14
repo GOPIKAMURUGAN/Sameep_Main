@@ -50,13 +50,24 @@ function getMonthRange() {
   };
 }
 
-export default function MonthRevenue({ vendorId }) {
+export default function MonthRevenue({
+  vendorId,
+  hrEnabled = true,
+  hrLabelSingular = "Stylist",
+  hrPerformanceTitle = "Stylist Performance",
+}) {
   const [activeSection, setActiveSection] = useState("revenue");
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stylists, setStylists] = useState([]);
   const [loadingStylists, setLoadingStylists] = useState(true);
   const [expandedBills, setExpandedBills] = useState({});
+
+  useEffect(() => {
+    if (!hrEnabled && activeSection === "stylists") {
+      setActiveSection("revenue");
+    }
+  }, [hrEnabled, activeSection]);
 
   useEffect(() => {
     if (!vendorId) {
@@ -105,6 +116,14 @@ export default function MonthRevenue({ vendorId }) {
     };
 
     const loadStylists = async () => {
+      if (!hrEnabled) {
+        if (!cancelled) {
+          setStylists([]);
+          setLoadingStylists(false);
+        }
+        return;
+      }
+
       try {
         setLoadingStylists(true);
         const res = await fetch(
@@ -113,7 +132,7 @@ export default function MonthRevenue({ vendorId }) {
         );
 
         if (!res.ok) {
-          throw new Error("Failed to load stylist performance");
+          throw new Error(`Failed to load ${hrLabelSingular.toLowerCase()} performance`);
         }
 
         const json = await res.json();
@@ -127,7 +146,7 @@ export default function MonthRevenue({ vendorId }) {
           setStylists(rawStylists);
         }
       } catch (error) {
-        console.error("Failed to fetch stylist performance", error);
+        console.error(`Failed to fetch ${hrLabelSingular.toLowerCase()} performance`, error);
         if (!cancelled) {
           setStylists([]);
         }
@@ -144,7 +163,7 @@ export default function MonthRevenue({ vendorId }) {
     return () => {
       cancelled = true;
     };
-  }, [vendorId]);
+  }, [vendorId, hrEnabled, hrLabelSingular]);
 
   const summary = useMemo(() => {
     return bills.reduce(
@@ -192,13 +211,15 @@ export default function MonthRevenue({ vendorId }) {
         >
           Revenue
         </button>
-        <button
-          type="button"
-          className={`revenue-panel-tab ${activeSection === "stylists" ? "active" : ""}`}
-          onClick={() => setActiveSection("stylists")}
-        >
-          Stylist Performance
-        </button>
+        {hrEnabled ? (
+          <button
+            type="button"
+            className={`revenue-panel-tab ${activeSection === "stylists" ? "active" : ""}`}
+            onClick={() => setActiveSection("stylists")}
+          >
+            {hrPerformanceTitle}
+          </button>
+        ) : null}
       </div>
 
       {activeSection === "revenue" ? (
@@ -300,12 +321,12 @@ export default function MonthRevenue({ vendorId }) {
         )
       ) : (
         <div className="revenue-panel-section">
-          <div className="revenue-panel-section-title">Stylist Performance</div>
+          <div className="revenue-panel-section-title">{hrPerformanceTitle}</div>
           {loadingStylists ? (
-            <div className="revenue-panel-loading">Loading stylist performance...</div>
+            <div className="revenue-panel-loading">{`Loading ${hrLabelSingular.toLowerCase()} performance...`}</div>
           ) : stylists.length === 0 ? (
             <div className="revenue-panel-empty">
-              No stylist performance data available for this month.
+              {`No ${hrLabelSingular.toLowerCase()} performance data available for this month.`}
             </div>
           ) : (
             <div className="revenue-panel-list">
@@ -315,7 +336,7 @@ export default function MonthRevenue({ vendorId }) {
                   className="revenue-panel-list-item"
                 >
                   <div className="revenue-panel-list-main">
-                    {row.stylist || `Stylist ${index + 1}`}
+                    {row.stylist || `${hrLabelSingular} ${index + 1}`}
                   </div>
                   <div className="revenue-panel-list-value">
                     {currencyFmt.format(Number(row.revenue || 0))}

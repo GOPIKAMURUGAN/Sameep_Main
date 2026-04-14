@@ -152,6 +152,70 @@
   cursor: pointer;
 }
 
+.subscription-expiry-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(4, 4, 6, 0.74);
+  backdrop-filter: blur(8px);
+}
+
+.subscription-expiry-modal {
+  width: min(460px, 100%);
+  padding: 28px;
+  border-radius: 22px;
+  border: 1px solid rgba(245, 217, 122, 0.28);
+  background: linear-gradient(180deg, rgba(14, 14, 18, 0.98), rgba(10, 10, 12, 0.98));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  text-align: center;
+}
+
+.subscription-expiry-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(245, 217, 122, 0.14);
+  color: #f5d97a;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.subscription-expiry-title {
+  margin: 0 0 10px;
+  color: #f9fafb;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.subscription-expiry-text {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.subscription-expiry-close {
+  margin-top: 18px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f1c86c, #c89f42);
+  color: #141414;
+  padding: 11px 18px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .menu-overlay-close-btn:hover {
   background: linear-gradient(135deg, #e6bf6a, #cfa94e);
   color: #0b0b0d;

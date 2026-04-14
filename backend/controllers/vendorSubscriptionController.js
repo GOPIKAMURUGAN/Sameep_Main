@@ -1,84 +1,17 @@
 const VendorSubscription = require("../models/VendorSubscription");
-const Plan = require("../models/Plan");
 const VendorWallet = require("../models/VendorWallet");
-const VendorWalletLedger = require("../models/VendorWalletLedger");
+const { assignPlanToVendor } = require("../services/vendorSubscriptionService");
 
 exports.assignVendorPlan = async (req, res) => {
   try {
     const { vendorId, planId, startDate, expiryDate, active } = req.body;
-
-    if (!vendorId || !planId) {
-      return res.status(400).json({
-        success: false,
-        message: "vendorId and planId are required",
-      });
-    }
-
-    const plan = await Plan.findById(planId).lean();
-
-    let finalStartDate = startDate ? new Date(startDate) : new Date();
-
-    let finalExpiryDate = expiryDate;
-
-    if (!finalExpiryDate && plan?.billingCycle === "yearly") {
-      finalExpiryDate = new Date(finalStartDate);
-      finalExpiryDate.setFullYear(finalExpiryDate.getFullYear() + 1);
-    }
-
-    if (!finalExpiryDate && plan?.billingCycle === "monthly") {
-      finalExpiryDate = new Date(finalStartDate);
-      finalExpiryDate.setMonth(finalExpiryDate.getMonth() + 1);
-    }
-
-    const subscription = await VendorSubscription.findOneAndUpdate(
-      { vendorId },
-      {
-        vendorId,
-        planId,
-        startDate: finalStartDate,
-        expiryDate: finalExpiryDate,
-        active: active !== undefined ? active : true,
-      },
-      { upsert: true, new: true }
-    );
-
-    let wallet = await VendorWallet.findOne({ vendorId });
-    if (!wallet) {
-      wallet = await VendorWallet.create({
-        vendorId,
-        whatsappBalance: 0,
-        otpBalance: 0,
-      });
-    }
-
-    if (plan?.features?.whatsappBundle > 0) {
-      wallet.whatsappBalance += plan.features.whatsappBundle;
-
-      await VendorWalletLedger.create({
-        vendorId,
-        type: "PLAN_ALLOCATION",
-        channel: "WHATSAPP",
-        quantity: plan.features.whatsappBundle,
-        reference: plan._id.toString(),
-        balanceAfter: wallet.whatsappBalance,
-      });
-    }
-
-    if (plan?.features?.otpBundle > 0) {
-      wallet.otpBalance += plan.features.otpBundle;
-
-      await VendorWalletLedger.create({
-        vendorId,
-        type: "PLAN_ALLOCATION",
-        channel: "OTP",
-        quantity: plan.features.otpBundle,
-        reference: plan._id.toString(),
-        balanceAfter: wallet.otpBalance,
-      });
-    }
-
-    wallet.updatedAt = new Date();
-    await wallet.save();
+    const subscription = await assignPlanToVendor({
+      vendorId,
+      planId,
+      startDate,
+      expiryDate,
+      active,
+    });
 
     return res.json({ success: true, data: subscription });
   } catch (err) {

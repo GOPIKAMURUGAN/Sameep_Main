@@ -67,6 +67,7 @@ function OnboardingFlow() {
   const [selectedSearchBusiness, setSelectedSearchBusiness] = useState(null);
   const [activePlaceId, setActivePlaceId] = useState(null);
   const [selectedBusiness, setSelectedBusiness] = useState(null);
+  const businessQueryRef = useRef(null);
 
   const [captcha, setCaptcha] = useState("");
   const [captchaInput, setCaptchaInput] = useState(["", "", "", ""]);
@@ -94,6 +95,7 @@ function OnboardingFlow() {
   const [subdomainSuggestions, setSubdomainSuggestions] = useState([]);
   const [selectedSubdomain, setSelectedSubdomain] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [existingVendorRedirectUrl, setExistingVendorRedirectUrl] = useState(null);
 
   const {
     nodes,
@@ -163,7 +165,7 @@ function OnboardingFlow() {
     setCaptcha(code);
     setCaptchaInput(["", "", "", ""]);
     setCaptchaError("");
-    captchaRefs.current[0]?.focus();
+    businessQueryRef.current?.focus();
   }
 
   const filteredCategories = categories.filter((category) =>
@@ -177,6 +179,10 @@ function OnboardingFlow() {
     .toString()
     .padStart(2, "0");
   const seconds = (elapsed % 60).toString().padStart(2, "0");
+
+  function buildVendorPreviewUrl(subdomain) {
+    return PREVIEW_BASE_URL.replace("://", `://${subdomain}.`);
+  }
 
   function toggleMultiSelectAnswer(questionId, option) {
     setTrustAnswers((prev) => {
@@ -194,6 +200,11 @@ function OnboardingFlow() {
 
   function handleClose() {
     router.push("/");
+  }
+
+  function handleExistingVendorContinue() {
+    if (!existingVendorRedirectUrl) return;
+    window.location.href = existingVendorRedirectUrl;
   }
 
   function handleBack() {
@@ -377,7 +388,26 @@ function OnboardingFlow() {
       };
 
       const vendorData = await createVendor(vendorPayload);
-      setVendorId(vendorData.vendor?._id || vendorData._id);
+      const resolvedVendorId = vendorData.vendor?._id || vendorData._id;
+      const resolvedSubdomain =
+        vendorData.vendor?.subdomain || vendorData.subdomain || null;
+
+      if (!resolvedVendorId) {
+        alert("Vendor ID not received from backend");
+        return;
+      }
+
+      setVendorId(resolvedVendorId);
+
+      if (vendorData?.existingVendor && resolvedSubdomain) {
+        setExistingVendorRedirectUrl(buildVendorPreviewUrl(resolvedSubdomain));
+        return;
+      }
+
+      if (vendorData?.existingVendor) {
+        alert("This phone number is already registered. Continuing your existing onboarding.");
+      }
+
       setStep("SUCCESS");
     } catch (error) {
       console.error(error);
@@ -752,6 +782,7 @@ function OnboardingFlow() {
             <h2 className="flow-title">Find your business listing</h2>
             <div className="form-stack">
               <input
+                ref={businessQueryRef}
                 className="flow-input"
                 value={businessQuery}
                 onChange={(event) => setBusinessQuery(event.target.value)}
@@ -1274,6 +1305,48 @@ function OnboardingFlow() {
         <div className="overlay-loader">
           <div className="spinner" />
           <p>Please wait...</p>
+        </div>
+      ) : null}
+
+      {existingVendorRedirectUrl ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+        >
+          <section
+            className="flow-card"
+            style={{ width: "min(460px, 100%)", textAlign: "center" }}
+          >
+            <p className="step-kicker">Profile Found</p>
+            <h2 className="flow-title">Your profile already exists</h2>
+            <p className="flow-copy">
+              Click continue to view your profile.
+            </p>
+            <div className="flow-actions">
+              <button
+                type="button"
+                className="secondaryButton"
+                onClick={() => setExistingVendorRedirectUrl(null)}
+              >
+                Stay Here
+              </button>
+              <button
+                type="button"
+                className="ctaButton"
+                onClick={handleExistingVendorContinue}
+              >
+                Continue
+              </button>
+            </div>
+          </section>
         </div>
       ) : null}
     </main>
