@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { API_BASE_URL } from "../../../config";
 import "./ModernPreviewTemplate.css";
 
 const DEFAULT_NAV = [
@@ -12,7 +13,7 @@ const DEFAULT_NAV = [
 function formatCurrency(value) {
   const amount = Number(value || 0);
   if (amount <= 0) return "Contact";
-  return `Rs ${amount.toLocaleString("en-IN")}`;
+  return `₹${amount.toLocaleString("en-IN")}`;
 }
 
 function toAnchor(label) {
@@ -49,16 +50,86 @@ function getCardDescription(card) {
   return "";
 }
 
-function getOfferCard(orderedCategories) {
-  const offerSection = (orderedCategories || []).find(
-    (section) => String(section?.sectionName || "").trim().toLowerCase() === "offers"
+function isOffersLabel(value) {
+  return String(value || "").trim().toLowerCase() === "offers";
+}
+
+function isOfferLikeCard(card, sectionName) {
+  if (!card) return false;
+  if (isOffersLabel(sectionName)) return true;
+  if (isOffersLabel(card.title)) return true;
+
+  const hasOptionOffers =
+    Array.isArray(card.options) &&
+    card.options.some((option) => {
+      const ownOffer = typeof option?.offerText === "string" && option.offerText.trim();
+      const nestedOffer =
+        Array.isArray(option?.subOptions) &&
+        option.subOptions.some((subOption) => {
+          const subOffer = typeof subOption?.offerText === "string" && subOption.offerText.trim();
+          const deepOffer =
+            Array.isArray(subOption?.subSubOptions) &&
+            subOption.subSubOptions.some(
+              (leaf) => typeof leaf?.offerText === "string" && leaf.offerText.trim()
+            );
+          return subOffer || deepOffer;
+        });
+      return ownOffer || nestedOffer;
+    });
+
+  return hasOptionOffers && isOffersLabel(card.title);
+}
+
+function flattenOfferCards(cards, sectionName) {
+  return (cards || []).flatMap((card, cardIndex) => {
+    if (!isOfferLikeCard(card, sectionName)) return [];
+
+    const sourceLabel = !isOffersLabel(sectionName)
+      ? sectionName
+      : !isOffersLabel(card?.title)
+        ? card.title
+        : "";
+
+    const normalizedCard = {
+      ...card,
+      id: card?.id || `offer-${cardIndex}`,
+      title: card?.title || `Offer ${cardIndex + 1}`,
+      sourceLabel,
+    };
+
+    if (Array.isArray(card?.options) && card.options.length > 0) {
+      return card.options
+        .map((option, optionIndex) => ({
+          id: `${normalizedCard.id}-option-${optionIndex}`,
+          title: option?.label || normalizedCard.title,
+          offerText: option?.offerText || normalizedCard.offerText || "",
+          terms: option?.terms || normalizedCard.terms || [],
+          img: option?.imageUrl || normalizedCard.img || "",
+          sourceLabel: normalizedCard.sourceLabel,
+        }))
+        .filter((offer) => {
+          const hasText = typeof offer.offerText === "string" && offer.offerText.trim();
+          const hasTerms = Array.isArray(offer.terms)
+            ? offer.terms.length > 0
+            : !!String(offer.terms || "").trim();
+          return offer.title || hasText || hasTerms;
+        });
+    }
+
+    const hasText =
+      typeof normalizedCard.offerText === "string" && normalizedCard.offerText.trim();
+    const hasTerms = Array.isArray(normalizedCard.terms)
+      ? normalizedCard.terms.length > 0
+      : !!String(normalizedCard.terms || "").trim();
+
+    return normalizedCard.title || hasText || hasTerms ? [normalizedCard] : [];
+  });
+}
+
+function getOfferCards(orderedCategories) {
+  return (orderedCategories || []).flatMap((section) =>
+    flattenOfferCards(section?.cards, section?.sectionName)
   );
-
-  if (!offerSection || !Array.isArray(offerSection.cards) || offerSection.cards.length === 0) {
-    return null;
-  }
-
-  return offerSection.cards[0];
 }
 
 function isDisplayableCard(card) {
@@ -72,7 +143,47 @@ function isDisplayableCard(card) {
   return false;
 }
 
-function ModernServiceRow({ card, onOpenMenu }) {
+function getTermsSummary(terms) {
+  if (Array.isArray(terms) && terms.length > 0) {
+    return terms.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 2).join(" • ");
+  }
+
+  if (typeof terms === "string" && terms.trim()) {
+    return terms.trim();
+  }
+
+  return "";
+}
+
+function getPackageSummary(packagesIncludes) {
+  return String(packagesIncludes || "")
+    .split(/\r?\n|,/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join(" • ");
+}
+
+function renderPriceText(value, { startsFrom = false } = {}) {
+  const formatted = formatCurrency(value);
+  if (formatted === "Contact") return formatted;
+  return startsFrom ? `Starts from ${formatted}` : formatted;
+}
+
+function prettifyLabel(key) {
+  const normalized = String(key || "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (normalized.toLowerCase() === "experience years") {
+    return "Years Experience";
+  }
+
+  return normalized;
+}
+
+function ModernServiceRow({ card, sectionName, onAddToCart }) {
   const [selectedMain, setSelectedMain] = useState(card?.defaultMain || card?.options?.[0]?.label || null);
   const [selectedSub, setSelectedSub] = useState(card?.defaultSub || null);
   const [selectedSubSub, setSelectedSubSub] = useState(null);
@@ -104,43 +215,8 @@ function ModernServiceRow({ card, onOpenMenu }) {
     mainOption?.imageUrl ||
     getCardImage(card);
 
-  const currentDescription =
-    (Array.isArray(subSubOption?.terms) && subSubOption.terms.length > 0
-      ? subSubOption.terms.slice(0, 2).join(" • ")
-      : "") ||
-    (Array.isArray(subOption?.terms) && subOption.terms.length > 0
-      ? subOption.terms.slice(0, 2).join(" • ")
-      : "") ||
-    (Array.isArray(mainOption?.terms) && mainOption.terms.length > 0
-      ? mainOption.terms.slice(0, 2).join(" • ")
-      : "") ||
-    subSubOption?.offerText ||
-    subOption?.offerText ||
-    mainOption?.offerText ||
-    getCardDescription(card);
-
-  const currentPackagesIncludes =
-    subSubOption?.packagesIncludes ||
-    subOption?.packagesIncludes ||
-    mainOption?.packagesIncludes ||
-    card?.packagesIncludes ||
-    "";
-
-  const currentPrice = useMemo(() => {
-    if (card?.simple) return Number(card?.base || 0);
-
-    let total = Number(mainOption?.price || 0);
-
-    if (subOption && !subOption?.subSubOptions) {
-      total += Number(subOption?.price || 0);
-    }
-
-    if (subSubOption) {
-      total += Number(subSubOption?.price || 0);
-    }
-
-    return total || Number(card?.base || 0);
-  }, [card, mainOption, subOption, subSubOption]);
+  const hasHierarchy = Array.isArray(card?.options) && card.options.length > 0;
+  const currentDescription = hasHierarchy ? "" : getCardDescription(card);
 
   const optionStartingPrice = (option) => {
     if (!option) return 0;
@@ -156,6 +232,69 @@ function ModernServiceRow({ card, onOpenMenu }) {
     }
 
     return Number(option.price || 0);
+  };
+
+  const currentPackagesIncludes =
+    (selectedSubSub ? subSubOption?.packagesIncludes : "") ||
+    (selectedSub && !selectedSubSub ? subOption?.packagesIncludes : "") ||
+    (!secondaryOptions.length ? mainOption?.packagesIncludes : "") ||
+    card?.packagesIncludes ||
+    "";
+
+  let currentPrice = Number(card?.base || 0);
+
+  if (card?.simple) {
+    currentPrice = Number(card?.base || 0);
+  } else if (!selectedMain) {
+    currentPrice = Number(card?.base || 0);
+  } else if (!selectedSub && mainOption) {
+    currentPrice = optionStartingPrice(mainOption) || Number(card?.base || 0);
+  } else {
+    let total = Number(mainOption?.price || 0);
+
+    if (subOption && !subOption?.subSubOptions) {
+      total += Number(subOption?.price || 0);
+    }
+
+    if (subSubOption) {
+      total += Number(subSubOption?.price || 0);
+    }
+
+    currentPrice = total || Number(card?.base || 0);
+  }
+
+  const handleAddSelected = () => {
+    if (typeof onAddToCart !== "function") return;
+
+    const categoryPath = [sectionName, selectedMain, selectedSub, selectedSubSub].filter(Boolean);
+    const serviceId = card.id || card._id || card.categoryId || card.title;
+    const serviceName = selectedSubSub || selectedSub || selectedMain || card.title;
+    const cartKey = [serviceId, selectedMain, selectedSub, selectedSubSub].filter(Boolean).join("_");
+
+    onAddToCart(
+      {
+        _id: serviceId,
+        categoryId: serviceId,
+        cartKey,
+        name: serviceName,
+        price: Number(currentPrice) || 0,
+      },
+      categoryPath,
+      []
+    );
+  };
+
+  const renderMenuText = (label, terms, packagesIncludes) => {
+    const summary = getTermsSummary(terms);
+    const packageSummary = getPackageSummary(packagesIncludes);
+
+    return (
+      <span className="modern-menu-copy">
+        <span className="modern-menu-name">{label}</span>
+        {summary ? <span className="modern-menu-terms">{summary}</span> : null}
+        {packageSummary ? <span className="modern-menu-package-line">{packageSummary}</span> : null}
+      </span>
+    );
   };
 
   const renderMenuBranch = () => {
@@ -184,14 +323,19 @@ function ModernServiceRow({ card, onOpenMenu }) {
                     return;
                   }
 
-                  const firstChild = option.subOptions[0] || null;
-                  setSelectedSub(firstChild?.label || null);
-                  setSelectedSubSub(firstChild?.subSubOptions?.[0]?.label || null);
+                  setSelectedSub(null);
+                  setSelectedSubSub(null);
                 }}
               >
-                <span className="modern-menu-name">{option.label}</span>
+                {renderMenuText(
+                  option.label,
+                  hasChildren ? null : option.terms,
+                  hasChildren ? null : option.packagesIncludes
+                )}
                 <span className="modern-menu-dots" />
-                <span className="modern-menu-price">{formatCurrency(optionStartingPrice(option))}</span>
+                <span className={`modern-menu-price ${hasChildren ? "is-starting" : ""}`}>
+                  {renderPriceText(optionStartingPrice(option), { startsFrom: hasChildren })}
+                </span>
               </button>
 
               {isSelectedMain && hasChildren ? (
@@ -211,7 +355,7 @@ function ModernServiceRow({ card, onOpenMenu }) {
                             className={`modern-menu-subgroup-title ${isSelectedSub ? "is-active" : ""}`}
                             onClick={() => {
                               setSelectedSub(child.label);
-                              setSelectedSubSub(child.subSubOptions[0]?.label || null);
+                              setSelectedSubSub(null);
                             }}
                           >
                             {child.label}
@@ -231,10 +375,10 @@ function ModernServiceRow({ card, onOpenMenu }) {
                                     setSelectedSubSub(leaf.label);
                                   }}
                                 >
-                                  <span className="modern-menu-name">{leaf.label}</span>
+                                  {renderMenuText(leaf.label, leaf.terms, leaf.packagesIncludes)}
                                   <span className="modern-menu-dots" />
                                   <span className="modern-menu-price">
-                                    {formatCurrency(Number(option.price || 0) + Number(leaf.price || 0))}
+                                    {renderPriceText(Number(option.price || 0) + Number(leaf.price || 0))}
                                   </span>
                                 </button>
                               );
@@ -254,10 +398,10 @@ function ModernServiceRow({ card, onOpenMenu }) {
                           setSelectedSubSub(null);
                         }}
                       >
-                        <span className="modern-menu-name">{child.label}</span>
+                        {renderMenuText(child.label, child.terms, child.packagesIncludes)}
                         <span className="modern-menu-dots" />
                         <span className="modern-menu-price">
-                          {formatCurrency(Number(option.price || 0) + Number(child.price || 0))}
+                          {renderPriceText(Number(option.price || 0) + Number(child.price || 0))}
                         </span>
                       </button>
                     );
@@ -279,33 +423,22 @@ function ModernServiceRow({ card, onOpenMenu }) {
       <div className="modern-service-copy">
         <h3>{card.title}</h3>
         {currentDescription ? <p>{currentDescription}</p> : null}
+        {!hasHierarchy && currentPackagesIncludes ? (
+          <div className="modern-inline-package-copy">
+            {getPackageSummary(currentPackagesIncludes)}
+          </div>
+        ) : null}
 
         {!card?.simple && Array.isArray(card?.options) && card.options.length > 0 ? (
           renderMenuBranch()
         ) : null}
 
-        {currentPackagesIncludes ? (
-          <div className="modern-package-box">
-            <strong>Package Includes</strong>
-            <div className="modern-package-items">
-              {String(currentPackagesIncludes)
-                .split(/\r?\n|,/)
-                .map((item) => item.trim())
-                .filter(Boolean)
-                .map((item, index) => (
-                  <span key={`${card.id}-package-${index}`} className="modern-package-item">
-                    {item}
-                  </span>
-                ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
-      <div className="modern-service-side">
-        <strong>{formatCurrency(currentPrice)}</strong>
-        <button type="button" onClick={onOpenMenu}>
-          {card?.simple ? "Add" : "Customize"}
-        </button>
+        <div className="modern-row-actions">
+          <button type="button" className="modern-row-add-btn" onClick={handleAddSelected}>
+            Add to Cart
+          </button>
+          <span className="modern-row-price">{formatCurrency(currentPrice)}</span>
+        </div>
       </div>
     </article>
   );
@@ -326,7 +459,12 @@ export default function ModernPreviewTemplate({
   onOpenMenu,
   cartItems,
   cartTotal,
+  onAddToCart,
+  onIncreaseQty,
+  onDecreaseQty,
 }) {
+  const [serviceModeLabel, setServiceModeLabel] = useState("Service Modes");
+
   const navItems = useMemo(() => {
     const webMenu = Array.isArray(category?.webMenu) ? category.webMenu : [];
     const mapped = webMenu
@@ -348,10 +486,76 @@ export default function ModernPreviewTemplate({
 
   const heroImage = mergedHeroImages?.[0] || "";
   const trustSummary = vendorInfo?.trustSummary || vendorInfo?.trust || {};
+  const trustEntries = Object.entries(trustSummary || {}).filter(
+    ([, value]) => value !== null && value !== undefined && value !== ""
+  );
+  const trustCategoryId = vendorInfo?.categoryId || category?._id || category?.id;
+  const serviceModeEntry = trustEntries.find(
+    ([key, value]) =>
+      Array.isArray(value) &&
+      /(service|mode|delivery|format|type)/i.test(String(key))
+  );
+  const serviceModes = Array.isArray(serviceModeEntry?.[1])
+    ? serviceModeEntry[1].map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
   const statEntries = Object.entries(trustSummary).filter(([, value]) => {
     if (value === null || value === undefined || value === "") return false;
     return !Array.isArray(value);
   });
+  const mapsLink = useMemo(() => {
+    const googleMapsUrl = vendorInfo?.googlePlace?.mapsUrl;
+    if (!googleMapsUrl) return "#";
+
+    let placeId = "";
+    if (googleMapsUrl.startsWith("place_id:")) {
+      placeId = googleMapsUrl.replace("place_id:", "");
+    } else if (googleMapsUrl.includes("place_id:")) {
+      placeId = googleMapsUrl.split("place_id:")[1];
+    }
+
+    if (!placeId) return googleMapsUrl;
+
+    const queryName = encodeURIComponent(heroTagline || vendorInfo?.businessName || "");
+    return `https://www.google.com/maps/search/?api=1&query=${queryName}&query_place_id=${placeId}`;
+  }, [heroTagline, vendorInfo?.businessName, vendorInfo?.googlePlace?.mapsUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTrustQuestionMeta() {
+      if (!trustCategoryId || !serviceModeEntry?.[0]) {
+        if (!cancelled) {
+          setServiceModeLabel("Service Modes");
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/trust/questions?categoryId=${encodeURIComponent(String(trustCategoryId))}`
+        );
+        const data = await response.json();
+        const questions = Array.isArray(data?.questions) ? data.questions : [];
+        const matched = questions.find(
+          (question) => String(question?.id || "").trim() === String(serviceModeEntry[0]).trim()
+        );
+
+        if (!cancelled) {
+          setServiceModeLabel(String(matched?.label || serviceModeEntry[0] || "Service Modes"));
+        }
+      } catch {
+        if (!cancelled) {
+          setServiceModeLabel(String(serviceModeEntry?.[0] || "Service Modes"));
+        }
+      }
+    }
+
+    loadTrustQuestionMeta();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [serviceModeEntry, trustCategoryId]);
 
   const serviceSections = useMemo(() => {
     const flatSections = [];
@@ -360,17 +564,28 @@ export default function ModernPreviewTemplate({
       const normalized = String(section?.sectionName || "").trim().toLowerCase();
       if (normalized === "offers") return;
 
+      const filteredCards = (Array.isArray(section.cards) ? section.cards : []).filter(
+        (card) => !isOfferLikeCard(card, section.sectionName)
+      );
+      if (filteredCards.length === 0) return;
+
       flatSections.push({
         sectionName: section.sectionName,
-        cards: Array.isArray(section.cards) ? section.cards : [],
+        cards: filteredCards,
       });
     });
 
     if (Array.isArray(cardsWithoutHeading) && cardsWithoutHeading.length > 0) {
+      const filteredStandaloneCards = cardsWithoutHeading.filter(
+        (card) => !isOfferLikeCard(card, card?.title)
+      );
+
+      if (filteredStandaloneCards.length > 0) {
       flatSections.unshift({
         sectionName: "Featured Services",
-        cards: cardsWithoutHeading,
+        cards: filteredStandaloneCards,
       });
+      }
     }
 
     return flatSections
@@ -387,7 +602,7 @@ export default function ModernPreviewTemplate({
       .filter((section) => section.cards.length > 0);
   }, [sectionsWithHeading, cardsWithoutHeading]);
 
-  const offerCard = useMemo(() => getOfferCard(orderedCategories), [orderedCategories]);
+  const offerCards = useMemo(() => getOfferCards(orderedCategories), [orderedCategories]);
   const featureCards = Array.isArray(category?.whyUs?.cards) ? category.whyUs.cards.filter(Boolean) : [];
   const about = category?.about || {};
   const locationAddress = vendorInfo?.location?.address || "Location not available";
@@ -432,6 +647,50 @@ export default function ModernPreviewTemplate({
           <h1>{heroTagline}</h1>
           <p>{heroDescription}</p>
 
+          <div className="modern-stats">
+            {statEntries.slice(0, 3).map(([key, value]) => (
+              <div key={key} className="modern-stat-card">
+                <strong>{String(value)}</strong>
+                <span>{prettifyLabel(key)}</span>
+              </div>
+            ))}
+            {typeof vendorInfo?.googlePlace?.rating === "number" ? (
+              <a
+                className="modern-stat-card modern-stat-card-link"
+                href={mapsLink}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <strong>{vendorInfo.googlePlace.rating}*</strong>
+                <span>
+                  Google Rating
+                  {vendorInfo?.googlePlace?.userRatingsTotal
+                    ? ` (${vendorInfo.googlePlace.userRatingsTotal})`
+                    : ""}
+                </span>
+              </a>
+            ) : (
+              <div className="modern-stat-card">
+                <strong>Top Rated</strong>
+                <span>Quality Service</span>
+              </div>
+            )}
+          </div>
+
+          {serviceModes.length > 0 ? (
+            <div className="modern-service-modes">
+              <p className="modern-service-modes-label">{serviceModeLabel}</p>
+              <div className="modern-service-mode-list">
+                {serviceModes.map((mode) => (
+                  <span key={mode} className="modern-service-mode-chip">
+                    <span className="modern-service-mode-chip-icon">✓</span>
+                    {mode}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="modern-hero-actions">
             {heroButton1 ? (
               <button type="button" className="modern-primary-btn" onClick={onPrimaryAction}>
@@ -443,26 +702,6 @@ export default function ModernPreviewTemplate({
                 {heroButton2}
               </button>
             ) : null}
-          </div>
-
-          <div className="modern-stats">
-            {statEntries.slice(0, 3).map(([key, value]) => (
-              <div key={key} className="modern-stat-card">
-                <strong>{String(value)}</strong>
-                <span>{key.replace(/([A-Z])/g, " $1").trim()}</span>
-              </div>
-            ))}
-            <div className="modern-stat-card">
-              <strong>
-                {vendorInfo?.googlePlace?.rating ? `${vendorInfo.googlePlace.rating}` : "Top Rated"}
-              </strong>
-              <span>
-                Google Rating
-                {vendorInfo?.googlePlace?.userRatingsTotal
-                  ? ` (${vendorInfo.googlePlace.userRatingsTotal})`
-                  : ""}
-              </span>
-            </div>
           </div>
         </div>
 
@@ -479,15 +718,61 @@ export default function ModernPreviewTemplate({
         </div>
       </section>
 
-      {offerCard ? (
-        <section className="modern-offer-banner">
-          <div>
-            <h2>{offerCard.title || "Current Offer"}</h2>
-            <p>{offerCard.offerText || getCardDescription(offerCard)}</p>
+      {offerCards.length > 0 ? (
+        <section className="modern-offers" id="offers">
+          <div className="modern-offers-header">
+            <div>
+              <span className="modern-section-kicker">Offers</span>
+              <h2>Current Offers</h2>
+            </div>
+            <p>Browse active promotions and swipe through the latest deals.</p>
           </div>
-          <button type="button" className="modern-offer-btn" onClick={onOpenMenu}>
-            Claim Offer
-          </button>
+
+          <div className="modern-offers-track">
+            {offerCards.map((offer) => {
+              const offerTerms = Array.isArray(offer.terms)
+                ? offer.terms.map((item) => String(item || "").trim()).filter(Boolean)
+                : String(offer.terms || "")
+                    .split(/\r?\n|,/)
+                    .map((item) => item.trim())
+                    .filter(Boolean);
+
+              const offerImage = getCardImage(offer);
+
+              return (
+                <article key={offer.id} className="modern-offer-card">
+                  {offerImage ? (
+                    <div className="modern-offer-card-image">
+                      <img src={offerImage} alt={offer.title} />
+                    </div>
+                  ) : null}
+
+                  <div className="modern-offer-card-body">
+                    <span className="modern-offer-card-kicker">
+                      {offer.sourceLabel || "Active Offer"}
+                    </span>
+                    <h3>{offer.title}</h3>
+
+                    {offer.offerText ? (
+                      <div className="modern-offer-card-copy">
+                        <p>{offer.offerText}</p>
+                      </div>
+                    ) : null}
+
+                    {offerTerms.length > 0 ? (
+                      <div className="modern-offer-card-terms">
+                        {offerTerms.map((term, index) => (
+                          <span key={`${offer.id}-term-${index}`} className="modern-offer-term">
+                            {term}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </section>
       ) : null}
 
@@ -514,12 +799,41 @@ export default function ModernPreviewTemplate({
             <div className="modern-service-heading">{section.sectionName}</div>
             <div className="modern-service-list">
               {section.cards.map((card) => (
-                <ModernServiceRow key={card.id} card={card} onOpenMenu={onOpenMenu} />
+                <ModernServiceRow
+                  key={card.id}
+                  card={card}
+                  sectionName={section.sectionName}
+                  onAddToCart={onAddToCart}
+                />
               ))}
             </div>
           </div>
         ))}
       </section>
+
+      {cartItems.length > 0 ? (
+        <div className="modern-cart-bar">
+          <div className="modern-cart-bar-copy">
+            <strong>{cartItems.length} item(s) in cart</strong>
+            <span>{formatCurrency(cartTotal)}</span>
+          </div>
+          <div className="modern-cart-bar-items">
+            {cartItems.slice(0, 3).map((item, index) => (
+              <div key={`${item.cartKey || item.itemId}-${index}`} className="modern-cart-pill">
+                <span>{item.name}</span>
+                <div className="modern-cart-pill-controls">
+                  <button type="button" onClick={() => onDecreaseQty?.(item.cartKey || item.itemId)}>-</button>
+                  <span>{item.qty}</span>
+                  <button type="button" onClick={() => onIncreaseQty?.(item.cartKey || item.itemId)}>+</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="modern-cart-bar-btn" onClick={onOpenMenu}>
+            Open Cart
+          </button>
+        </div>
+      ) : null}
 
       <section className="modern-story" id="our-story">
         <div className="modern-story-gallery">

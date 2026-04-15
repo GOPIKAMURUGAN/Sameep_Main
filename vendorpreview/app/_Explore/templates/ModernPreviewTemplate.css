@@ -15,7 +15,7 @@
 
 .modern-header,
 .modern-hero,
-.modern-offer-banner,
+.modern-offers,
 .modern-services,
 .modern-story,
 .modern-contact,
@@ -148,7 +148,7 @@
 .modern-hours-card,
 .modern-contact-card,
 .modern-service-row,
-.modern-offer-banner,
+.modern-offer-card,
 .modern-story-image,
 .modern-hero-note {
   background: rgba(255, 255, 255, 0.92);
@@ -173,6 +173,62 @@
   margin-top: 8px;
   color: var(--modern-muted);
   text-transform: capitalize;
+}
+
+.modern-stat-card-link {
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modern-stat-card-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 28px 60px rgba(52, 46, 26, 0.12);
+}
+
+.modern-service-modes {
+  margin-top: 26px;
+}
+
+.modern-service-modes-label {
+  margin: 0 0 10px;
+  color: var(--modern-accent-strong);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.modern-service-mode-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.modern-service-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(208, 173, 76, 0.32);
+  background: rgba(208, 173, 76, 0.08);
+  color: var(--modern-text);
+  font-weight: 700;
+}
+
+.modern-service-mode-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(208, 173, 76, 0.22);
+  color: var(--modern-accent-strong);
+  font-size: 0.78rem;
+  line-height: 1;
 }
 
 .modern-hero-visual {
@@ -208,33 +264,124 @@
   font-weight: 700;
 }
 
-.modern-offer-banner {
+.modern-offers {
+  margin-top: 32px;
+}
+
+.modern-offers-header {
   display: flex;
-  align-items: center;
+  align-items: end;
   justify-content: space-between;
-  gap: 22px;
-  border-radius: 28px;
-  margin-top: 28px;
-  padding: 30px 34px;
-  background:
-    linear-gradient(135deg, rgba(208, 173, 76, 0.96), rgba(188, 153, 58, 0.95));
-  color: #fff;
+  gap: 18px;
+  margin-bottom: 20px;
 }
 
-.modern-offer-banner h2 {
-  margin: 0 0 8px;
-  font-size: 2rem;
+.modern-offers-header h2 {
+  margin: 10px 0 0;
+  font-size: clamp(2rem, 3vw, 3rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
 }
 
-.modern-offer-banner p {
+.modern-offers-header p {
+  max-width: 420px;
   margin: 0;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--modern-muted);
+  line-height: 1.6;
 }
 
-.modern-offer-btn {
-  background: rgba(255, 255, 255, 0.94);
+.modern-offers-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(320px, 380px);
+  gap: 18px;
+  overflow-x: auto;
+  padding: 6px 2px 12px;
+  scroll-snap-type: x proximity;
+}
+
+.modern-offers-track::-webkit-scrollbar {
+  height: 8px;
+}
+
+.modern-offers-track::-webkit-scrollbar-thumb {
+  background: rgba(34, 33, 28, 0.18);
+  border-radius: 999px;
+}
+
+.modern-offer-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 360px;
+  border-radius: 28px;
+  overflow: hidden;
+  scroll-snap-align: start;
+}
+
+.modern-offer-card-image {
+  height: 150px;
+  background: linear-gradient(135deg, rgba(208, 173, 76, 0.18), rgba(23, 23, 23, 0.04));
+}
+
+.modern-offer-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.modern-offer-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 244, 236, 0.96));
+}
+
+.modern-offer-card-kicker {
+  color: var(--modern-accent-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.modern-offer-card h3 {
+  margin: 0;
+  font-size: 1.6rem;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.modern-offer-card-copy {
+  min-height: 88px;
+  max-height: 132px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.modern-offer-card-copy p {
+  margin: 0;
   color: var(--modern-text);
-  box-shadow: none;
+  line-height: 1.6;
+}
+
+.modern-offer-card-terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modern-offer-term {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(208, 173, 76, 0.12);
+  color: var(--modern-accent-strong);
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .modern-services {
@@ -291,7 +438,7 @@
 
 .modern-service-row {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr) auto;
+  grid-template-columns: 82px minmax(0, 1fr);
   gap: 20px;
   align-items: start;
   padding: 24px 28px;
@@ -329,6 +476,10 @@
   margin: 0;
   color: var(--modern-muted);
   max-width: 760px;
+}
+
+.modern-service-copy {
+  min-width: 0;
 }
 
 .modern-package-box {
@@ -371,6 +522,14 @@
   font-weight: 700;
 }
 
+.modern-inline-package-copy {
+  margin-top: 6px;
+  color: var(--modern-muted);
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
 .modern-menu-tree {
   margin-top: 18px;
   border-top: 1px solid rgba(23, 23, 23, 0.08);
@@ -409,7 +568,32 @@
 }
 
 .modern-menu-name {
-  white-space: nowrap;
+  display: block;
+  white-space: normal;
+}
+
+.modern-menu-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.modern-menu-terms {
+  color: var(--modern-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.modern-menu-package-line {
+  color: rgba(30, 29, 26, 0.62);
+  font-size: 0.74rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-transform: none;
 }
 
 .modern-menu-dots {
@@ -422,6 +606,13 @@
 .modern-menu-price {
   font-weight: 700;
   white-space: nowrap;
+}
+
+.modern-menu-price.is-starting {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--modern-muted);
+  letter-spacing: 0;
 }
 
 .modern-menu-children {
@@ -454,28 +645,107 @@
   padding: 0 0 10px 18px;
 }
 
-.modern-service-side {
+.modern-row-actions {
   display: flex;
-  align-items: flex-start;
-  gap: 18px;
-  padding-top: 4px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(23, 23, 23, 0.08);
 }
 
-.modern-service-side strong {
-  font-size: 2.15rem;
-  letter-spacing: -0.04em;
-  white-space: nowrap;
-  line-height: 1;
-}
-
-.modern-service-side button {
-  min-width: 126px;
-  height: 44px;
+.modern-row-add-btn {
+  min-height: 42px;
   padding: 0 18px;
   border-radius: 999px;
   border: 1px solid rgba(23, 23, 23, 0.08);
-  background: rgba(23, 23, 23, 0.05);
+  background: linear-gradient(135deg, rgba(208, 173, 76, 0.96), rgba(192, 153, 41, 0.96));
+  color: #171717;
   font-weight: 700;
+  box-shadow: 0 16px 32px rgba(208, 173, 76, 0.22);
+}
+
+.modern-row-price {
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+}
+
+.modern-cart-bar {
+  position: sticky;
+  bottom: 18px;
+  z-index: 20;
+  max-width: 1180px;
+  margin: 28px auto 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 16px 18px;
+  border: 1px solid rgba(23, 23, 23, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24px 54px rgba(52, 46, 26, 0.12);
+}
+
+.modern-cart-bar-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.modern-cart-bar-copy strong {
+  font-size: 1rem;
+}
+
+.modern-cart-bar-copy span {
+  color: var(--modern-muted);
+  font-weight: 700;
+}
+
+.modern-cart-bar-items {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.modern-cart-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 23, 23, 0.08);
+  background: rgba(248, 245, 238, 0.82);
+  white-space: nowrap;
+}
+
+.modern-cart-pill-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modern-cart-pill-controls button {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(23, 23, 23, 0.08);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.modern-cart-bar-btn {
+  min-height: 46px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(208, 173, 76, 0.96), rgba(192, 153, 41, 0.96));
+  color: #171717;
+  font-weight: 800;
 }
 
 .modern-story {
@@ -704,8 +974,17 @@
     text-align: left;
   }
 
-  .modern-service-side {
-    justify-content: space-between;
+  .modern-row-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .modern-row-price {
+    font-size: 1.3rem;
+  }
+
+  .modern-cart-bar {
+    grid-template-columns: 1fr;
   }
 
   .modern-story-gallery,
@@ -717,8 +996,16 @@
     margin-top: 0;
   }
 
-  .modern-offer-banner {
+  .modern-offers-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .modern-offers-track {
+    grid-auto-columns: minmax(280px, 86vw);
+  }
+
+  .modern-service-mode-list {
+    justify-content: flex-start;
   }
 }

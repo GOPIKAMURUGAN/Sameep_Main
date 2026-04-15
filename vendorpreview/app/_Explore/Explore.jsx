@@ -3059,6 +3059,9 @@ function ExploreContent({ onReady, onOpenServices }) {
           onOpenMenu={() => setViewMode("menu")}
           cartItems={cartItems}
           cartTotal={cartTotal}
+          onAddToCart={addToCart}
+          onIncreaseQty={increaseQty}
+          onDecreaseQty={decreaseQty}
         />
       ) : (
         <>
