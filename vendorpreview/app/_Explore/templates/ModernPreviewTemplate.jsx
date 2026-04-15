@@ -464,6 +464,8 @@ export default function ModernPreviewTemplate({
   onDecreaseQty,
 }) {
   const [serviceModeLabel, setServiceModeLabel] = useState("Service Modes");
+  const [activeSectionName, setActiveSectionName] = useState("");
+  const [activeCardId, setActiveCardId] = useState("");
 
   const navItems = useMemo(() => {
     const webMenu = Array.isArray(category?.webMenu) ? category.webMenu : [];
@@ -615,6 +617,14 @@ export default function ModernPreviewTemplate({
     vendorInfo?.phone,
     ...(Array.isArray(vendorInfo?.secondaryPhones) ? vendorInfo.secondaryPhones : []),
   ].filter(Boolean);
+  const activeSection =
+    serviceSections.find((section) => section.sectionName === activeSectionName) ||
+    serviceSections[0] ||
+    null;
+  const activeCard =
+    activeSection?.cards?.find((card) => card.id === activeCardId) ||
+    activeSection?.cards?.[0] ||
+    null;
 
   return (
     <div className="modern-template-shell">
@@ -784,31 +794,62 @@ export default function ModernPreviewTemplate({
 
         <div className="modern-service-tabs">
           {serviceSections.map((section) => (
-            <a key={section.sectionName} href={`#section-${toAnchor(section.sectionName)}`}>
+            <button
+              key={section.sectionName}
+              type="button"
+              className={`modern-service-tab ${activeSection?.sectionName === section.sectionName ? "is-active" : ""}`}
+              onClick={() => setActiveSectionName(section.sectionName)}
+            >
               {section.sectionName}
-            </a>
+              {section.cards.length > 0 ? (
+                <span className="modern-service-tab-count">{section.cards.length}</span>
+              ) : null}
+            </button>
           ))}
         </div>
 
-        {serviceSections.map((section) => (
+        {activeSection ? (
           <div
-            key={section.sectionName}
+            key={activeSection.sectionName}
             className="modern-service-section"
-            id={`section-${toAnchor(section.sectionName)}`}
+            id={`section-${toAnchor(activeSection.sectionName)}`}
           >
-            <div className="modern-service-heading">{section.sectionName}</div>
-            <div className="modern-service-list">
-              {section.cards.map((card) => (
+            <div className="modern-service-heading">{activeSection.sectionName}</div>
+
+            {activeSection.cards.length > 1 ? (
+              <div className="modern-card-switcher" aria-label={`${activeSection.sectionName} services`}>
+                {activeSection.cards.map((card) => (
+                  <button
+                    key={card.id}
+                    type="button"
+                    className={`modern-card-switcher-btn ${activeCard?.id === card.id ? "is-active" : ""}`}
+                    onClick={() => setActiveCardId(card.id)}
+                  >
+                    <span className="modern-card-switcher-title">{card.title}</span>
+                    {card.base ? (
+                      <span className="modern-card-switcher-meta">
+                        {Array.isArray(card.options) && card.options.length > 0
+                          ? renderPriceText(card.base, { startsFrom: true })
+                          : formatCurrency(card.base)}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {activeCard ? (
+              <div className="modern-service-list">
                 <ModernServiceRow
-                  key={card.id}
-                  card={card}
-                  sectionName={section.sectionName}
+                  key={activeCard.id}
+                  card={activeCard}
+                  sectionName={activeSection.sectionName}
                   onAddToCart={onAddToCart}
                 />
-              ))}
-            </div>
+              </div>
+            ) : null}
           </div>
-        ))}
+        ) : null}
       </section>
 
       {cartItems.length > 0 ? (
