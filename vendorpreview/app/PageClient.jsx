@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
 import Explore from "./_Explore/Explore";
 import Hero from "./Hero/Hero";
@@ -13,18 +14,21 @@ import ScrollToTop from "./components/ScrollToTop";
 import { useVendor } from "@/app/context/VendorContext";
 
 function PageContent() {
+  const searchParams = useSearchParams();
+  const activeTemplate = String(searchParams.get("template") || "").trim().toLowerCase();
+  const isModernTemplate = activeTemplate === "modern";
   const vendor = useVendor(); // SSR vendor
 
   console.log("SSR vendor in PageClient:", vendor);
 
   return (
     <div>
-      <Header />
+      {!isModernTemplate ? <Header /> : null}
       <Hero />
       <Explore />
       <Root />
       <About />
-      <Contact />
+      {!isModernTemplate ? <Contact /> : null}
       <ScrollToTop />
       <Portal />
     </div>

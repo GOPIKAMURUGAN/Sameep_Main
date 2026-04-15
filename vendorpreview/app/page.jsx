@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 import Explore from "./_Explore/Explore";
 import Hero from "./Hero/Hero";
@@ -10,19 +11,11 @@ import Contact from "./Contact/Contact";
 import Load from "./Load/Load";
 import Portal from "./Portal/Portal";
 import ScrollToTop from "./components/ScrollToTop";
-/**
- * Converts labels → valid HTML ids
- * MUST match Header/Footer anchor logic
- */
-const toAnchor = (label) =>
-  label
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-");
-
 
 export default function Home() {
+  const searchParams = useSearchParams();
+  const activeTemplate = String(searchParams.get("template") || "").trim().toLowerCase();
+  const isModernTemplate = activeTemplate === "modern";
   const [loading, setLoading] = useState(true);
   const [checkingSession, setCheckingSession] = useState(true);
   const [sessionAllowed, setSessionAllowed] = useState(() => {
@@ -117,12 +110,12 @@ if (!sessionAllowed) {
       <div style={{ visibility: loading ? "hidden" : "visible" }}>
 
         {/* HEADER */}
-      <Header />
+      {!isModernTemplate ? <Header /> : null}
 <Hero />
 <Explore onReady={() => setLoading(false)} />
 <Root />
 <About />
-<Contact />
+{!isModernTemplate ? <Contact /> : null}
 
 
 <ScrollToTop />

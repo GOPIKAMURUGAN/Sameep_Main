@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Footer from "./Footer/Footer";
 import VendorTitleUpdater from "./VendorTitleUpdater";
 
@@ -10,7 +10,9 @@ function shouldHideFooter(pathname) {
 
 export default function AppChrome({ children }) {
   const pathname = usePathname() || "/";
-  const hideFooter = shouldHideFooter(pathname);
+  const searchParams = useSearchParams();
+  const activeTemplate = String(searchParams.get("template") || "").trim().toLowerCase();
+  const hideFooter = shouldHideFooter(pathname) || activeTemplate === "modern";
 
   return (
     <>

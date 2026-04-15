@@ -24,6 +24,7 @@ import LoyaltySettings from "../components/dashboard/LoyaltySettings";
 import SubscriptionDashboard from "../components/dashboard/SubscriptionDashboard";
 import { useSearchParams } from "next/navigation";
 import { useSessionGuard } from "../Login/useSessionGuard";
+import ModernPreviewTemplate from "./templates/ModernPreviewTemplate";
 // import { useLoginPopup } from "./LoginPopupContext";
 
 const toAnchor = (label) =>
@@ -1302,6 +1303,8 @@ function ExploreContent({ onReady, onOpenServices }) {
   const searchParams = useSearchParams();
   const queryRootCategoryId = searchParams.get("rootCategoryId");
   const queryVendorId = searchParams.get("vendorId");
+  const queryTemplate = String(searchParams.get("template") || "").trim().toLowerCase();
+  const activeTemplateKey = queryTemplate === "modern" ? "modern" : "classic";
   const [subscriptionPopup, setSubscriptionPopup] = useState(null);
   const [dismissedSubscriptionPopupKey, setDismissedSubscriptionPopupKey] =
     useState(null);
@@ -3040,206 +3043,222 @@ function ExploreContent({ onReady, onOpenServices }) {
           </div>
         </div>
       )}
-      <HeroSection
-        images={mergedHeroImages}
+      {activeTemplateKey === "modern" ? (
+        <ModernPreviewTemplate
+          vendorInfo={vendorInfo}
+          category={category}
+          orderedCategories={orderedCategories}
+          sectionsWithHeading={sectionsWithHeading}
+          cardsWithoutHeading={cardsWithoutHeading}
+          mergedHeroImages={mergedHeroImages}
+          heroTagline={heroTagline}
+          heroDescription={heroDescription}
+          heroButton1={heroButton1}
+          heroButton2={heroButton2}
+          onPrimaryAction={handleHeroButton1Click}
+          onOpenMenu={() => setViewMode("menu")}
+          cartItems={cartItems}
+          cartTotal={cartTotal}
+        />
+      ) : (
+        <>
+          <HeroSection
+            images={mergedHeroImages}
 
-        // ⭐ GOOGLE (vendor API)
-        googleRating={vendorInfo?.googlePlace?.rating}
-        googleReviews={vendorInfo?.googlePlace?.userRatingsTotal}
-        googleMapsUrl={vendorInfo?.googlePlace?.mapsUrl}
+            // ⭐ GOOGLE (vendor API)
+            googleRating={vendorInfo?.googlePlace?.rating}
+            googleReviews={vendorInfo?.googlePlace?.userRatingsTotal}
+            googleMapsUrl={vendorInfo?.googlePlace?.mapsUrl}
 
-        // ⭐ TRUST
-        trustSummary={vendorInfo?.trustSummary || vendorInfo?.trust}
-        trustCategoryId={vendorInfo?.categoryId}
-
-
-        // 🟢 CATEGORY (category API)
-        tagline={heroTagline}
-        description={heroDescription}
-        button1Label={heroButton1}
-        button2Label={heroButton2}
-        onButton1Click={handleHeroButton1Click}
-      />
+            // ⭐ TRUST
+            trustSummary={vendorInfo?.trustSummary || vendorInfo?.trust}
+            trustCategoryId={vendorInfo?.categoryId}
 
 
+            // 🟢 CATEGORY (category API)
+            tagline={heroTagline}
+            description={heroDescription}
+            button1Label={heroButton1}
+            button2Label={heroButton2}
+            onButton1Click={handleHeroButton1Click}
+          />
 
-      {/* ✅ EXISTING EXPLORE CONTENT */}
-      <section id="categories" className="women-styling">
-        {/* CATEGORY NAVIGATION */}
-        <div className="category-nav">
-          {orderedCategories.map((section) => (
-            <button
-              key={section.sectionName}
-              className="category-nav-btn"
-              onClick={() => {
-                const el = document.getElementById(
-                  `cat-${toAnchor(section.sectionName)}`
-                );
-                if (el) {
-                  el.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                  });
-                }
-              }}
-            >
-              {section.sectionName}
-            </button>
-          ))}
-        </div>
-        <div
-          className={`explore-preview-layout ${!isMobile && cartItems.length > 0 ? "has-cart" : "no-cart"
-            }`}
-        >
-          <div className="explore-preview-main">
 
-            {/* 🔹 NORMAL SECTIONS */}
-            {sectionsWithHeading.map(section => (
-              <div
-                key={section.sectionName}
-                id={`cat-${toAnchor(section.sectionName)}`}
-              >
-                <h2
-                  id={`cat-${toAnchor(section.sectionName)}`}
-                  className="ws-heading"
+
+          {/* ✅ EXISTING EXPLORE CONTENT */}
+          <section id="categories" className="women-styling">
+            {/* CATEGORY NAVIGATION */}
+            <div className="category-nav">
+              {orderedCategories.map((section) => (
+                <button
+                  key={section.sectionName}
+                  className="category-nav-btn"
+                  onClick={() => {
+                    const el = document.getElementById(
+                      `cat-${toAnchor(section.sectionName)}`
+                    );
+                    if (el) {
+                      el.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
+                    }
+                  }}
                 >
                   {section.sectionName}
-                </h2>
+                </button>
+              ))}
+            </div>
+            <div
+              className={`explore-preview-layout ${!isMobile && cartItems.length > 0 ? "has-cart" : "no-cart"
+                }`}
+            >
+              <div className="explore-preview-main">
 
-                <div className="ws-grid">
-                  {section.cards.map((c, index) => (
-                    <ServiceCard
-                      key={`${section.sectionName}-${c.id || c.title}-${index}`}
-                      data={c}
-                      sectionName={section.sectionName}
-                      openLogin={openLogin}
-                      addToCart={addToCart}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            {/* 🔹 FLAT GRID (NO HEADINGS) */}
-            {cardsWithoutHeading.length > 0 && (
-              <div className="ws-grid">
-                {cardsWithoutHeading.map((c, index) => (
-                  <div key={`flat-${c.id || c.title}-${index}`} className="ws-card-wrapper">
-                    <h2
-                      id={`cat-${toAnchor(c.title)}`}
-                      className="ws-heading small"
-                    >
-                      {c.title}
-                    </h2>
-                    <ServiceCard
-                      key={c.id}
-                      data={c}
-                      sectionName={c.title}
-                      openLogin={openLogin}
-                      addToCart={addToCart}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {!isMobile && cartItems.length > 0 && (
-            <aside className="explore-cart-sidebar">
-              <div className="explore-cart-widget">
-                <div className="explore-cart-widget-title">Selected Items</div>
-
-                {cartItems.map((item, index) => (
+                {/* 🔹 NORMAL SECTIONS */}
+                {sectionsWithHeading.map(section => (
                   <div
-                    key={`${item.cartKey || item.itemId || item.name}-${index}`}
-                    className="explore-cart-widget-item"
+                    key={section.sectionName}
+                    id={`cat-${toAnchor(section.sectionName)}`}
                   >
-                    <div className="explore-cart-widget-head">
-                      <div className="explore-cart-widget-name">{item.name}</div>
-                      <div className="explore-cart-widget-price">₹ {item.total}</div>
-                    </div>
+                    <h2
+                      id={`cat-${toAnchor(section.sectionName)}`}
+                      className="ws-heading"
+                    >
+                      {section.sectionName}
+                    </h2>
 
-                    <div className="explore-cart-widget-controls">
-                      <button
-                        type="button"
-                        className="explore-cart-widget-btn"
-                        onClick={() => decreaseQty(item.cartKey || item.itemId)}
-                      >
-                        -
-                      </button>
-                      <span className="explore-cart-widget-qty">{item.qty}</span>
-                      <button
-                        type="button"
-                        className="explore-cart-widget-btn"
-                        onClick={() => increaseQty(item.cartKey || item.itemId)}
-                      >
-                        +
-                      </button>
+                    <div className="ws-grid">
+                      {section.cards.map((c, index) => (
+                        <ServiceCard
+                          key={`${section.sectionName}-${c.id || c.title}-${index}`}
+                          data={c}
+                          sectionName={section.sectionName}
+                          openLogin={openLogin}
+                          addToCart={addToCart}
+                        />
+                      ))}
                     </div>
                   </div>
                 ))}
 
-                {/* NOT LOGGED IN */}
-
-                {/* LOGGED IN */}
-                {/* NOT LOGGED IN */}
-                {/* BEFORE LOGIN */}
-                {cartItems.length > 0 && (
-  <div className="explore-cart-cashback-card">
-    <div className="explore-cart-cashback-left">
-      <div className="explore-cart-cashback-icon">🛒</div>
-
-      <div className="explore-cart-cashback-text">
-        <div className="explore-cart-cashback-title">
-          Items added to cart
-        </div>
-
-        <div className="explore-cart-cashback-copy">
-          You have {cartItems.length} item(s)
-        </div>
-      </div>
-    </div>
-
-    <div className="explore-cart-cashback-actions">
-      <button
-        className="explore-cart-go-btn"
-        onClick={() => setViewMode("menu")}
-      >
-        Go to Cart
-      </button>
-    </div>
-  </div>
-)}
-{cartItems.length > 0 && loyaltyEnabled && earnPoints > 0 && (
-  <div className="explore-cart-cashback-card">
-    🎉 You will earn {earnPoints} points
-  </div>
-)}
-
-                <div className="explore-cart-widget-total">
-                  <span>Total</span>
-                  <span>₹ {cartTotal}</span>
-                </div>
+                {/* 🔹 FLAT GRID (NO HEADINGS) */}
+                {cardsWithoutHeading.length > 0 && (
+                  <div className="ws-grid">
+                    {cardsWithoutHeading.map((c, index) => (
+                      <div key={`flat-${c.id || c.title}-${index}`} className="ws-card-wrapper">
+                        <h2
+                          id={`cat-${toAnchor(c.title)}`}
+                          className="ws-heading small"
+                        >
+                          {c.title}
+                        </h2>
+                        <ServiceCard
+                          key={c.id}
+                          data={c}
+                          sectionName={c.title}
+                          openLogin={openLogin}
+                          addToCart={addToCart}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </aside>
+
+              {!isMobile && cartItems.length > 0 && (
+                <aside className="explore-cart-sidebar">
+                  <div className="explore-cart-widget">
+                    <div className="explore-cart-widget-title">Selected Items</div>
+
+                    {cartItems.map((item, index) => (
+                      <div
+                        key={`${item.cartKey || item.itemId || item.name}-${index}`}
+                        className="explore-cart-widget-item"
+                      >
+                        <div className="explore-cart-widget-head">
+                          <div className="explore-cart-widget-name">{item.name}</div>
+                          <div className="explore-cart-widget-price">₹ {item.total}</div>
+                        </div>
+
+                        <div className="explore-cart-widget-controls">
+                          <button
+                            type="button"
+                            className="explore-cart-widget-btn"
+                            onClick={() => decreaseQty(item.cartKey || item.itemId)}
+                          >
+                            -
+                          </button>
+                          <span className="explore-cart-widget-qty">{item.qty}</span>
+                          <button
+                            type="button"
+                            className="explore-cart-widget-btn"
+                            onClick={() => increaseQty(item.cartKey || item.itemId)}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {cartItems.length > 0 && (
+                      <div className="explore-cart-cashback-card">
+                        <div className="explore-cart-cashback-left">
+                          <div className="explore-cart-cashback-icon">🛒</div>
+
+                          <div className="explore-cart-cashback-text">
+                            <div className="explore-cart-cashback-title">
+                              Items added to cart
+                            </div>
+
+                            <div className="explore-cart-cashback-copy">
+                              You have {cartItems.length} item(s)
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="explore-cart-cashback-actions">
+                          <button
+                            className="explore-cart-go-btn"
+                            onClick={() => setViewMode("menu")}
+                          >
+                            Go to Cart
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {cartItems.length > 0 && loyaltyEnabled && earnPoints > 0 && (
+                      <div className="explore-cart-cashback-card">
+                        🎉 You will earn {earnPoints} points
+                      </div>
+                    )}
+
+                    <div className="explore-cart-widget-total">
+                      <span>Total</span>
+                      <span>₹ {cartTotal}</span>
+                    </div>
+                  </div>
+                </aside>
+              )}
+            </div>
+          </section>
+          {isMobile && viewMode !== "menu" && cartItems.length > 0 && (
+            <button
+              type="button"
+              className="explore-mobile-cart-fab"
+              onClick={() => setViewMode("menu")}
+            >
+              <span className="explore-mobile-cart-count">{cartItems.length}</span>
+              <span className="explore-mobile-cart-label">Cart</span>
+              <span className="explore-mobile-cart-total">₹ {cartTotal}</span>
+            </button>
           )}
-        </div>
-      </section>
-      {isMobile && viewMode !== "menu" && cartItems.length > 0 && (
-        <button
-          type="button"
-          className="explore-mobile-cart-fab"
-          onClick={() => setViewMode("menu")}
-        >
-          <span className="explore-mobile-cart-count">{cartItems.length}</span>
-          <span className="explore-mobile-cart-label">Cart</span>
-          <span className="explore-mobile-cart-total">₹ {cartTotal}</span>
-        </button>
+          {category?.whyUs && (
+            <AdvantageSection whyUs={category.whyUs} />
+          )}
+          <RootsSection about={category?.about} />
+        </>
       )}
-      {category?.whyUs && (
-        <AdvantageSection whyUs={category.whyUs} />
-      )}
-      <RootsSection about={category?.about} />
       {viewMode === "menu" && (
         <div>
           <div className="menuContainer">
