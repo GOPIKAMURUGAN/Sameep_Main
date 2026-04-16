@@ -130,11 +130,30 @@
   line-height: 1.7;
 }
 
+.modern-hero-description {
+  max-width: 640px;
+}
+
+.modern-hero-lead {
+  margin: 0;
+  color: rgba(30, 29, 26, 0.82);
+  font-size: 1.18rem;
+  font-weight: 600;
+  line-height: 1.7;
+}
+
+.modern-hero-supporting {
+  margin: 10px 0 0;
+  color: var(--modern-muted);
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
 .modern-hero-actions {
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
-  margin-top: 28px;
+  margin-top: 22px;
 }
 
 .modern-stats {
@@ -157,22 +176,79 @@
 }
 
 .modern-stat-card {
+  position: relative;
   border-radius: 22px;
-  padding: 18px 20px;
+  padding: 16px 20px 20px;
+  overflow: hidden;
+}
+
+.modern-stat-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(208, 173, 76, 0.8), rgba(208, 173, 76, 0));
+  opacity: 0.75;
 }
 
 .modern-stat-card strong {
   display: block;
-  font-size: 2rem;
-  line-height: 1;
+  margin-top: 12px;
+  font-size: clamp(2rem, 2.2vw, 2.5rem);
+  line-height: 0.95;
   letter-spacing: -0.04em;
 }
 
 .modern-stat-card span {
   display: block;
-  margin-top: 8px;
   color: var(--modern-muted);
   text-transform: capitalize;
+}
+
+.modern-stat-label {
+  margin-top: 10px;
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.modern-stat-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(23, 23, 23, 0.12);
+  box-shadow: 0 0 0 6px rgba(23, 23, 23, 0.04);
+}
+
+.modern-stat-accent.is-star {
+  background: var(--modern-accent);
+  box-shadow: 0 0 0 6px rgba(208, 173, 76, 0.14);
+}
+
+.modern-stat-accent.is-years,
+.modern-stat-accent.is-team,
+.modern-stat-accent.is-reach,
+.modern-stat-accent.is-info {
+  background: rgba(23, 23, 23, 0.05);
+}
+
+.modern-stat-accent.is-team {
+  background: rgba(23, 23, 23, 0.18);
+}
+
+.modern-stat-accent.is-years {
+  background: rgba(208, 173, 76, 0.7);
+}
+
+.modern-stat-link-hint {
+  margin-top: 8px;
+  color: var(--modern-accent-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: none;
 }
 
 .modern-stat-card-link {
@@ -184,6 +260,10 @@
 .modern-stat-card-link:hover {
   transform: translateY(-2px);
   box-shadow: 0 28px 60px rgba(52, 46, 26, 0.12);
+}
+
+.modern-stat-card-link:hover .modern-stat-link-hint {
+  text-decoration: underline;
 }
 
 .modern-service-modes {
@@ -255,13 +335,46 @@
   padding: 24px;
 }
 
-.modern-hero-note p {
-  margin: 0 0 12px;
-  font-style: italic;
+.modern-hero-note-kicker {
+  color: var(--modern-accent-strong);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
-.modern-hero-note span {
+.modern-hero-note-title {
+  margin-top: 10px;
+  color: var(--modern-text);
+  font-size: 1.2rem;
   font-weight: 700;
+}
+
+.modern-hero-note-list {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.modern-hero-note-list li {
+  position: relative;
+  padding-left: 16px;
+  color: var(--modern-muted);
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.modern-hero-note-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.58em;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--modern-accent);
 }
 
 .modern-offers {
@@ -1036,22 +1149,128 @@
 
 @media (max-width: 720px) {
   .modern-template-shell {
-    padding: 16px 14px 56px;
+    padding: 14px 10px 52px;
   }
 
   .modern-header {
-    gap: 16px;
+    gap: 10px;
+    padding: 4px 0 18px;
+  }
+
+  .modern-brand {
+    gap: 10px;
+  }
+
+  .modern-brand-mark {
+    width: 36px;
+    height: 36px;
+    font-size: 0.95rem;
+  }
+
+  .modern-brand-text {
+    font-size: 1rem;
+    line-height: 1.25;
   }
 
   .modern-nav {
-    gap: 14px;
+    gap: 12px;
+    font-size: 0.95rem;
+  }
+
+  .modern-book-btn {
+    min-height: 44px;
+    padding: 0 20px;
+    font-size: 0.95rem;
+    box-shadow: 0 14px 28px rgba(23, 23, 23, 0.12);
+  }
+
+  .modern-hero {
+    gap: 20px;
+    padding: 8px 0 36px;
+  }
+
+  .modern-eyebrow {
+    font-size: 0.82rem;
+    letter-spacing: 0.16em;
   }
 
   .modern-hero h1,
   .modern-services h2,
   .modern-story h2,
   .modern-contact h2 {
-    font-size: 2.5rem;
+    margin: 10px 0 14px;
+    font-size: 2.1rem;
+    line-height: 0.98;
+  }
+
+  .modern-hero-description {
+    max-width: 100%;
+  }
+
+  .modern-hero-lead {
+    font-size: 0.98rem;
+    line-height: 1.65;
+  }
+
+  .modern-hero-supporting {
+    margin-top: 8px;
+    font-size: 0.94rem;
+    line-height: 1.7;
+  }
+
+  .modern-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 22px;
+  }
+
+  .modern-stat-card {
+    min-height: 132px;
+    padding: 14px 14px 16px;
+    border-radius: 18px;
+  }
+
+  .modern-stat-card:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .modern-stat-card strong {
+    margin-top: 10px;
+    font-size: 1.9rem;
+  }
+
+  .modern-stat-label {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+
+  .modern-stat-link-hint {
+    margin-top: 6px;
+    font-size: 0.72rem;
+  }
+
+  .modern-hero-actions {
+    margin-top: 16px;
+  }
+
+  .modern-hero-note {
+    width: 100%;
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .modern-hero-note-title {
+    font-size: 1.05rem;
+  }
+
+  .modern-hero-note-list {
+    gap: 8px;
+  }
+
+  .modern-hero-note-list li {
+    font-size: 0.9rem;
+    line-height: 1.45;
   }
 
   .modern-service-row {

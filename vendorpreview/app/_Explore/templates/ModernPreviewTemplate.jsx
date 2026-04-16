@@ -183,6 +183,68 @@ function prettifyLabel(key) {
   return normalized;
 }
 
+function getStatAccent(label) {
+  const normalized = String(label || "").toLowerCase();
+
+  if (normalized.includes("google rating")) return "star";
+  if (normalized.includes("experience")) return "years";
+  if (
+    normalized.includes("stylist") ||
+    normalized.includes("trainer") ||
+    normalized.includes("team")
+  ) {
+    return "team";
+  }
+  if (normalized.includes("customer")) return "reach";
+  return "info";
+}
+
+function splitHeroDescription(text) {
+  const normalized = String(text || "").trim();
+  if (!normalized) return { lead: "", supporting: "" };
+
+  const parts = normalized
+    .split(/(?<=[.!?])\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length <= 1) {
+    return { lead: normalized, supporting: "" };
+  }
+
+  return {
+    lead: parts[0],
+    supporting: parts.slice(1).join(" "),
+  };
+}
+
+function getHeroHighlights({ vendorInfo, serviceModes, categoryName }) {
+  const highlights = [];
+  const address = String(vendorInfo?.location?.address || "").trim();
+  const addressParts = address
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (categoryName) {
+    highlights.push(`${categoryName} experiences tailored to your needs`);
+  }
+
+  if (serviceModes?.length) {
+    highlights.push(serviceModes.slice(0, 2).join(" + "));
+  }
+
+  if (addressParts.length > 0) {
+    highlights.push(addressParts.slice(0, 2).join(", "));
+  }
+
+  if (typeof vendorInfo?.googlePlace?.rating === "number") {
+    highlights.push(`Rated ${vendorInfo.googlePlace.rating}* on Google`);
+  }
+
+  return highlights.slice(0, 3);
+}
+
 function ModernServiceRow({ card, sectionName, onAddToCart }) {
   const [selectedMain, setSelectedMain] = useState(card?.defaultMain || card?.options?.[0]?.label || null);
   const [selectedSub, setSelectedSub] = useState(card?.defaultSub || null);
@@ -487,6 +549,7 @@ export default function ModernPreviewTemplate({
   }, [category]);
 
   const heroImage = mergedHeroImages?.[0] || "";
+  const heroCopy = useMemo(() => splitHeroDescription(heroDescription), [heroDescription]);
   const trustSummary = vendorInfo?.trustSummary || vendorInfo?.trust || {};
   const trustEntries = Object.entries(trustSummary || {}).filter(
     ([, value]) => value !== null && value !== undefined && value !== ""
@@ -617,6 +680,11 @@ export default function ModernPreviewTemplate({
     vendorInfo?.phone,
     ...(Array.isArray(vendorInfo?.secondaryPhones) ? vendorInfo.secondaryPhones : []),
   ].filter(Boolean);
+  const heroHighlights = getHeroHighlights({
+    vendorInfo,
+    serviceModes,
+    categoryName: category?.name,
+  });
   const activeSection =
     serviceSections.find((section) => section.sectionName === activeSectionName) ||
     serviceSections[0] ||
@@ -655,15 +723,25 @@ export default function ModernPreviewTemplate({
             {(category?.name || "Preview").toUpperCase()}
           </div>
           <h1>{heroTagline}</h1>
-          <p>{heroDescription}</p>
+          <div className="modern-hero-description">
+            {heroCopy.lead ? <p className="modern-hero-lead">{heroCopy.lead}</p> : null}
+            {heroCopy.supporting ? (
+              <p className="modern-hero-supporting">{heroCopy.supporting}</p>
+            ) : null}
+          </div>
 
           <div className="modern-stats">
-            {statEntries.slice(0, 3).map(([key, value]) => (
-              <div key={key} className="modern-stat-card">
-                <strong>{String(value)}</strong>
-                <span>{prettifyLabel(key)}</span>
-              </div>
-            ))}
+            {statEntries.slice(0, 3).map(([key, value]) => {
+              const label = prettifyLabel(key);
+
+              return (
+                <div key={key} className="modern-stat-card">
+                  <span className={`modern-stat-accent is-${getStatAccent(label)}`} aria-hidden="true" />
+                  <strong>{String(value)}</strong>
+                  <span className="modern-stat-label">{label}</span>
+                </div>
+              );
+            })}
             {typeof vendorInfo?.googlePlace?.rating === "number" ? (
               <a
                 className="modern-stat-card modern-stat-card-link"
@@ -671,18 +749,21 @@ export default function ModernPreviewTemplate({
                 target="_blank"
                 rel="noopener noreferrer"
               >
+                <span className="modern-stat-accent is-star" aria-hidden="true" />
                 <strong>{vendorInfo.googlePlace.rating}*</strong>
-                <span>
+                <span className="modern-stat-label">
                   Google Rating
                   {vendorInfo?.googlePlace?.userRatingsTotal
                     ? ` (${vendorInfo.googlePlace.userRatingsTotal})`
                     : ""}
                 </span>
+                <span className="modern-stat-link-hint">View Google profile</span>
               </a>
             ) : (
               <div className="modern-stat-card">
+                <span className="modern-stat-accent is-info" aria-hidden="true" />
                 <strong>Top Rated</strong>
-                <span>Quality Service</span>
+                <span className="modern-stat-label">Quality Service</span>
               </div>
             )}
           </div>
@@ -718,12 +799,13 @@ export default function ModernPreviewTemplate({
         <div className="modern-hero-visual">
           {heroImage ? <img src={heroImage} alt={heroTagline} /> : null}
           <div className="modern-hero-note">
-            <p>
-              &ldquo;
-              {vendorInfo?.customFields?.freeText2?.trim() || "Crafted to reflect your brand and services."}
-              &rdquo;
-            </p>
-            <span>{vendorInfo?.businessName || "Business"}</span>
+            <div className="modern-hero-note-kicker">Quick Highlights</div>
+            <div className="modern-hero-note-title">{vendorInfo?.businessName || "Business"}</div>
+            <ul className="modern-hero-note-list">
+              {heroHighlights.map((item, index) => (
+                <li key={`${item}-${index}`}>{item}</li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
