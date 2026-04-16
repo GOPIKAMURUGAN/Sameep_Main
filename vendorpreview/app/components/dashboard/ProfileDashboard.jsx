@@ -9,6 +9,7 @@ import BusinessLocationsModal from "../../Profile/BusinessLocationsModal";
 import BusinessHoursModal from "../../Profile/BusinessHoursModal";
 import BrandingContactModal from "../../Profile/BrandingContactModal";
 import HeroTextModal from "../../Profile/HeroTextModal";
+import TemplateSelectionModal from "../../Profile/TemplateSelectionModal";
 
 function ProfileDashboard({
   vendorInfo,
@@ -24,6 +25,7 @@ function ProfileDashboard({
   const [showBusinessHours, setShowBusinessHours] = useState(false);
   const [showBrandingContact, setShowBrandingContact] = useState(false);
   const [showHeroText, setShowHeroText] = useState(false);
+  const [showTemplateSelection, setShowTemplateSelection] = useState(false);
   const [hoursVendor, setHoursVendor] = useState(null);
   const [loadingVendor, setLoadingVendor] = useState(false);
   const currentVendorInfo = contextVendorInfo || vendorInfo;
@@ -111,6 +113,7 @@ function ProfileDashboard({
 const cardHandlers = {
   brandingContact: () => setShowBrandingContact(true),
   heroText: () => setShowHeroText(true),
+  websiteTemplate: () => setShowTemplateSelection(true),
   gallery: () => openService("gallery"),
   locations: () => setShowHomeLocation(true),
   targetedLocations: () => setShowBusinessLocations(true),
@@ -127,6 +130,11 @@ const cardHandlers = {
       key: "heroText",
       title: "Hero Text",
       description: `Update the homepage heading and description. ${heroTextCount} text field${heroTextCount === 1 ? "" : "s"} configured.`,
+    },
+    {
+      key: "websiteTemplate",
+      title: "Website Template",
+      description: `Choose the default preview template. Currently set to ${String(currentVendorInfo?.selectedTemplateKey || "system default").replace(/[-_]/g, " ")}.`,
     },
     {
       key: "social-panel",
@@ -227,6 +235,15 @@ const cardHandlers = {
           initialHeading={currentVendorInfo?.customFields?.freeText1 || ""}
           initialDescription={currentVendorInfo?.customFields?.freeText2 || ""}
           onClose={() => setShowHeroText(false)}
+        />
+      )}
+
+      {showTemplateSelection && (
+        <TemplateSelectionModal
+          vendorId={vendorId}
+          businessName={currentVendorInfo?.businessName || ""}
+          initialTemplateKey={currentVendorInfo?.selectedTemplateKey || ""}
+          onClose={() => setShowTemplateSelection(false)}
         />
       )}
 

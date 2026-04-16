@@ -68,6 +68,9 @@ function Sidebar() {
       <NavLink to="/subscription-plans" style={linkStyle}>
         🧾 Subscription Plans
       </NavLink>
+      <NavLink to="/templates" style={linkStyle}>
+        🎨 Website Templates
+      </NavLink>
 
       <div style={{ flex: 1 }} />
       <button

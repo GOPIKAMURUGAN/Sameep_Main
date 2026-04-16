@@ -25,6 +25,11 @@ import SubscriptionDashboard from "../components/dashboard/SubscriptionDashboard
 import { useSearchParams } from "next/navigation";
 import { useSessionGuard } from "../Login/useSessionGuard";
 import ModernPreviewTemplate from "./templates/ModernPreviewTemplate";
+
+function normalizePreviewTemplateKey(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "modern" ? "modern" : normalized === "classic" ? "classic" : "";
+}
 // import { useLoginPopup } from "./LoginPopupContext";
 
 const toAnchor = (label) =>
@@ -1304,7 +1309,12 @@ function ExploreContent({ onReady, onOpenServices }) {
   const queryRootCategoryId = searchParams.get("rootCategoryId");
   const queryVendorId = searchParams.get("vendorId");
   const queryTemplate = String(searchParams.get("template") || "").trim().toLowerCase();
-  const activeTemplateKey = queryTemplate === "modern" ? "modern" : "classic";
+  const [defaultTemplateKey, setDefaultTemplateKey] = useState("classic");
+  const activeTemplateKey =
+    normalizePreviewTemplateKey(queryTemplate) ||
+    normalizePreviewTemplateKey(vendorInfo?.selectedTemplateKey) ||
+    normalizePreviewTemplateKey(defaultTemplateKey) ||
+    "classic";
   const [subscriptionPopup, setSubscriptionPopup] = useState(null);
   const [dismissedSubscriptionPopupKey, setDismissedSubscriptionPopupKey] =
     useState(null);
@@ -1552,6 +1562,32 @@ function ExploreContent({ onReady, onOpenServices }) {
 
     fetchVendor();
   }, [queryVendorId, setVendorInfo]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDefaultTemplate() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/preview-templates/default`, {
+          cache: "no-store",
+        });
+        const data = await response.json();
+        if (!cancelled) {
+          setDefaultTemplateKey(normalizePreviewTemplateKey(data?.key) || "classic");
+        }
+      } catch (error) {
+        console.error("Default template fetch failed", error);
+        if (!cancelled) {
+          setDefaultTemplateKey("classic");
+        }
+      }
+    }
+
+    loadDefaultTemplate();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!vendorId) {

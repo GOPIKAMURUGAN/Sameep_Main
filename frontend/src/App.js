@@ -52,6 +52,7 @@ import AppConfigurationsPage from "./pages/AppConfigurationsPage";
 import EnquiriesPage from "./pages/EnquiriesPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import PlansPage from "./pages/subscriptionPlans/PlansPage";
+import TemplatesPage from "./pages/TemplatesPage";
 
 
 function App() {
@@ -157,6 +158,7 @@ function AppContent() {
 
           {/* Subscription Plans */}
           <Route path="/subscription-plans" element={<PlansPage />} />
+          <Route path="/templates" element={<TemplatesPage />} />
 
           {/* Fallback */}
           <Route path="*" element={<Dashboard />} />

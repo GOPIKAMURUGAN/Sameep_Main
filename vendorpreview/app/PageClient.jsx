@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import Explore from "./_Explore/Explore";
@@ -12,14 +12,49 @@ import Contact from "./Contact/Contact";
 import Portal from "./Portal/Portal";
 import ScrollToTop from "./components/ScrollToTop";
 import { useVendor } from "@/app/context/VendorContext";
+import { API_BASE_URL } from "../config";
+
+function normalizePreviewTemplateKey(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "modern" ? "modern" : normalized === "classic" ? "classic" : "";
+}
 
 function PageContent() {
   const searchParams = useSearchParams();
-  const activeTemplate = String(searchParams.get("template") || "").trim().toLowerCase();
-  const isModernTemplate = activeTemplate === "modern";
-  const vendor = useVendor(); // SSR vendor
+  const { vendorInfo } = useVendor();
+  const queryTemplate = searchParams.get("template");
+  const [defaultTemplateKey, setDefaultTemplateKey] = useState("classic");
+  const effectiveTemplateKey =
+    normalizePreviewTemplateKey(queryTemplate) ||
+    normalizePreviewTemplateKey(vendorInfo?.selectedTemplateKey) ||
+    normalizePreviewTemplateKey(defaultTemplateKey) ||
+    "classic";
+  const isModernTemplate = effectiveTemplateKey === "modern";
 
-  console.log("SSR vendor in PageClient:", vendor);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDefaultTemplate() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/preview-templates/default`, {
+          cache: "no-store",
+        });
+        const data = await response.json();
+        if (!cancelled) {
+          setDefaultTemplateKey(normalizePreviewTemplateKey(data?.key) || "classic");
+        }
+      } catch {
+        if (!cancelled) {
+          setDefaultTemplateKey("classic");
+        }
+      }
+    }
+
+    loadDefaultTemplate();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div>

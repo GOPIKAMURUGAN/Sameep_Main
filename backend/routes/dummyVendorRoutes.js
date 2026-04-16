@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const DummyVendor = require("../models/DummyVendor");
+const PreviewTemplate = require("../models/PreviewTemplate");
 const DummyCategory = require("../models/dummyCategory");
 const DummySubcategory = require("../models/dummySubcategory");
 const multer = require("multer");
@@ -518,6 +519,77 @@ router.post("/", async (req, res) => {
   } catch (err) {
     console.error("POST /dummy-vendors error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET per-vendor social links (must be before generic :vendorId route)
+router.get("/:vendorId/template", async (req, res) => {
+  try {
+    const vendor = await DummyVendor.findById(req.params.vendorId).lean();
+    if (!vendor) return res.status(404).json({ success: false, message: "Vendor not found" });
+
+    const selectedTemplateKey = String(vendor.selectedTemplateKey || "").trim().toLowerCase();
+    const template =
+      (selectedTemplateKey
+        ? await PreviewTemplate.findOne({ key: selectedTemplateKey }).lean()
+        : null) ||
+      (await PreviewTemplate.findOne({ isDefault: true }).lean()) ||
+      null;
+
+    return res.json({
+      success: true,
+      selectedTemplateKey,
+      template,
+    });
+  } catch (err) {
+    console.error("GET /dummy-vendors/:vendorId/template error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+router.put("/:vendorId/template", async (req, res) => {
+  try {
+    const vendor = await DummyVendor.findById(req.params.vendorId);
+    if (!vendor) return res.status(404).json({ success: false, message: "Vendor not found" });
+
+    const selectedTemplateKey = String(req.body?.selectedTemplateKey || "")
+      .trim()
+      .toLowerCase();
+
+    if (!selectedTemplateKey) {
+      vendor.selectedTemplateKey = "";
+      await vendor.save();
+      return res.json({
+        success: true,
+        selectedTemplateKey: "",
+        vendor: vendor.toObject(),
+      });
+    }
+
+    const template = await PreviewTemplate.findOne({
+      key: selectedTemplateKey,
+      status: "Active",
+    }).lean();
+
+    if (!template) {
+      return res.status(400).json({
+        success: false,
+        message: "Selected template is not available",
+      });
+    }
+
+    vendor.selectedTemplateKey = selectedTemplateKey;
+    await vendor.save();
+
+    return res.json({
+      success: true,
+      selectedTemplateKey,
+      template,
+      vendor: vendor.toObject(),
+    });
+  } catch (err) {
+    console.error("PUT /dummy-vendors/:vendorId/template error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

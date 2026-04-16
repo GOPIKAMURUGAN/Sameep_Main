@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useVendor } from "./context/VendorContext";
+import { API_BASE_URL } from "../config";
 
 import Explore from "./_Explore/Explore";
 import Hero from "./Hero/Hero";
@@ -12,16 +14,53 @@ import Load from "./Load/Load";
 import Portal from "./Portal/Portal";
 import ScrollToTop from "./components/ScrollToTop";
 
+function normalizePreviewTemplateKey(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "modern" ? "modern" : normalized === "classic" ? "classic" : "";
+}
+
 export default function Home() {
   const searchParams = useSearchParams();
   const activeTemplate = String(searchParams.get("template") || "").trim().toLowerCase();
-  const isModernTemplate = activeTemplate === "modern";
+  const { vendorInfo } = useVendor();
+  const [defaultTemplateKey, setDefaultTemplateKey] = useState("classic");
+  const effectiveTemplateKey =
+    normalizePreviewTemplateKey(activeTemplate) ||
+    normalizePreviewTemplateKey(vendorInfo?.selectedTemplateKey) ||
+    normalizePreviewTemplateKey(defaultTemplateKey) ||
+    "classic";
+  const isModernTemplate = effectiveTemplateKey === "modern";
   const [loading, setLoading] = useState(true);
   const [checkingSession, setCheckingSession] = useState(true);
   const [sessionAllowed, setSessionAllowed] = useState(() => {
     if (typeof window === "undefined") return false;
     return Boolean(localStorage.getItem("authToken"));
   });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDefaultTemplate() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/preview-templates/default`, {
+          cache: "no-store",
+        });
+        const data = await response.json();
+        if (!cancelled) {
+          setDefaultTemplateKey(normalizePreviewTemplateKey(data?.key) || "classic");
+        }
+      } catch {
+        if (!cancelled) {
+          setDefaultTemplateKey("classic");
+        }
+      }
+    }
+
+    loadDefaultTemplate();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
 
 useEffect(() => {

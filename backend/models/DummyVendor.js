@@ -176,6 +176,12 @@ trustSummary: {
     freeText2: { type: String, default: "" }, // Description
   },
 
+  selectedTemplateKey: {
+    type: String,
+    trim: true,
+    default: "",
+  },
+
   createdAt: {
     type: Date,
     default: Date.now,
