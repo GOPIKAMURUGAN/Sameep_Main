@@ -20,6 +20,17 @@ function getPoweredByUrl() {
     .replace(/\/$/, "");
 }
 
+function scrollToElementById(id) {
+  if (typeof window === "undefined") return;
+  const target = document.getElementById(id);
+  if (!target) return;
+
+  target.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+}
+
 function formatCurrency(value) {
   const amount = Number(value || 0);
   if (amount <= 0) return "Contact";
@@ -275,7 +286,7 @@ function getRefinedHeroCopy({ heroDescription, categoryName, address }) {
   return splitHeroDescription(source);
 }
 
-function getHeroHighlights({ vendorInfo, serviceModes, categoryName }) {
+function getHeroHighlights({ vendorInfo, serviceModes, categoryName, serviceModeLabel }) {
   const highlights = [];
   const address = String(vendorInfo?.location?.address || "").trim();
   const addressParts = address
@@ -288,7 +299,9 @@ function getHeroHighlights({ vendorInfo, serviceModes, categoryName }) {
   }
 
   if (serviceModes?.length) {
-    highlights.push(serviceModes.slice(0, 2).join(" + "));
+    const modeValue = serviceModes.slice(0, 2).join(" + ");
+    const modeLabel = String(serviceModeLabel || "Service Type").trim();
+    highlights.push(`${modeLabel}: ${modeValue}`);
   }
 
   if (addressParts.length > 0) {
@@ -754,6 +767,7 @@ export default function ModernPreviewTemplate({
     vendorInfo,
     serviceModes,
     categoryName: category?.name,
+    serviceModeLabel,
   });
   const activeSection =
     serviceSections.find((section) => section.sectionName === activeSectionName) ||
@@ -763,6 +777,10 @@ export default function ModernPreviewTemplate({
     activeSection?.cards?.find((card) => card.id === activeCardId) ||
     activeSection?.cards?.[0] ||
     null;
+
+  const goToQuickInquiry = () => {
+    scrollToElementById("quick-inquiry");
+  };
 
   return (
     <div className="modern-template-shell">
@@ -782,7 +800,7 @@ export default function ModernPreviewTemplate({
           ))}
         </nav>
 
-        <button type="button" className="modern-book-btn" onClick={onOpenMenu}>
+        <button type="button" className="modern-book-btn" onClick={goToQuickInquiry}>
           Book Appointment
         </button>
 
@@ -819,7 +837,7 @@ export default function ModernPreviewTemplate({
             className="modern-mobile-menu-book"
             onClick={() => {
               setMobileMenuOpen(false);
-              onOpenMenu?.();
+              goToQuickInquiry();
             }}
           >
             Book Appointment
@@ -878,20 +896,6 @@ export default function ModernPreviewTemplate({
             )}
           </div>
 
-          {serviceModes.length > 0 ? (
-            <div className="modern-service-modes">
-              <p className="modern-service-modes-label">{serviceModeLabel}</p>
-              <div className="modern-service-mode-list">
-                {serviceModes.map((mode) => (
-                  <span key={mode} className="modern-service-mode-chip">
-                    <span className="modern-service-mode-chip-icon">✓</span>
-                    {mode}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
           <div className="modern-hero-actions">
             {heroButton1 ? (
               <button type="button" className="modern-primary-btn" onClick={onPrimaryAction}>
@@ -899,7 +903,7 @@ export default function ModernPreviewTemplate({
               </button>
             ) : null}
             {heroButton2 ? (
-              <button type="button" className="modern-secondary-btn" onClick={onOpenMenu}>
+              <button type="button" className="modern-secondary-btn" onClick={goToQuickInquiry}>
                 {heroButton2}
               </button>
             ) : null}
@@ -1143,7 +1147,7 @@ export default function ModernPreviewTemplate({
         </div>
 
         <div className="modern-contact-right">
-          <div className="modern-contact-card">
+          <div className="modern-contact-card" id="quick-inquiry">
             <h3>Quick Inquiry</h3>
             <div className="modern-input-grid">
               <input type="text" placeholder="Full Name" />
@@ -1160,8 +1164,8 @@ export default function ModernPreviewTemplate({
               ))}
             </select>
             <textarea placeholder="How can we help?" rows={5} />
-            <button type="button" className="modern-request-btn" onClick={onOpenMenu}>
-              Request Call Back
+            <button type="button" className="modern-request-btn" onClick={goToQuickInquiry}>
+              Coming Soon
             </button>
           </div>
         </div>
