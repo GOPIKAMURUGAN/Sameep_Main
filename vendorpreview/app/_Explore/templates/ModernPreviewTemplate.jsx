@@ -585,9 +585,6 @@ export default function ModernPreviewTemplate({
   mergedHeroImages,
   heroTagline,
   heroDescription,
-  heroButton1,
-  heroButton2,
-  onPrimaryAction,
   onOpenMenu,
   cartItems,
   cartTotal,
@@ -896,18 +893,6 @@ export default function ModernPreviewTemplate({
             )}
           </div>
 
-          <div className="modern-hero-actions">
-            {heroButton1 ? (
-              <button type="button" className="modern-primary-btn" onClick={onPrimaryAction}>
-                {heroButton1}
-              </button>
-            ) : null}
-            {heroButton2 ? (
-              <button type="button" className="modern-secondary-btn" onClick={goToQuickInquiry}>
-                {heroButton2}
-              </button>
-            ) : null}
-          </div>
         </div>
 
         <div className="modern-hero-visual">
@@ -931,7 +916,6 @@ export default function ModernPreviewTemplate({
               <span className="modern-section-kicker">Offers</span>
               <h2>Current Offers</h2>
             </div>
-            <p>Browse active promotions and swipe through the latest deals.</p>
           </div>
 
           <div className="modern-offers-track">
@@ -954,9 +938,6 @@ export default function ModernPreviewTemplate({
                   ) : null}
 
                   <div className="modern-offer-card-body">
-                    <span className="modern-offer-card-kicker">
-                      {offer.sourceLabel || "Active Offer"}
-                    </span>
                     <h3>{offer.title}</h3>
 
                     {offer.offerText ? (
