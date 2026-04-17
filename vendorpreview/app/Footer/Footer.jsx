@@ -14,8 +14,19 @@ const PAGE_SECTIONS = {
   Contact: "contact",
 };
 
+function getPoweredByUrl() {
+  return (
+    process.env.NEXT_PUBLIC_VENDOR_PREVIEW_ROOT_URL ||
+    process.env.NEXT_PUBLIC_PREVIEW_BASE_URL ||
+    "http://localhost:4000"
+  )
+    .trim()
+    .replace(/\/$/, "");
+}
+
 export default function Footer() {
   const { vendorInfo } = useVendor() || {};
+  const poweredByUrl = getPoweredByUrl();
 
   const popular = vendorInfo?.popularCategories || [];
   const socialLinks = vendorInfo?.socialLinks || {};
@@ -165,7 +176,18 @@ export default function Footer() {
       </div>
 
       <div className="footer-bottom">
-        © {new Date().getFullYear()} {vendorInfo?.businessName || "Business"} All Rights Reserved.
+        <span>
+          © {new Date().getFullYear()} {vendorInfo?.businessName || "Business"} All Rights Reserved.
+        </span>
+        <a
+          className="footer-powered-by"
+          href={poweredByUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <img src="/favicon.svg" alt="Ynot" className="footer-powered-by-logo" />
+          <span>Powered by Ynot</span>
+        </a>
       </div>
     </footer>
   );

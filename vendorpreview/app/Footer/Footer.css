@@ -118,11 +118,36 @@
 .footer-bottom {
   margin-top: 45px;
   padding-top: 20px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
   border-top: 1px solid rgba(255, 215, 130, 0.25);
 
   font-size: 14px;
   color: #D9C98A;
+}
+
+.footer-powered-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #D9C98A;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.25s ease, transform 0.25s ease;
+}
+
+.footer-powered-by:hover {
+  color: #FFD27D;
+  transform: translateY(-1px);
+}
+
+.footer-powered-by-logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
 }
 
 /* ============================================================

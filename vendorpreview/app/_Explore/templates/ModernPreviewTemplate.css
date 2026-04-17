@@ -85,6 +85,79 @@
   box-shadow: 0 18px 42px rgba(23, 23, 23, 0.14);
 }
 
+.modern-mobile-menu-toggle,
+.modern-mobile-menu {
+  display: none;
+}
+
+.modern-mobile-menu-toggle {
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 1px solid rgba(23, 23, 23, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.84);
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-shadow: 0 16px 32px rgba(52, 46, 26, 0.08);
+}
+
+.modern-mobile-menu-toggle span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: #171717;
+  transition: transform 0.22s ease, opacity 0.22s ease;
+}
+
+.modern-mobile-menu-toggle.is-open span:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.modern-mobile-menu-toggle.is-open span:nth-child(2) {
+  opacity: 0;
+}
+
+.modern-mobile-menu-toggle.is-open span:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+.modern-mobile-menu {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid rgba(23, 23, 23, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 253, 250, 0.96);
+  box-shadow: 0 22px 40px rgba(52, 46, 26, 0.1);
+}
+
+.modern-mobile-menu-links {
+  display: grid;
+  gap: 10px;
+}
+
+.modern-mobile-menu-links a {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 700;
+  padding: 10px 2px;
+  border-bottom: 1px solid rgba(23, 23, 23, 0.08);
+}
+
+.modern-mobile-menu-book {
+  width: 100%;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #171717;
+  color: #fff;
+  padding: 13px 18px;
+  font-weight: 700;
+  box-shadow: 0 16px 32px rgba(23, 23, 23, 0.12);
+}
+
 .modern-secondary-btn {
   border: 1px solid rgba(23, 23, 23, 0.14);
   border-radius: 999px;
@@ -131,22 +204,22 @@
 }
 
 .modern-hero-description {
-  max-width: 640px;
+  max-width: 600px;
 }
 
 .modern-hero-lead {
   margin: 0;
-  color: rgba(30, 29, 26, 0.82);
-  font-size: 1.18rem;
+  color: rgba(30, 29, 26, 0.76);
+  font-size: 1.08rem;
   font-weight: 600;
-  line-height: 1.7;
+  line-height: 1.65;
 }
 
 .modern-hero-supporting {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   color: var(--modern-muted);
-  font-size: 1rem;
-  line-height: 1.8;
+  font-size: 0.96rem;
+  line-height: 1.7;
 }
 
 .modern-hero-actions {
@@ -159,8 +232,8 @@
 .modern-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 18px;
-  margin-top: 34px;
+  gap: 14px;
+  margin-top: 26px;
 }
 
 .modern-stat-card,
@@ -177,8 +250,8 @@
 
 .modern-stat-card {
   position: relative;
-  border-radius: 22px;
-  padding: 16px 20px 20px;
+  border-radius: 20px;
+  padding: 14px 18px 18px;
   overflow: hidden;
 }
 
@@ -186,15 +259,15 @@
   content: "";
   position: absolute;
   inset: auto 0 0 0;
-  height: 3px;
+  height: 2px;
   background: linear-gradient(90deg, rgba(208, 173, 76, 0.8), rgba(208, 173, 76, 0));
-  opacity: 0.75;
+  opacity: 0.55;
 }
 
 .modern-stat-card strong {
   display: block;
-  margin-top: 12px;
-  font-size: clamp(2rem, 2.2vw, 2.5rem);
+  margin-top: 10px;
+  font-size: clamp(1.85rem, 2vw, 2.35rem);
   line-height: 0.95;
   letter-spacing: -0.04em;
 }
@@ -206,8 +279,8 @@
 }
 
 .modern-stat-label {
-  margin-top: 10px;
-  font-size: 0.98rem;
+  margin-top: 8px;
+  font-size: 0.92rem;
   line-height: 1.45;
 }
 
@@ -243,12 +316,13 @@
 }
 
 .modern-stat-link-hint {
-  margin-top: 8px;
+  margin-top: 6px;
   color: var(--modern-accent-strong);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: none;
+  opacity: 0.85;
 }
 
 .modern-stat-card-link {
@@ -259,7 +333,7 @@
 
 .modern-stat-card-link:hover {
   transform: translateY(-2px);
-  box-shadow: 0 28px 60px rgba(52, 46, 26, 0.12);
+  box-shadow: 0 26px 52px rgba(52, 46, 26, 0.11);
 }
 
 .modern-stat-card-link:hover .modern-stat-link-hint {
@@ -1037,10 +1111,26 @@
   padding: 28px;
 }
 
+.modern-map-card {
+  margin-top: 20px;
+}
+
 .modern-hours-card h3,
 .modern-contact-card h3 {
   margin: 0 0 18px;
   font-size: 1.6rem;
+}
+
+.modern-map-frame {
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid rgba(23, 23, 23, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.modern-map-frame iframe {
+  display: block;
+  border: 0;
 }
 
 .modern-hours-card ul {
@@ -1111,12 +1201,33 @@
   text-align: right;
 }
 
+.modern-footer-powered {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--modern-muted);
+  text-decoration: none;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.modern-footer-powered:hover {
+  color: var(--modern-accent-strong);
+  transform: translateY(-1px);
+}
+
+.modern-footer-powered-logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+
 @media (max-width: 1100px) {
   .modern-template-shell {
     padding: 20px 20px 64px;
   }
 
-  .modern-header,
   .modern-hero,
   .modern-story,
   .modern-contact,
@@ -1124,7 +1235,6 @@
     grid-template-columns: 1fr;
   }
 
-  .modern-header,
   .modern-footer {
     flex-direction: column;
     align-items: flex-start;
@@ -1153,12 +1263,20 @@
   }
 
   .modern-header {
-    gap: 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand toggle"
+      "menu menu";
+    gap: 12px;
     padding: 4px 0 18px;
+    align-items: start;
   }
 
   .modern-brand {
+    grid-area: brand;
     gap: 10px;
+    min-width: 0;
   }
 
   .modern-brand-mark {
@@ -1172,16 +1290,25 @@
     line-height: 1.25;
   }
 
-  .modern-nav {
-    gap: 12px;
-    font-size: 0.95rem;
+  .modern-book-btn {
+    display: none;
   }
 
-  .modern-book-btn {
-    min-height: 44px;
-    padding: 0 20px;
-    font-size: 0.95rem;
-    box-shadow: 0 14px 28px rgba(23, 23, 23, 0.12);
+  .modern-nav {
+    display: none;
+  }
+
+  .modern-mobile-menu-toggle {
+    display: inline-flex;
+    grid-area: toggle;
+    justify-self: end;
+    align-self: start;
+    flex-shrink: 0;
+  }
+
+  .modern-mobile-menu.is-open {
+    display: block;
+    grid-area: menu;
   }
 
   .modern-hero {
@@ -1208,26 +1335,26 @@
   }
 
   .modern-hero-lead {
-    font-size: 0.98rem;
-    line-height: 1.65;
+    font-size: 0.95rem;
+    line-height: 1.58;
   }
 
   .modern-hero-supporting {
-    margin-top: 8px;
-    font-size: 0.94rem;
-    line-height: 1.7;
+    margin-top: 6px;
+    font-size: 0.9rem;
+    line-height: 1.62;
   }
 
   .modern-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 22px;
+    gap: 10px;
+    margin-top: 18px;
   }
 
   .modern-stat-card {
-    min-height: 132px;
-    padding: 14px 14px 16px;
-    border-radius: 18px;
+    min-height: 118px;
+    padding: 12px 12px 14px;
+    border-radius: 16px;
   }
 
   .modern-stat-card:last-child {
@@ -1235,19 +1362,19 @@
   }
 
   .modern-stat-card strong {
-    margin-top: 10px;
-    font-size: 1.9rem;
+    margin-top: 8px;
+    font-size: 1.72rem;
   }
 
   .modern-stat-label {
-    margin-top: 8px;
-    font-size: 0.9rem;
-    line-height: 1.35;
+    margin-top: 7px;
+    font-size: 0.86rem;
+    line-height: 1.3;
   }
 
   .modern-stat-link-hint {
-    margin-top: 6px;
-    font-size: 0.72rem;
+    margin-top: 4px;
+    font-size: 0.68rem;
   }
 
   .modern-hero-actions {
@@ -1271,6 +1398,10 @@
   .modern-hero-note-list li {
     font-size: 0.9rem;
     line-height: 1.45;
+  }
+
+  .modern-map-frame {
+    border-radius: 18px;
   }
 
   .modern-service-row {

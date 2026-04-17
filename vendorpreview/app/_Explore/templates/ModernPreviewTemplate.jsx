@@ -10,6 +10,16 @@ const DEFAULT_NAV = [
   { label: "Contact", href: "#contact" },
 ];
 
+function getPoweredByUrl() {
+  return (
+    process.env.NEXT_PUBLIC_VENDOR_PREVIEW_ROOT_URL ||
+    process.env.NEXT_PUBLIC_PREVIEW_BASE_URL ||
+    "http://localhost:4000"
+  )
+    .trim()
+    .replace(/\/$/, "");
+}
+
 function formatCurrency(value) {
   const amount = Number(value || 0);
   if (amount <= 0) return "Contact";
@@ -216,6 +226,53 @@ function splitHeroDescription(text) {
     lead: parts[0],
     supporting: parts.slice(1).join(" "),
   };
+}
+
+function buildFallbackHeroSummary({ categoryName, address }) {
+  const place = String(address || "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(", ");
+
+  if (categoryName && place) {
+    return `Premium ${String(categoryName).toLowerCase()} services in ${place}.`;
+  }
+
+  if (categoryName) {
+    return `Premium ${String(categoryName).toLowerCase()} services tailored for everyday care.`;
+  }
+
+  return "";
+}
+
+function stripDuplicateTrustPhrases(text) {
+  const normalized = String(text || "").trim();
+  if (!normalized) return "";
+
+  const cleaned = normalized
+    .split(/(?<=[.!?])\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => {
+      const lower = part.toLowerCase();
+      if (lower.includes("rated") && lower.includes("google")) return false;
+      if (lower.includes("year") && lower.includes("experience")) return false;
+      if (lower.includes("customer served")) return false;
+      if (lower.includes("google rating")) return false;
+      return true;
+    })
+    .join(" ");
+
+  return cleaned || normalized;
+}
+
+function getRefinedHeroCopy({ heroDescription, categoryName, address }) {
+  const stripped = stripDuplicateTrustPhrases(heroDescription);
+  const fallback = buildFallbackHeroSummary({ categoryName, address });
+  const source = stripped || fallback;
+  return splitHeroDescription(source);
 }
 
 function getHeroHighlights({ vendorInfo, serviceModes, categoryName }) {
@@ -528,6 +585,7 @@ export default function ModernPreviewTemplate({
   const [serviceModeLabel, setServiceModeLabel] = useState("Service Modes");
   const [activeSectionName, setActiveSectionName] = useState("");
   const [activeCardId, setActiveCardId] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = useMemo(() => {
     const webMenu = Array.isArray(category?.webMenu) ? category.webMenu : [];
@@ -549,7 +607,15 @@ export default function ModernPreviewTemplate({
   }, [category]);
 
   const heroImage = mergedHeroImages?.[0] || "";
-  const heroCopy = useMemo(() => splitHeroDescription(heroDescription), [heroDescription]);
+  const heroCopy = useMemo(
+    () =>
+      getRefinedHeroCopy({
+        heroDescription,
+        categoryName: category?.name,
+        address: vendorInfo?.location?.address,
+      }),
+    [category?.name, heroDescription, vendorInfo?.location?.address]
+  );
   const trustSummary = vendorInfo?.trustSummary || vendorInfo?.trust || {};
   const trustEntries = Object.entries(trustSummary || {}).filter(
     ([, value]) => value !== null && value !== undefined && value !== ""
@@ -676,10 +742,14 @@ export default function ModernPreviewTemplate({
     : Array.isArray(vendorInfo?.hours)
       ? vendorInfo.hours
       : [];
+  const locationLat = Number(vendorInfo?.location?.lat);
+  const locationLng = Number(vendorInfo?.location?.lng);
+  const hasEmbeddedMap = Number.isFinite(locationLat) && Number.isFinite(locationLng);
   const phoneNumbers = [
     vendorInfo?.phone,
     ...(Array.isArray(vendorInfo?.secondaryPhones) ? vendorInfo.secondaryPhones : []),
   ].filter(Boolean);
+  const poweredByUrl = getPoweredByUrl();
   const heroHighlights = getHeroHighlights({
     vendorInfo,
     serviceModes,
@@ -704,7 +774,7 @@ export default function ModernPreviewTemplate({
           <span className="modern-brand-text">{vendorInfo?.businessName || "Business"}</span>
         </a>
 
-        <nav className="modern-nav">
+        <nav className="modern-nav" aria-label="Primary">
           {navItems.map((item) => (
             <a key={`${item.label}-${item.href}`} href={item.href}>
               {item.label}
@@ -715,6 +785,46 @@ export default function ModernPreviewTemplate({
         <button type="button" className="modern-book-btn" onClick={onOpenMenu}>
           Book Appointment
         </button>
+
+        <button
+          type="button"
+          className={`modern-mobile-menu-toggle ${mobileMenuOpen ? "is-open" : ""}`}
+          aria-expanded={mobileMenuOpen}
+          aria-controls="modern-mobile-menu"
+          aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+          onClick={() => setMobileMenuOpen((current) => !current)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+
+        <div
+          id="modern-mobile-menu"
+          className={`modern-mobile-menu ${mobileMenuOpen ? "is-open" : ""}`}
+        >
+          <nav className="modern-mobile-menu-links" aria-label="Mobile">
+            {navItems.map((item) => (
+              <a
+                key={`mobile-${item.label}-${item.href}`}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+          <button
+            type="button"
+            className="modern-mobile-menu-book"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              onOpenMenu?.();
+            }}
+          >
+            Book Appointment
+          </button>
+        </div>
       </header>
 
       <section className="modern-hero">
@@ -757,7 +867,7 @@ export default function ModernPreviewTemplate({
                     ? ` (${vendorInfo.googlePlace.userRatingsTotal})`
                     : ""}
                 </span>
-                <span className="modern-stat-link-hint">View Google profile</span>
+                <span className="modern-stat-link-hint">Google profile</span>
               </a>
             ) : (
               <div className="modern-stat-card">
@@ -1015,6 +1125,21 @@ export default function ModernPreviewTemplate({
               <p>Business hours not available.</p>
             )}
           </div>
+
+          {hasEmbeddedMap ? (
+            <div className="modern-hours-card modern-map-card">
+              <h3>Location Map</h3>
+              <div className="modern-map-frame">
+                <iframe
+                  title="Business location map"
+                  width="100%"
+                  height="240"
+                  loading="lazy"
+                  src={`https://www.google.com/maps?q=${locationLat},${locationLng}&z=15&output=embed`}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="modern-contact-right">
@@ -1059,8 +1184,18 @@ export default function ModernPreviewTemplate({
         </div>
 
         <div className="modern-footer-copy">
-          {cartItems.length > 0 ? `Cart: ${cartItems.length} item(s) • Rs ${cartTotal}` : "Crafted for excellence."}
+          {cartItems.length > 0 ? `Cart: ${cartItems.length} item(s) • Rs ${cartTotal}` : ""}
         </div>
+
+        <a
+          className="modern-footer-powered"
+          href={poweredByUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <img src="/favicon.svg" alt="Ynot" className="modern-footer-powered-logo" />
+          <span>Powered by Ynot</span>
+        </a>
       </footer>
     </div>
   );
