@@ -299,7 +299,7 @@ function getHeroHighlights({ vendorInfo, serviceModes, categoryName, serviceMode
   }
 
   if (serviceModes?.length) {
-    const modeValue = serviceModes.slice(0, 2).join(" + ");
+    const modeValue = serviceModes.join(" + ");
     const modeLabel = String(serviceModeLabel || "Service Type").trim();
     highlights.push(`${modeLabel}: ${modeValue}`);
   }
