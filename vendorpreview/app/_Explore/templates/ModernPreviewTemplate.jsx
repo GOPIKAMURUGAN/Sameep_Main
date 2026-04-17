@@ -583,6 +583,7 @@ export default function ModernPreviewTemplate({
   sectionsWithHeading,
   cardsWithoutHeading,
   mergedHeroImages,
+  vendorGalleryImages,
   heroTagline,
   heroDescription,
   onOpenMenu,
@@ -596,6 +597,7 @@ export default function ModernPreviewTemplate({
   const [activeSectionName, setActiveSectionName] = useState("");
   const [activeCardId, setActiveCardId] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [galleryStartIndex, setGalleryStartIndex] = useState(0);
 
   const navItems = useMemo(() => {
     const webMenu = Array.isArray(category?.webMenu) ? category.webMenu : [];
@@ -616,7 +618,6 @@ export default function ModernPreviewTemplate({
     return mapped.length > 0 ? mapped : DEFAULT_NAV;
   }, [category]);
 
-  const heroImage = mergedHeroImages?.[0] || "";
   const heroCopy = useMemo(
     () =>
       getRefinedHeroCopy({
@@ -742,6 +743,51 @@ export default function ModernPreviewTemplate({
       }))
       .filter((section) => section.cards.length > 0);
   }, [sectionsWithHeading, cardsWithoutHeading]);
+
+  const rotatingGalleryImages = useMemo(() => {
+    const serviceImages = [];
+
+    serviceSections.forEach((section) => {
+      (section.cards || []).forEach((card) => {
+        const imageUrl = getCardImage(card);
+        if (imageUrl) serviceImages.push(imageUrl);
+      });
+    });
+
+    const galleryImages = Array.isArray(vendorGalleryImages)
+      ? vendorGalleryImages.map((item) => String(item || "").trim()).filter(Boolean)
+      : [];
+
+    const fallbackImages = Array.isArray(mergedHeroImages)
+      ? mergedHeroImages.map((item) => String(item || "").trim()).filter(Boolean)
+      : [];
+
+    const preferredPool = [...new Set([...serviceImages, ...galleryImages])];
+    return preferredPool.length > 0 ? preferredPool : [...new Set(fallbackImages)];
+  }, [mergedHeroImages, serviceSections, vendorGalleryImages]);
+
+  useEffect(() => {
+    if (rotatingGalleryImages.length <= 1) return undefined;
+
+    const interval = window.setInterval(() => {
+      setGalleryStartIndex((prev) => (prev + 1) % rotatingGalleryImages.length);
+    }, 4000);
+
+    return () => window.clearInterval(interval);
+  }, [rotatingGalleryImages]);
+
+  const rotatingGalleryWindow = useMemo(() => {
+    if (rotatingGalleryImages.length === 0) return [];
+
+    const count = Math.min(4, rotatingGalleryImages.length);
+    return Array.from({ length: count }, (_, index) => {
+      const imageIndex = (galleryStartIndex + index) % rotatingGalleryImages.length;
+      return rotatingGalleryImages[imageIndex];
+    });
+  }, [galleryStartIndex, rotatingGalleryImages]);
+
+  const heroImage = rotatingGalleryWindow[0] || "";
+  const storyImages = rotatingGalleryWindow.slice(1);
 
   const offerCards = useMemo(() => getOfferCards(orderedCategories), [orderedCategories]);
   const featureCards = Array.isArray(category?.whyUs?.cards) ? category.whyUs.cards.filter(Boolean) : [];
@@ -1055,7 +1101,7 @@ export default function ModernPreviewTemplate({
 
       <section className="modern-story" id="our-story">
         <div className="modern-story-gallery">
-          {mergedHeroImages.slice(0, 3).map((imageUrl, index) => (
+          {storyImages.map((imageUrl, index) => (
             <div key={`${imageUrl}-${index}`} className={`modern-story-image modern-story-image-${index + 1}`}>
               <img src={imageUrl} alt={`${vendorInfo?.businessName || "Business"} ${index + 1}`} />
             </div>

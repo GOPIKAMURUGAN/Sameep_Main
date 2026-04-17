@@ -3087,6 +3087,7 @@ function ExploreContent({ onReady, onOpenServices }) {
           sectionsWithHeading={sectionsWithHeading}
           cardsWithoutHeading={cardsWithoutHeading}
           mergedHeroImages={mergedHeroImages}
+          vendorGalleryImages={vendorGalleryImages}
           heroTagline={heroTagline}
           heroDescription={heroDescription}
           heroButton1={heroButton1}
