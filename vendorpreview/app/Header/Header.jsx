@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { LuLogOut } from "react-icons/lu";
 import { useSessionGuard } from "../Login/useSessionGuard";
 import "./Header.css";
 
@@ -8,9 +9,12 @@ import { useVendor } from "../context/VendorContext";
 import Login from "../Login/Login";
 import ProfileModal from "../Profile/Profile";
 import Portal from "../Portal/Portal";
-import CategoryModal from "./CategoryModal";
 import PackagesPortal from "../PackagesPortal/PackagesPortal";
 import VendorGalleryModal from "../components/gallery/VendorGalleryModal";
+import {
+  ENQUIRY_OPEN_EVENT,
+  getEnquiryTypeLabel,
+} from "../utils/enquiryFlow";
 
 const PAGE_SECTIONS = {
   Home: "home",
@@ -36,11 +40,8 @@ export default function Header() {
   const [openProfile, setOpenProfile] = useState(false);
   const [openServices, setOpenServices] = useState(false);
   const [serviceType, setServiceType] = useState(null);
-  const [user, setUser] = useState(null);
   const [hasSession, setHasSession] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [open, setOpen] = useState(false);
-
   // --------------------------------------------------
   // 🔹 Load category for Header (fallback-safe)
   // --------------------------------------------------
@@ -75,15 +76,13 @@ const vendorId =
   useEffect(() => {
     const syncSessionState = () => {
       const raw = localStorage.getItem("userData");
-      let parsedUser = null;
       if (raw) {
         try {
-          parsedUser = JSON.parse(raw);
+          JSON.parse(raw);
         } catch {
-          parsedUser = null;
+          // Ignore malformed stored user data and continue session detection.
         }
       }
-      setUser(parsedUser);
 
 
 const token =
@@ -138,6 +137,10 @@ if (vendorId) {
   // 🔹 Menu helpers
   // --------------------------------------------------
   const webMenu = categoryData?.webMenu || [];
+  const enquiryConfig = categoryData?.enquiryConfig || null;
+  const enquiryCtaLabel = enquiryConfig?.enabled
+    ? getEnquiryTypeLabel(enquiryConfig?.enquiryType)
+    : "Contact Us";
 
   // --------------------------------------------------
   // 🔹 UI
@@ -152,6 +155,19 @@ if (vendorId) {
     vendorInfo?.rowId ||
     vendorInfo?.rows?.[0]?._id ||
     "default";
+
+  const handleEnquiryClick = () => {
+    if (typeof window === "undefined") return;
+
+    window.dispatchEvent(
+      new CustomEvent(ENQUIRY_OPEN_EVENT, {
+        detail: { source: "header" },
+      })
+    );
+
+    const contactSection = document.getElementById("contact");
+    contactSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <>
@@ -184,21 +200,23 @@ if (vendorId) {
               <li className="nav-item">
                 <button
                   className="setup-business-btn"
-                  onClick={() => setOpen(true)}
+                  onClick={handleEnquiryClick}
                   type="button"
                 >
-                  Set up my business
+                  {enquiryCtaLabel}
                 </button>
               </li>
 
             {hasSession && vendorInfo && (
                 <li className="nav-item">
                   <button
-                    className="nav-link login-btn btn-link"
+                    className="logout-icon-btn"
                     onClick={logout}
                     type="button"
+                    aria-label="Logout"
+                    title="Logout"
                   >
-                    Logout
+                    <LuLogOut />
                   </button>
                 </li>
               )}
@@ -292,19 +310,6 @@ if (vendorId) {
         </div>
       )}
 
-      {open && (
-  <Portal>
-    <CategoryModal
-      onClose={() => setOpen(false)}
-      vendorId={
-        vendorInfo?.vendorId ||
-        vendorInfo?._id ||
-        vendorInfo?.vendor?._id ||
-        null
-      }
-    />
-  </Portal>
-)}
     </>
   );
 }

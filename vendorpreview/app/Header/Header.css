@@ -92,6 +92,30 @@
   color: #0B0B0D !important;
 }
 
+.logout-icon-btn {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 210, 125, 0.65);
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffe9a9;
+  box-shadow: 0 0 12px rgba(255, 215, 130, 0.22);
+  transition: 0.25s ease;
+}
+
+.logout-icon-btn svg {
+  font-size: 20px;
+}
+
+.logout-icon-btn:hover {
+  background: linear-gradient(135deg, #FFD27D, #E5B759);
+  color: #0B0B0D;
+  box-shadow: 0 0 18px rgba(255, 215, 130, 0.38);
+}
+
 /* ============================================================
    TOGGLER – MOBILE
 ============================================================ */
@@ -233,6 +257,12 @@
 
   .logout-icon {
     font-size: 16px;
+  }
+
+  .logout-icon-btn {
+    width: 42px;
+    height: 42px;
+    margin-top: 8px;
   }
 }
 

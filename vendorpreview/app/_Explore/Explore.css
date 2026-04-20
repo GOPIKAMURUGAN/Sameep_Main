@@ -117,19 +117,25 @@
 
 .explore-mobile-cart-fab {
   position: fixed;
-  right: 14px;
+  left: 12px;
+  right: 12px;
   bottom: 18px;
   z-index: 2600;
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
   padding: 12px 14px;
   border: 1px solid rgba(245, 217, 122, 0.42);
-  border-radius: 999px;
+  border-radius: 22px;
   background: rgba(16, 16, 18, 0.96);
   box-shadow: 0 16px 30px rgba(0, 0, 0, 0.42);
   color: #f5d97a;
-  cursor: pointer;
+}
+
+.explore-mobile-cart-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .explore-mobile-cart-count {
@@ -153,6 +159,38 @@
   font-size: 13px;
   font-weight: 700;
   color: #fff;
+  margin-left: auto;
+}
+
+.explore-mobile-cart-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.explore-mobile-cart-action {
+  border-radius: 999px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.explore-mobile-cart-action:hover {
+  transform: translateY(-1px);
+}
+
+.explore-mobile-cart-action-primary {
+  border: 1px solid rgba(245, 217, 122, 0.62);
+  background: linear-gradient(135deg, #e6c37a, #d7b04f);
+  color: #111;
+}
+
+.explore-mobile-cart-action-secondary {
+  border: 1px solid rgba(245, 217, 122, 0.4);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5d97a;
 }
 html, body {
   margin: 0;
@@ -223,9 +261,14 @@ html, body {
 
 @media (max-width: 600px) {
   .explore-mobile-cart-fab {
-    right: 12px;
+    left: 10px;
+    right: 10px;
     bottom: 14px;
     padding: 11px 13px;
+  }
+
+  .explore-mobile-cart-actions {
+    grid-template-columns: 1fr;
   }
 
   .ws-grid {
@@ -1422,6 +1465,73 @@ margin-left: 15px;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
 
   transition: all 0.25s ease;
+}
+
+.explore-cart-cashback-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.explore-cart-cashback-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.explore-cart-cashback-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.explore-cart-cashback-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f5d97a;
+}
+
+.explore-cart-cashback-copy {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.explore-cart-cashback-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.explore-cart-btn-row {
+  display: flex;
+  gap: 10px;
+}
+
+.explore-cart-login-btn,
+.explore-cart-go-btn {
+  min-width: 150px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.explore-cart-login-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5d97a;
+  border: 1px solid rgba(230, 195, 122, 0.45);
+}
+
+.explore-cart-go-btn {
+  background: linear-gradient(135deg, #e6c37a, #d5ad4f);
+  color: #111;
+  border: 1px solid rgba(230, 195, 122, 0.6);
+}
+
+.explore-cart-login-btn:hover,
+.explore-cart-go-btn:hover {
+  transform: translateY(-1px);
 }
 /* .explore-cart-cashback-text {
   display: flex;

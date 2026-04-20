@@ -27,6 +27,7 @@ import { useSearchParams } from "next/navigation";
 import { useSessionGuard } from "../Login/useSessionGuard";
 import ModernPreviewTemplate from "./templates/ModernPreviewTemplate";
 import CatalogPreviewTemplate from "./templates/CatalogPreviewTemplate";
+import { CART_UPDATED_EVENT, ENQUIRY_OPEN_EVENT } from "../utils/enquiryFlow";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -1103,6 +1104,7 @@ function ExploreContent({ onReady, onOpenServices }) {
   const [showVendorOtp, setShowVendorOtp] = useState(false);
   const [loginAsAdmin, setLoginAsAdmin] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
+  const [hasActiveVendorSession, setHasActiveVendorSession] = useState(false);
 
   const finalTotal = Math.max(cartTotal - appliedDiscount, 0);
 
@@ -2618,6 +2620,68 @@ function ExploreContent({ onReady, onOpenServices }) {
     );
   };
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const cartState = {
+      vendorId: String(vendorId || ""),
+      rootCategoryId: String(rootCategoryId || ""),
+      cartItems,
+      cartTotal,
+    };
+
+    window.__ynotCartState = cartState;
+    window.dispatchEvent(
+      new CustomEvent(CART_UPDATED_EVENT, {
+        detail: cartState,
+      })
+    );
+  }, [cartItems, cartTotal, rootCategoryId, vendorId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const syncVendorSessionState = () => {
+      const resolvedVendorId = String(vendorId || "");
+      const sessionVendorId = localStorage.getItem("vendorSessionVendorId");
+      const vendorToken = resolvedVendorId
+        ? localStorage.getItem(`vendorToken:${resolvedVendorId}`)
+        : null;
+      const isActive =
+        Boolean(vendorToken) &&
+        (!sessionVendorId || String(sessionVendorId) === resolvedVendorId);
+
+      setHasActiveVendorSession(isActive);
+    };
+
+    syncVendorSessionState();
+    window.addEventListener("storage", syncVendorSessionState);
+    window.addEventListener("auth-changed", syncVendorSessionState);
+    window.addEventListener("session-expired", syncVendorSessionState);
+    window.addEventListener("focus", syncVendorSessionState);
+
+    return () => {
+      window.removeEventListener("storage", syncVendorSessionState);
+      window.removeEventListener("auth-changed", syncVendorSessionState);
+      window.removeEventListener("session-expired", syncVendorSessionState);
+      window.removeEventListener("focus", syncVendorSessionState);
+    };
+  }, [vendorId]);
+
+  const handleClassicEnquiryAction = () => {
+    if (typeof window === "undefined") return;
+
+    setViewMode("preview");
+    window.dispatchEvent(
+      new CustomEvent(ENQUIRY_OPEN_EVENT, {
+        detail: { source: "classic-cart" },
+      })
+    );
+
+    const contactSection = document.getElementById("contact");
+    contactSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const menuClassForDepth = (depth, isLeaf = false) => {
     if (isLeaf) return "menu-leaf";
     if (depth === 0) return "menu-root";
@@ -3290,12 +3354,31 @@ function ExploreContent({ onReady, onOpenServices }) {
                         </div>
 
                         <div className="explore-cart-cashback-actions">
-                          <button
-                            className="explore-cart-go-btn"
-                            onClick={() => setViewMode("menu")}
-                          >
-                            Go to Cart
-                          </button>
+                          {hasActiveVendorSession ? (
+                            <button
+                              className="explore-cart-go-btn"
+                              onClick={() => setViewMode("menu")}
+                            >
+                              Go to Cart
+                            </button>
+                          ) : (
+                            <div className="explore-cart-btn-row">
+                              <button
+                                type="button"
+                                className="explore-cart-login-btn"
+                                onClick={handleClassicEnquiryAction}
+                              >
+                                Service Enquiry
+                              </button>
+                              <button
+                                type="button"
+                                className="explore-cart-go-btn"
+                                onClick={handleGenerateBill}
+                              >
+                                Generate Bill
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -3315,15 +3398,39 @@ function ExploreContent({ onReady, onOpenServices }) {
             </div>
           </section>
           {isMobile && viewMode !== "menu" && cartItems.length > 0 && (
-            <button
-              type="button"
-              className="explore-mobile-cart-fab"
-              onClick={() => setViewMode("menu")}
-            >
-              <span className="explore-mobile-cart-count">{cartItems.length}</span>
-              <span className="explore-mobile-cart-label">Cart</span>
-              <span className="explore-mobile-cart-total">₹ {cartTotal}</span>
-            </button>
+            <div className="explore-mobile-cart-fab">
+              <div className="explore-mobile-cart-summary">
+                <span className="explore-mobile-cart-count">{cartItems.length}</span>
+                <span className="explore-mobile-cart-label">Cart</span>
+                <span className="explore-mobile-cart-total">₹ {cartTotal}</span>
+              </div>
+              {hasActiveVendorSession ? (
+                <button
+                  type="button"
+                  className="explore-mobile-cart-action explore-mobile-cart-action-primary"
+                  onClick={() => setViewMode("menu")}
+                >
+                  Go to Cart
+                </button>
+              ) : (
+                <div className="explore-mobile-cart-actions">
+                  <button
+                    type="button"
+                    className="explore-mobile-cart-action explore-mobile-cart-action-secondary"
+                    onClick={handleClassicEnquiryAction}
+                  >
+                    Service Enquiry
+                  </button>
+                  <button
+                    type="button"
+                    className="explore-mobile-cart-action explore-mobile-cart-action-primary"
+                    onClick={handleGenerateBill}
+                  >
+                    Generate Bill
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           {category?.whyUs && (
             <AdvantageSection whyUs={category.whyUs} />
