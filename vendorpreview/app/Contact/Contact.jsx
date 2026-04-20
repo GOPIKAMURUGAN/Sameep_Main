@@ -144,11 +144,19 @@ export default function ContactSection() {
     () => normalizeCartItems(cartState?.cartItems || []),
     [cartState]
   );
+  const serviceInterestOptions = normalizedCartItems.map((item) => ({
+    value: item.cartKey,
+    label: `${item.label} x${item.qty}${item.total > 0 ? ` • ${formatCurrency(item.total)}` : ""}`,
+  }));
+  const activeServiceInterest =
+    serviceInterestOptions.some((option) => option.value === selectedServiceInterest)
+      ? selectedServiceInterest
+      : serviceInterestOptions[0]?.value || "";
   const effectiveCartItems = useMemo(() => {
     if (!requiresCartSelection) return normalizedCartItems;
-    if (!selectedServiceInterest) return normalizedCartItems;
-    return normalizedCartItems.filter((item) => item.cartKey === selectedServiceInterest);
-  }, [normalizedCartItems, requiresCartSelection, selectedServiceInterest]);
+    if (!activeServiceInterest) return normalizedCartItems;
+    return normalizedCartItems.filter((item) => item.cartKey === activeServiceInterest);
+  }, [activeServiceInterest, normalizedCartItems, requiresCartSelection]);
   const cartSummary = useMemo(() => {
     return effectiveCartItems
       .map((item) => `${item.label} x${item.qty}${item.total > 0 ? ` • ${formatCurrency(item.total)}` : ""}`)
@@ -169,11 +177,6 @@ export default function ContactSection() {
     () => supportedEnquiryFields.find((field) => isLikelyPhoneField(field)),
     [supportedEnquiryFields]
   );
-
-  const serviceInterestOptions = normalizedCartItems.map((item) => ({
-    value: item.cartKey,
-    label: `${item.label} x${item.qty}${item.total > 0 ? ` • ${formatCurrency(item.total)}` : ""}`,
-  }));
 
   const phone =
     vendorInfo?.phone ||
@@ -204,7 +207,7 @@ export default function ContactSection() {
       return;
     }
 
-    if (requiresCartSelection && !selectedServiceInterest && normalizedCartItems.length > 0) {
+    if (requiresCartSelection && !activeServiceInterest && normalizedCartItems.length > 0) {
       setFeedback("Please choose the service interest from your selected items.");
       return;
     }
@@ -258,7 +261,7 @@ export default function ContactSection() {
       categoryData?.name ||
       "classic-preview";
     const selectedInterestItem = normalizedCartItems.find(
-      (item) => item.cartKey === selectedServiceInterest
+      (item) => item.cartKey === activeServiceInterest
     );
 
     if (cartSummary) {
@@ -281,7 +284,7 @@ export default function ContactSection() {
       meta: {
         template: "classic-preview",
         enquiryType: String(enquiryConfig?.enquiryType || "").trim(),
-        serviceInterest: selectedServiceInterest || "",
+        serviceInterest: activeServiceInterest || "",
         serviceInterestLabel: selectedInterestItem ? getCartHierarchyLabel(selectedInterestItem) : "",
         cartQty: totalQty,
         cartLineCount: effectiveCartItems.length,
@@ -431,7 +434,7 @@ export default function ContactSection() {
             {requiresCartSelection && normalizedCartItems.length > 0 ? (
               <select
                 className="contact-select"
-                value={selectedServiceInterest}
+                value={activeServiceInterest}
                 onChange={(event) => setSelectedServiceInterest(event.target.value)}
               >
                 <option value="">Select service interest</option>
