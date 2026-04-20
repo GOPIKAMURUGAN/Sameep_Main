@@ -6,6 +6,10 @@ const {
   getStoredWhatsAppBillingConfig,
   normalizeWhatsAppBillingConfig,
 } = require("../utils/whatsappBillingConfig");
+const {
+  getStoredWhatsAppEnquiryConfig,
+  normalizeWhatsAppEnquiryConfig,
+} = require("../utils/whatsappEnquiryConfig");
 
 // Helper to get a config value by key, or null if not set
 async function getConfigValue(key) {
@@ -45,6 +49,17 @@ function normalizeWhatsAppBillingInput(value) {
         : 30,
     bodyVariables: Array.isArray(config.bodyVariables) ? config.bodyVariables : [],
     buttonUrlVariable: config.buttonUrlVariable || "",
+  };
+}
+
+function normalizeWhatsAppEnquiryInput(value) {
+  const config = normalizeWhatsAppEnquiryConfig(value);
+
+  return {
+    enabled: config.enabled === undefined ? true : Boolean(config.enabled),
+    templateName: config.templateName,
+    language: config.language || "en",
+    body: config.body,
   };
 }
 
@@ -105,6 +120,22 @@ router.get("/whatsapp-billing", async (req, res) => {
         ttlDays: value.ttlDays,
         bodyVariables: value.bodyVariables,
         buttonUrlVariable: value.buttonUrlVariable,
+      })
+    );
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get("/whatsapp-enquiry", async (req, res) => {
+  try {
+    const value = await getStoredWhatsAppEnquiryConfig();
+    res.json(
+      normalizeWhatsAppEnquiryInput({
+        enabled: value.enabled,
+        templateName: value.templateName,
+        language: value.language || "en",
+        body: value.body,
       })
     );
   } catch (err) {
@@ -178,6 +209,30 @@ router.post("/whatsapp-billing", async (req, res) => {
     ).lean();
 
     res.json(normalizeWhatsAppBillingInput(updated.value));
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+router.post("/whatsapp-enquiry", async (req, res) => {
+  try {
+    const value = normalizeWhatsAppEnquiryInput(req.body);
+
+    if (!value.templateName) {
+      return res.status(400).json({ message: "templateName is required" });
+    }
+
+    if (!value.body) {
+      return res.status(400).json({ message: "body is required" });
+    }
+
+    const updated = await AppConfig.findOneAndUpdate(
+      { key: "whatsAppEnquiryConfig" },
+      { key: "whatsAppEnquiryConfig", value },
+      { new: true, upsert: true }
+    ).lean();
+
+    res.json(normalizeWhatsAppEnquiryInput(updated.value));
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

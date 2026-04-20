@@ -16,7 +16,7 @@ import { API_BASE_URL } from "../config";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return normalized === "modern" ? "modern" : normalized === "classic" ? "classic" : "";
+  return ["classic", "modern", "catalog"].includes(normalized) ? normalized : "";
 }
 
 function PageContent() {
@@ -29,7 +29,7 @@ function PageContent() {
     normalizePreviewTemplateKey(vendorInfo?.selectedTemplateKey) ||
     normalizePreviewTemplateKey(defaultTemplateKey) ||
     "classic";
-  const isModernTemplate = effectiveTemplateKey === "modern";
+  const isImmersiveTemplate = effectiveTemplateKey !== "classic";
 
   useEffect(() => {
     let cancelled = false;
@@ -58,12 +58,12 @@ function PageContent() {
 
   return (
     <div>
-      {!isModernTemplate ? <Header /> : null}
+      {!isImmersiveTemplate ? <Header /> : null}
       <Hero />
       <Explore />
       <Root />
       <About />
-      {!isModernTemplate ? <Contact /> : null}
+      {!isImmersiveTemplate ? <Contact /> : null}
       <ScrollToTop />
       <Portal />
     </div>

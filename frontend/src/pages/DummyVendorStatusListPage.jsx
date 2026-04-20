@@ -48,6 +48,7 @@ export default function DummyVendorStatusListPage() {
   const [socialHandleIcons, setSocialHandleIcons] = useState({}); // normalized name -> iconUrl
   const [vendorSocialLinks, setVendorSocialLinks] = useState({}); // raw { [handleName]: url }
   const [socialLinksSaving, setSocialLinksSaving] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const previewBase = String(PREVIEW_BASE_URL || "").trim().replace(/\/$/, "");
 
   const isRegisteredStatus = String(status || "").trim().toLowerCase() === "registered";
@@ -297,6 +298,21 @@ export default function DummyVendorStatusListPage() {
 
   useEffect(() => { fetchVendors(); }, [status, categoryId]);
   useEffect(() => { fetchStatusCounts(); }, [categoryId]);
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop =
+        window.pageYOffset ||
+        document.documentElement.scrollTop ||
+        document.body.scrollTop ||
+        0;
+      setShowScrollTop(scrollTop > 300);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const normalizeHandle = (v) => {
     try {
@@ -648,6 +664,39 @@ export default function DummyVendorStatusListPage() {
           </tbody>
         </table>
       )}
+
+      {showScrollTop ? (
+        <button
+          type="button"
+          onClick={() =>
+            window.scrollTo({
+              top: 0,
+              behavior: "smooth",
+            })
+          }
+          aria-label="Move to top"
+          title="Move to top"
+          style={{
+            position: "fixed",
+            right: 24,
+            bottom: 24,
+            width: 48,
+            height: 48,
+            borderRadius: "999px",
+            border: "none",
+            background: "#0ea5e9",
+            color: "#fff",
+            fontSize: 22,
+            fontWeight: 700,
+            cursor: "pointer",
+            boxShadow: "0 10px 24px rgba(14, 165, 233, 0.28)",
+            zIndex: 1100,
+          }}
+        >
+          ↑
+        </button>
+      ) : null}
+
       {showStatusModal && (
         <div
           style={{

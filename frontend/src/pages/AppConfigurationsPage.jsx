@@ -52,6 +52,9 @@ const TEMPLATE_PROFILE_PRESETS = {
 };
 
 const WHATSAPP_BILLING_TEMPLATE_LIBRARY_KEY = "whatsapp_billing_template_library_v1";
+const WHATSAPP_ENQUIRY_TEMPLATE_LIBRARY_KEY = "whatsapp_enquiry_template_library_v1";
+const DEFAULT_WHATSAPP_ENQUIRY_TEMPLATE_BODY =
+  "You have received a new enquiry. Open Dashboard > Enquiries to review the details and respond.";
 
 function AppConfigurationsPage() {
   const [availableHours, setAvailableHours] = useState([]);
@@ -83,6 +86,16 @@ function AppConfigurationsPage() {
   const [templateLibrary, setTemplateLibrary] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateDraftName, setTemplateDraftName] = useState("");
+  const [whatsAppEnquiryConfig, setWhatsAppEnquiryConfig] = useState({
+    templateName: "vendor_enquiry",
+    language: "en",
+    body: DEFAULT_WHATSAPP_ENQUIRY_TEMPLATE_BODY,
+  });
+  const [enquiryTemplateLibrary, setEnquiryTemplateLibrary] = useState([]);
+  const [selectedEnquiryTemplateId, setSelectedEnquiryTemplateId] = useState("");
+  const [enquiryTemplateDraftName, setEnquiryTemplateDraftName] = useState("vendor_enquiry");
+  const [whatsAppEnquiryMessage, setWhatsAppEnquiryMessage] = useState("");
+  const [savingWhatsAppEnquiry, setSavingWhatsAppEnquiry] = useState(false);
   const requiresPublicBillBaseUrl =
     whatsAppBillingConfig.templateProfile === "view_bill_dynamic_url" ||
     whatsAppBillingConfig.templateProfile === "bill_url_7_param";
@@ -109,6 +122,29 @@ function AppConfigurationsPage() {
     updatedAt: new Date().toISOString(),
   });
 
+  const persistEnquiryTemplateLibrary = (nextTemplates) => {
+    setEnquiryTemplateLibrary(nextTemplates);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        WHATSAPP_ENQUIRY_TEMPLATE_LIBRARY_KEY,
+        JSON.stringify(nextTemplates)
+      );
+    }
+  };
+
+  const buildEnquiryTemplateSnapshot = (forcedId) => ({
+    id: forcedId || selectedEnquiryTemplateId || `enquiry_tpl_${Date.now()}`,
+    name: (
+      enquiryTemplateDraftName ||
+      whatsAppEnquiryConfig.templateName ||
+      "Untitled Enquiry Template"
+    ).trim(),
+    config: {
+      ...whatsAppEnquiryConfig,
+    },
+    updatedAt: new Date().toISOString(),
+  });
+
   // Load config from backend on mount
   useEffect(() => {
     const fetchConfig = async () => {
@@ -121,6 +157,20 @@ function AppConfigurationsPage() {
           }
         } catch (err) {
           console.error("Failed to load WhatsApp billing template library", err);
+        }
+
+        try {
+          const rawEnquiryTemplates = localStorage.getItem(
+            WHATSAPP_ENQUIRY_TEMPLATE_LIBRARY_KEY
+          );
+          const parsedEnquiryTemplates = rawEnquiryTemplates
+            ? JSON.parse(rawEnquiryTemplates)
+            : [];
+          if (Array.isArray(parsedEnquiryTemplates)) {
+            setEnquiryTemplateLibrary(parsedEnquiryTemplates);
+          }
+        } catch (err) {
+          console.error("Failed to load WhatsApp enquiry template library", err);
         }
       }
 
@@ -177,6 +227,18 @@ function AppConfigurationsPage() {
         setTemplateDraftName(res.data?.templateName || "");
       } catch (err) {
         console.error("Failed to load WhatsApp billing config", err);
+      }
+
+      try {
+        const res = await API.get("/api/app-config/whatsapp-enquiry");
+        setWhatsAppEnquiryConfig({
+          templateName: res.data?.templateName || "vendor_enquiry",
+          language: res.data?.language || "en",
+          body: res.data?.body || DEFAULT_WHATSAPP_ENQUIRY_TEMPLATE_BODY,
+        });
+        setEnquiryTemplateDraftName(res.data?.templateName || "vendor_enquiry");
+      } catch (err) {
+        console.error("Failed to load WhatsApp enquiry config", err);
       }
     };
 
@@ -308,6 +370,79 @@ function AppConfigurationsPage() {
         bodyVariables: nextBodyVariables,
       };
     });
+  };
+
+  const handleLoadEnquiryTemplate = (templateId) => {
+    const selectedTemplate = enquiryTemplateLibrary.find((template) => template.id === templateId);
+    if (!selectedTemplate?.config) return;
+
+    setSelectedEnquiryTemplateId(selectedTemplate.id);
+    setEnquiryTemplateDraftName(
+      selectedTemplate.name || selectedTemplate.config.templateName || ""
+    );
+    setWhatsAppEnquiryConfig({
+      templateName: selectedTemplate.config.templateName || "vendor_enquiry",
+      language: selectedTemplate.config.language || "en",
+      body: selectedTemplate.config.body || DEFAULT_WHATSAPP_ENQUIRY_TEMPLATE_BODY,
+    });
+    setWhatsAppEnquiryMessage(
+      `Loaded enquiry template "${selectedTemplate.name || selectedTemplate.config.templateName}".`
+    );
+  };
+
+  const handleSaveEnquiryTemplateAsNew = () => {
+    const snapshot = buildEnquiryTemplateSnapshot(`enquiry_tpl_${Date.now()}`);
+    const nextTemplates = [snapshot, ...enquiryTemplateLibrary];
+    persistEnquiryTemplateLibrary(nextTemplates);
+    setSelectedEnquiryTemplateId(snapshot.id);
+    setEnquiryTemplateDraftName(snapshot.name);
+    setWhatsAppEnquiryMessage(`Saved enquiry template "${snapshot.name}" in this admin browser.`);
+  };
+
+  const handleUpdateSelectedEnquiryTemplate = () => {
+    if (!selectedEnquiryTemplateId) {
+      setWhatsAppEnquiryMessage("Select or save an enquiry template first.");
+      return;
+    }
+
+    const snapshot = buildEnquiryTemplateSnapshot(selectedEnquiryTemplateId);
+    const nextTemplates = enquiryTemplateLibrary.map((template) =>
+      template.id === selectedEnquiryTemplateId ? snapshot : template
+    );
+    persistEnquiryTemplateLibrary(nextTemplates);
+    setEnquiryTemplateDraftName(snapshot.name);
+    setWhatsAppEnquiryMessage(
+      `Updated enquiry template "${snapshot.name}" in this admin browser.`
+    );
+  };
+
+  const handleDeleteEnquiryTemplate = (templateId) => {
+    const nextTemplates = enquiryTemplateLibrary.filter((template) => template.id !== templateId);
+    persistEnquiryTemplateLibrary(nextTemplates);
+    if (selectedEnquiryTemplateId === templateId) {
+      setSelectedEnquiryTemplateId("");
+    }
+  };
+
+  const handleSaveWhatsAppEnquiry = async () => {
+    try {
+      setSavingWhatsAppEnquiry(true);
+      setWhatsAppEnquiryMessage("");
+      await API.post("/api/app-config/whatsapp-enquiry", {
+        enabled: true,
+        templateName: (whatsAppEnquiryConfig.templateName || "").trim(),
+        language: (whatsAppEnquiryConfig.language || "en").trim() || "en",
+        body: (whatsAppEnquiryConfig.body || "").trim(),
+      });
+      setWhatsAppEnquiryMessage("WhatsApp enquiry configuration saved.");
+    } catch (err) {
+      console.error("Failed to save WhatsApp enquiry config", err);
+      setWhatsAppEnquiryMessage(
+        err?.response?.data?.message || "Failed to save WhatsApp enquiry configuration."
+      );
+    } finally {
+      setSavingWhatsAppEnquiry(false);
+    }
   };
 
   const saveConfig = async (hours, selected) => {
@@ -582,6 +717,262 @@ function AppConfigurationsPage() {
               </span>
             ) : null}
           </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          border: "1px solid #ddd",
+          borderRadius: "8px",
+          padding: "20px",
+          marginBottom: "20px",
+          background: "#fff",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        }}
+      >
+        <h2 style={{ fontSize: "18px", marginBottom: "10px", color: "#00AEEF" }}>
+          WhatsApp Enquiry Alerts
+        </h2>
+        <p style={{ marginBottom: "15px", color: "#555" }}>
+          Prepare the approved vendor enquiry template and keep room for additional templates later.
+        </p>
+
+        <div style={{ display: "grid", gap: "12px", maxWidth: "640px" }}>
+          <div
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: "8px",
+              padding: "14px",
+              background: "#f8fafc",
+              display: "grid",
+              gap: "12px",
+            }}
+          >
+            <div style={{ display: "grid", gap: "6px" }}>
+              <span style={{ fontSize: "14px", color: "#333", fontWeight: 600 }}>
+                Template Library
+              </span>
+              <input
+                type="text"
+                value={enquiryTemplateDraftName}
+                onChange={(e) => setEnquiryTemplateDraftName(e.target.value)}
+                placeholder="Template label for admin use"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                  background: "#fff",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={handleSaveEnquiryTemplateAsNew}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #0284c7",
+                  background: "#0284c7",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                }}
+              >
+                Save As New
+              </button>
+              <button
+                type="button"
+                onClick={handleUpdateSelectedEnquiryTemplate}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #94a3b8",
+                  background: "#fff",
+                  color: "#334155",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                }}
+              >
+                Update Selected
+              </button>
+            </div>
+
+            {enquiryTemplateLibrary.length > 0 ? (
+              <div style={{ display: "grid", gap: "8px" }}>
+                {enquiryTemplateLibrary.map((template) => (
+                  <div
+                    key={template.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      alignItems: "center",
+                      padding: "10px 12px",
+                      borderRadius: "6px",
+                      border:
+                        template.id === selectedEnquiryTemplateId
+                          ? "1px solid #38bdf8"
+                          : "1px solid #e5e7eb",
+                      background: "#fff",
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: "14px", fontWeight: 600, color: "#1f2937" }}>
+                        {template.name || template.config?.templateName || "Untitled Enquiry Template"}
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#64748b" }}>
+                        {template.config?.templateName || "No template name"} ·{" "}
+                        {template.config?.language || "en"}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleLoadEnquiryTemplate(template.id)}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: "4px",
+                          border: "1px solid #22c55e",
+                          background: "#22c55e",
+                          color: "#fff",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                        }}
+                      >
+                        Load
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEnquiryTemplate(template.id)}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: "4px",
+                          border: "1px solid #ef4444",
+                          background: "#fff",
+                          color: "#ef4444",
+                          cursor: "pointer",
+                          fontSize: "12px",
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ margin: 0, fontSize: "12px", color: "#64748b" }}>
+                Save reusable WhatsApp enquiry templates here for quick switching in this admin
+                browser. Backend save wiring can be added next.
+              </p>
+            )}
+          </div>
+
+          <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
+            <span>Template name</span>
+            <input
+              type="text"
+              value={whatsAppEnquiryConfig.templateName}
+              onChange={(e) =>
+                setWhatsAppEnquiryConfig((prev) => ({
+                  ...prev,
+                  templateName: e.target.value,
+                }))
+              }
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+              }}
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333", maxWidth: "220px" }}>
+            <span>Language</span>
+            <input
+              type="text"
+              value={whatsAppEnquiryConfig.language}
+              onChange={(e) =>
+                setWhatsAppEnquiryConfig((prev) => ({
+                  ...prev,
+                  language: e.target.value,
+                }))
+              }
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+              }}
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: "6px", fontSize: "14px", color: "#333" }}>
+            <span>Message body</span>
+            <textarea
+              rows={4}
+              value={whatsAppEnquiryConfig.body}
+              onChange={(e) =>
+                setWhatsAppEnquiryConfig((prev) => ({
+                  ...prev,
+                  body: e.target.value,
+                }))
+              }
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+            />
+          </label>
+
+          <p style={{ margin: 0, fontSize: "13px", color: "#666" }}>
+            Current default: static vendor alert with no variables. This UI is intentionally ready
+            for multiple enquiry templates later.
+          </p>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
+            <button
+              type="button"
+              onClick={handleSaveWhatsAppEnquiry}
+              disabled={savingWhatsAppEnquiry}
+              style={{
+                padding: "10px 14px",
+                borderRadius: "4px",
+                border: "1px solid #00AEEF",
+                background: savingWhatsAppEnquiry ? "#93c5fd" : "#00AEEF",
+                color: "#fff",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              {savingWhatsAppEnquiry ? "Saving..." : "Save WhatsApp Enquiry"}
+            </button>
+          </div>
+
+          {whatsAppEnquiryMessage ? (
+            <span
+              style={{
+                fontSize: "13px",
+                color:
+                  whatsAppEnquiryMessage.includes("Failed") ||
+                  whatsAppEnquiryMessage.includes("required")
+                    ? "#b91c1c"
+                    : whatsAppEnquiryMessage.includes("Select")
+                    ? "#b45309"
+                    : "#166534",
+              }}
+            >
+              {whatsAppEnquiryMessage}
+            </span>
+          ) : null}
         </div>
       </div>
 

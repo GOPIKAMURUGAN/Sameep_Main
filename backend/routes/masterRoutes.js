@@ -12,6 +12,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 function toFamilyKey(t) {
   if (!t) return null;
   const tl = String(t).toLowerCase();
+  if (tl === "businessfield" || tl === "business field") return "businessField";
   if (tl.startsWith("bike")) return "bikes";
   if (tl.startsWith("temobus") || tl.startsWith("tempo")) return "tempoMinibuses";
   // common car attribute types
@@ -92,7 +93,7 @@ router.post("/", upload.single("image"), async (req, res) => {
 
 
   try {
-    const { name, type, sequence, options, autoCalc, parent } = req.body;
+    const { name, type, fieldType, sequence, options, autoCalc, parent } = req.body;
 
     let originalType = type;
     let finalType = type;
@@ -112,7 +113,7 @@ router.post("/", upload.single("image"), async (req, res) => {
     const item = new Master({
       name,
       type: finalType,
-      fieldType: finalType !== (originalType || null) ? originalType : null,
+      fieldType: fieldType ? String(fieldType).trim().toLowerCase() : (finalType !== (originalType || null) ? originalType : null),
       sequence,
       options: options ? options.split(",") : [],
       autoCalc: autoCalc === "true",
@@ -159,7 +160,7 @@ router.post("/", upload.single("image"), async (req, res) => {
 // --- UPDATE item ---
 router.put("/:id", upload.single("image"), async (req, res) => {
   try {
-    const { name, type, sequence, options, autoCalc, parent } = req.body;
+    const { name, type, fieldType, sequence, options, autoCalc, parent } = req.body;
 
     const updateData = {
       name,
@@ -175,7 +176,11 @@ router.put("/:id", upload.single("image"), async (req, res) => {
       const fam = toFamilyKey(type);
       const finalType = fam || (type || null);
       updateData.type = finalType;
-      updateData.fieldType = finalType !== (type || null) ? (type || null) : null;
+      updateData.fieldType = fieldType
+        ? String(fieldType).trim().toLowerCase()
+        : (finalType !== (type || null) ? (type || null) : null);
+    } else if ("fieldType" in req.body) {
+      updateData.fieldType = fieldType ? String(fieldType).trim().toLowerCase() : null;
     }
 
     let oldUrl = null;

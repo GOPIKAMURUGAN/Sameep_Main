@@ -2,6 +2,45 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import API_BASE_URL from "../config";
 
+function normalizeBusinessFieldType(fieldType, fallbackType = "") {
+  const normalized = String(fieldType || "").trim().toLowerCase();
+  const fallback = String(fallbackType || "").trim().toLowerCase();
+
+  const candidate =
+    normalized &&
+    normalized !== "businessfield" &&
+    normalized !== "business field"
+      ? normalized
+      : fallback;
+
+  if (
+    candidate === "datetime" ||
+    candidate === "datetime-local" ||
+    candidate === "date & time" ||
+    candidate === "dateandtime" ||
+    candidate === "date_time"
+  ) {
+    return "datetime";
+  }
+
+  if (
+    [
+      "text",
+      "number",
+      "location",
+      "radio",
+      "select",
+      "checkbox",
+      "document",
+      "image",
+    ].includes(candidate)
+  ) {
+    return candidate;
+  }
+
+  return "text";
+}
+
 
 // Card component
 // Card component
@@ -85,7 +124,9 @@ function BusinessFieldModal({ show, onClose, onSave, initialData }) {
   useEffect(() => {
     if (show) {
       setName(initialData?.name || "");
-      setFieldType(initialData?.fieldType || "");
+      setFieldType(
+        normalizeBusinessFieldType(initialData?.fieldType, initialData?.type)
+      );
       setOptions(initialData?.options?.join(", ") || "");
       setAutoCalc(initialData?.autoCalc || false);
     }
@@ -98,7 +139,7 @@ function BusinessFieldModal({ show, onClose, onSave, initialData }) {
     onSave({
       ...initialData,
       name,
-      fieldType,
+      fieldType: normalizeBusinessFieldType(fieldType),
       options,
       autoCalc,
     });
@@ -249,7 +290,12 @@ export default function BusinessFieldsPage() {
         `${API_BASE_URL}/api/masters`,
         { params: { type: "businessField" } }
       );
-      setFields(res.data);
+      setFields(
+        (Array.isArray(res.data) ? res.data : []).map((field) => ({
+          ...field,
+          fieldType: normalizeBusinessFieldType(field?.fieldType, field?.type),
+        }))
+      );
     } catch (err) {
       console.error(err);
       alert("Failed to fetch business fields");
@@ -267,8 +313,8 @@ export default function BusinessFieldsPage() {
     formData.append("type", "businessField");
     formData.append("sequence", 0);
     
-    // Convert fieldType "Date & Time" to "date" for backend
-    const backendFieldType = data.fieldType === "date & time" ? "date" : data.fieldType;
+    // Preserve the actual configured type so preview forms can render correctly
+    const backendFieldType = data.fieldType;
     formData.append("fieldType", backendFieldType);
 
     formData.append("options", data.options || "");

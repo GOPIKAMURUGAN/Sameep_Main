@@ -22,6 +22,15 @@ const SUPPORTED_PREVIEW_TEMPLATES = [
     isDefault: false,
     sortOrder: 2,
   },
+  {
+    key: "catalog",
+    name: "Service Catalog",
+    description: "Category-first browsing template with service tiles and detailed service rows.",
+    previewHint: "Best for vendors who want an app-like service discovery experience.",
+    status: "Active",
+    isDefault: false,
+    sortOrder: 3,
+  },
 ];
 
 async function syncSupportedTemplates() {

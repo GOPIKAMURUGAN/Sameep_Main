@@ -16,7 +16,7 @@ import ScrollToTop from "./components/ScrollToTop";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return normalized === "modern" ? "modern" : normalized === "classic" ? "classic" : "";
+  return ["classic", "modern", "catalog"].includes(normalized) ? normalized : "";
 }
 
 export default function Home() {
@@ -29,7 +29,7 @@ export default function Home() {
     normalizePreviewTemplateKey(vendorInfo?.selectedTemplateKey) ||
     normalizePreviewTemplateKey(defaultTemplateKey) ||
     "classic";
-  const isModernTemplate = effectiveTemplateKey === "modern";
+  const isImmersiveTemplate = effectiveTemplateKey !== "classic";
   const [loading, setLoading] = useState(true);
   const [checkingSession, setCheckingSession] = useState(true);
   const [sessionAllowed, setSessionAllowed] = useState(() => {
@@ -149,12 +149,12 @@ if (!sessionAllowed) {
       <div style={{ visibility: loading ? "hidden" : "visible" }}>
 
         {/* HEADER */}
-      {!isModernTemplate ? <Header /> : null}
+      {!isImmersiveTemplate ? <Header /> : null}
 <Hero />
 <Explore onReady={() => setLoading(false)} />
 <Root />
 <About />
-{!isModernTemplate ? <Contact /> : null}
+{!isImmersiveTemplate ? <Contact /> : null}
 
 
 <ScrollToTop />

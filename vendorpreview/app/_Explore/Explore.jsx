@@ -22,13 +22,15 @@ import YearRevenue from "../components/dashboard/YearRevenue";
 import CustomerSearch from "../components/dashboard/CustomerSearch";
 import LoyaltySettings from "../components/dashboard/LoyaltySettings";
 import SubscriptionDashboard from "../components/dashboard/SubscriptionDashboard";
+import EnquiriesDashboard from "../components/dashboard/EnquiriesDashboard";
 import { useSearchParams } from "next/navigation";
 import { useSessionGuard } from "../Login/useSessionGuard";
 import ModernPreviewTemplate from "./templates/ModernPreviewTemplate";
+import CatalogPreviewTemplate from "./templates/CatalogPreviewTemplate";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return normalized === "modern" ? "modern" : normalized === "classic" ? "classic" : "";
+  return ["classic", "modern", "catalog"].includes(normalized) ? normalized : "";
 }
 // import { useLoginPopup } from "./LoginPopupContext";
 
@@ -249,6 +251,17 @@ function ServiceCard({ data, sectionName, openLogin, addToCart }) {
     return `₹${price.toLocaleString("en-IN")}`;
   };
 
+  const buildCartPath = (...segments) => {
+    const normalized = segments
+      .map((segment) => String(segment || "").trim())
+      .filter(Boolean);
+
+    return normalized.filter((segment, index) => {
+      if (index === 0) return true;
+      return segment.toLowerCase() !== normalized[index - 1].toLowerCase();
+    });
+  };
+
 useEffect(() => {
   if (!selectedMain || !selectedSub) {
     setSelectedSubSub(null);
@@ -391,7 +404,7 @@ const total = useMemo(() => {
   }, [data.options, selectedMain, selectedSub]);
 
   const handleSimpleAddToCart = () => {
-    const categoryPath = [sectionName, data.title].filter(Boolean);
+    const categoryPath = buildCartPath(sectionName, data.title);
     const serviceId = data.id || data._id || data.categoryId || data.title;
     const serviceName = data.title;
 
@@ -408,12 +421,13 @@ const total = useMemo(() => {
   };
 
 const handleConfiguredAddToCart = () => {
-  const categoryPath = [
+  const categoryPath = buildCartPath(
     sectionName,
+    data.title,
     selectedMain,
     selectedSub,
     selectedSubSub
-  ].filter(Boolean);
+  );
 
 const serviceId = data.id || data._id || data.categoryId;
 const cartKey = [
@@ -3083,6 +3097,7 @@ function ExploreContent({ onReady, onOpenServices }) {
         <ModernPreviewTemplate
           vendorInfo={vendorInfo}
           category={category}
+          enquiryConfig={hrCategory?.enquiryConfig || category?.enquiryConfig || null}
           orderedCategories={orderedCategories}
           sectionsWithHeading={sectionsWithHeading}
           cardsWithoutHeading={cardsWithoutHeading}
@@ -3093,6 +3108,23 @@ function ExploreContent({ onReady, onOpenServices }) {
           heroButton1={heroButton1}
           heroButton2={heroButton2}
           onPrimaryAction={handleHeroButton1Click}
+          onOpenMenu={() => setViewMode("menu")}
+          cartItems={cartItems}
+          cartTotal={cartTotal}
+          onAddToCart={addToCart}
+          onIncreaseQty={increaseQty}
+          onDecreaseQty={decreaseQty}
+        />
+      ) : activeTemplateKey === "catalog" ? (
+        <CatalogPreviewTemplate
+          vendorInfo={vendorInfo}
+          category={category}
+          orderedCategories={orderedCategories}
+          sectionsWithHeading={sectionsWithHeading}
+          cardsWithoutHeading={cardsWithoutHeading}
+          mergedHeroImages={mergedHeroImages}
+          heroTagline={heroTagline}
+          heroDescription={heroDescription}
           onOpenMenu={() => setViewMode("menu")}
           cartItems={cartItems}
           cartTotal={cartTotal}
@@ -4414,6 +4446,13 @@ function ExploreContent({ onReady, onOpenServices }) {
                   },
                 },
                 {
+                  title: "Enquiries",
+                  description: "Review recent and past enquiries, inspect details, and call customers back.",
+                  onClick: () => {
+                    setViewMode("enquiries-dashboard");
+                  },
+                },
+                {
                   title: "Subscription",
                   description: "Manage your subscription plan and billing.",
                   onClick: () => {
@@ -4691,6 +4730,39 @@ function ExploreContent({ onReady, onOpenServices }) {
               onBack={() => setViewMode("new-dashboard")}
             />
 
+          </div>
+        </div>
+      )}
+
+      {viewMode === "enquiries-dashboard" && (
+        <div className="new-dashboard-overlay">
+          <div className="new-dashboard-shell">
+            <div className="new-dashboard-header">
+              <button
+                className="new-dashboard-nav-btn"
+                type="button"
+                onClick={() => setViewMode("new-dashboard")}
+              >
+                Back
+              </button>
+
+              <div className="new-dashboard-title">
+                Enquiries
+              </div>
+
+              <button
+                className="new-dashboard-close-btn"
+                type="button"
+                onClick={() => setViewMode("preview")}
+              >
+                Close
+              </button>
+            </div>
+
+            <EnquiriesDashboard
+              vendorId={vendorId}
+              categoryId={rootCategoryId}
+            />
           </div>
         </div>
       )}

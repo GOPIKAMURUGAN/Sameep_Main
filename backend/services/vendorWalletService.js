@@ -17,7 +17,9 @@ async function deductWhatsApp(vendorId, reference) {
 
   await VendorWalletLedger.create({
     vendorId,
-    type: "BILL_MESSAGE",
+    type: reference && String(reference).startsWith("enquiry:")
+      ? "ENQUIRY_MESSAGE"
+      : "BILL_MESSAGE",
     channel: "WHATSAPP",
     quantity: -1,
     reference,

@@ -176,6 +176,12 @@ const [packagesIncludes, setPackagesIncludes] = useState("");
   const [displayTypeOptions, setDisplayTypeOptions] = useState([]);
   const [signupLevelOptions, setSignupLevelOptions] = useState([]);
   const [businessFieldOptions, setBusinessFieldOptions] = useState([]);
+  const [enableEnquiryFlow, setEnableEnquiryFlow] = useState(false);
+  const [enableCartBasedEnquiry, setEnableCartBasedEnquiry] = useState(false);
+  const [enquiryType, setEnquiryType] = useState("service");
+  const [showEnquiryConfigPopup, setShowEnquiryConfigPopup] = useState(false);
+  const [selectedEnquiryFieldName, setSelectedEnquiryFieldName] = useState("");
+  const [enquiryFields, setEnquiryFields] = useState([]);
   const [signupLevels, setSignupLevels] = useState([]);
   const [signupLevelDetails, setSignupLevelDetails] = useState({});
   const [showMasterSelector, setShowMasterSelector] = useState(false);
@@ -258,6 +264,82 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
     const global = linkedAttributes?.['model'];
     return Array.isArray(global) ? global : [];
   };
+  const getBusinessFieldMeta = (fieldName) => {
+    const match = (Array.isArray(allMasters) ? allMasters : []).find((item) => {
+      const type = String(item?.type || "").trim().toLowerCase();
+      return (
+        String(item?.name || "").trim() === String(fieldName || "").trim() &&
+        (type === "manage business fields" || type === "businessfields" || type === "businessfield")
+      );
+    });
+
+    return {
+      name: String(fieldName || "").trim(),
+      fieldType: String(match?.fieldType || "text").trim().toLowerCase() || "text",
+    };
+  };
+  const resolveEnquiryFieldType = (fieldName, currentFieldType) => {
+    const normalizedCurrent = String(currentFieldType || "").trim().toLowerCase();
+    const fallbackMeta = getBusinessFieldMeta(fieldName);
+    const fallbackType = String(fallbackMeta?.fieldType || "text").trim().toLowerCase() || "text";
+
+    if (!normalizedCurrent) return fallbackType;
+    if (
+      normalizedCurrent === "businessfield" ||
+      normalizedCurrent === "businessfields" ||
+      normalizedCurrent === "business field"
+    ) {
+      return fallbackType;
+    }
+
+    return normalizedCurrent;
+  };
+  const addEnquiryField = () => {
+    const meta = getBusinessFieldMeta(selectedEnquiryFieldName);
+    if (!meta.name) return;
+    setEnquiryFields((prev) => {
+      if (prev.some((item) => item.name === meta.name)) return prev;
+      return [
+        ...prev,
+        {
+          name: meta.name,
+          fieldType: meta.fieldType,
+          required: false,
+          active: true,
+          sequence: prev.length + 1,
+          labelOverride: "",
+          placeholderOverride: "",
+          rules: {
+            noPastDates: false,
+            maxDaysAhead: "",
+            minLength: "",
+            maxLength: "",
+          },
+        },
+      ];
+    });
+    setSelectedEnquiryFieldName("");
+  };
+  const updateEnquiryField = (index, patch) => {
+    setEnquiryFields((prev) =>
+      prev.map((item, idx) => (idx === index ? { ...item, ...patch } : item))
+    );
+  };
+  const updateEnquiryFieldRules = (index, patch) => {
+    setEnquiryFields((prev) =>
+      prev.map((item, idx) =>
+        idx === index
+          ? {
+              ...item,
+              rules: {
+                ...(item.rules || {}),
+                ...patch,
+              },
+            }
+          : item
+      )
+    );
+  };
 
   useEffect(() => {
     if (!show) return;
@@ -323,6 +405,42 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
         initialData.linkedAttributes && typeof initialData.linkedAttributes === 'object'
           ? initialData.linkedAttributes
           : {}
+      );
+      const enquiryCfg =
+        initialData.enquiryConfig && typeof initialData.enquiryConfig === "object"
+          ? initialData.enquiryConfig
+          : {};
+      setEnableEnquiryFlow(Boolean(enquiryCfg.enabled));
+      setEnableCartBasedEnquiry(Boolean(enquiryCfg.cartBasedEnquiry));
+      setEnquiryType(
+        enquiryCfg.enquiryType === "appointment" || enquiryCfg.enquiryType === "order"
+          ? enquiryCfg.enquiryType
+          : "service"
+      );
+      setEnquiryFields(
+        Array.isArray(enquiryCfg.fields)
+          ? enquiryCfg.fields.map((field, idx) => ({
+              name: field?.name || "",
+              fieldType: resolveEnquiryFieldType(field?.name, field?.fieldType),
+              required: Boolean(field?.required),
+              active: field?.active !== false,
+              sequence:
+                field?.sequence == null || field?.sequence === ""
+                  ? idx + 1
+                  : Number(field.sequence),
+              labelOverride: field?.labelOverride || "",
+              placeholderOverride: field?.placeholderOverride || "",
+              rules: {
+                noPastDates: Boolean(field?.rules?.noPastDates),
+                maxDaysAhead:
+                  field?.rules?.maxDaysAhead == null ? "" : String(field.rules.maxDaysAhead),
+                minLength:
+                  field?.rules?.minLength == null ? "" : String(field.rules.minLength),
+                maxLength:
+                  field?.rules?.maxLength == null ? "" : String(field.rules.maxLength),
+              },
+            }))
+          : []
       );
       setCategoryVisibility(Array.isArray(initialData.categoryVisibility) ? initialData.categoryVisibility : initialData.categoryVisibility ? [initialData.categoryVisibility] : []);
       setCategoryModel(Array.isArray(initialData.categoryModel) ? initialData.categoryModel : initialData.categoryModel ? [initialData.categoryModel] : []);
@@ -450,6 +568,11 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
       setWebMenuItems([]);
       setInventoryLabelName("");
       setLinkedAttributes({});
+      setEnableEnquiryFlow(false);
+      setEnableCartBasedEnquiry(false);
+      setEnquiryType("service");
+      setSelectedEnquiryFieldName("");
+      setEnquiryFields([]);
       setHomeTagline("");
       setHomeDescription("");
       setHomeButton1Label("");
@@ -727,6 +850,43 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
       if (icon) formData.append("icon", icon);
       formData.append("enableFreeText", enableFreeText);
       formData.append("inventoryLabelName", inventoryLabelName || "");
+      formData.append(
+        "enquiryConfig",
+        JSON.stringify({
+          enabled: enableEnquiryFlow,
+          cartBasedEnquiry: enableCartBasedEnquiry,
+          enquiryType,
+          fields: enquiryFields
+            .map((field, idx) => ({
+              name: field.name || "",
+              fieldType: field.fieldType || "text",
+              required: Boolean(field.required),
+              active: field.active !== false,
+              sequence:
+                field.sequence == null || field.sequence === ""
+                  ? idx + 1
+                  : Number(field.sequence),
+              labelOverride: field.labelOverride || "",
+              placeholderOverride: field.placeholderOverride || "",
+              rules: {
+                noPastDates: Boolean(field?.rules?.noPastDates),
+                maxDaysAhead:
+                  field?.rules?.maxDaysAhead == null || field?.rules?.maxDaysAhead === ""
+                    ? ""
+                    : Number(field.rules.maxDaysAhead),
+                minLength:
+                  field?.rules?.minLength == null || field?.rules?.minLength === ""
+                    ? ""
+                    : Number(field.rules.minLength),
+                maxLength:
+                  field?.rules?.maxLength == null || field?.rules?.maxLength === ""
+                    ? ""
+                    : Number(field.rules.maxLength),
+              },
+            }))
+            .filter((field) => field.name),
+        })
+      );
       if (!parentId) {
         formData.append("colorSchemes", JSON.stringify(colorSchemes));
       }
@@ -1496,6 +1656,84 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
                   style={inputStyle}
                 />
               )}
+
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: 12,
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 10,
+                  background: "#fafafa",
+                }}
+              >
+                <div style={{ fontWeight: 700, color: "#1f2937", marginBottom: 10 }}>
+                  Enquiry Flow
+                </div>
+                <label style={checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={enableEnquiryFlow}
+                    onChange={(e) => setEnableEnquiryFlow(e.target.checked)}
+                  />
+                  Enable Enquiry Flow
+                </label>
+                {enableEnquiryFlow && (
+                  <>
+                    <label style={checkboxLabel}>
+                      <input
+                        type="checkbox"
+                        checked={enableCartBasedEnquiry}
+                        onChange={(e) => setEnableCartBasedEnquiry(e.target.checked)}
+                      />
+                      Enable Cart-Based Enquiry
+                    </label>
+                    <h4 style={labelStyle}>Enquiry Type</h4>
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: 10 }}>
+                      {[
+                        { value: "service", label: "Service Enquiry" },
+                        { value: "appointment", label: "Appointment Request" },
+                        { value: "order", label: "Order Request" },
+                      ].map((item) => (
+                        <label key={item.value} style={{ color: "#444" }}>
+                          <input
+                            type="radio"
+                            value={item.value}
+                            checked={enquiryType === item.value}
+                            onChange={(e) => setEnquiryType(e.target.value)}
+                            style={{ marginRight: "5px" }}
+                          />
+                          {item.label}
+                        </label>
+                      ))}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        marginTop: 8,
+                      }}
+                    >
+                      <div style={{ color: "#6b7280", fontSize: 13 }}>
+                        Configure reusable business fields for this category enquiry flow.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowEnquiryConfigPopup(true)}
+                        style={{ ...submitBtnStyle, width: "auto", padding: "8px 14px" }}
+                      >
+                        Configure Enquiry Questions
+                      </button>
+                    </div>
+                    {enquiryFields.length > 0 && (
+                      <div style={{ marginTop: 10, color: "#4b5563", fontSize: 13 }}>
+                        {enquiryFields.filter((item) => item.active !== false).length} field(s) configured
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </>
           )}
           <label style={checkboxLabel}>
@@ -2697,6 +2935,294 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showEnquiryConfigPopup && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 4500,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.45)",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              width: 860,
+              maxWidth: "92vw",
+              maxHeight: "88vh",
+              overflowY: "auto",
+              padding: 20,
+              boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, color: "#1f2937" }}>Configure Enquiry Questions</h3>
+              <button
+                type="button"
+                onClick={() => setShowEnquiryConfigPopup(false)}
+                style={{
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  borderRadius: 8,
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) auto",
+                gap: 10,
+                alignItems: "end",
+                marginBottom: 16,
+              }}
+            >
+              <div>
+                <h4 style={labelStyle}>Add Enquiry Field</h4>
+                <select
+                  value={selectedEnquiryFieldName}
+                  onChange={(e) => setSelectedEnquiryFieldName(e.target.value)}
+                  style={inputStyle}
+                >
+                  <option value="">Select business field</option>
+                  {businessFieldOptions.map((fieldName) => (
+                    <option key={fieldName} value={fieldName}>
+                      {fieldName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={addEnquiryField}
+                style={{ ...submitBtnStyle, width: "auto", padding: "10px 16px" }}
+                disabled={!selectedEnquiryFieldName}
+              >
+                Add Field
+              </button>
+            </div>
+
+            {enquiryFields.length === 0 ? (
+              <div
+                style={{
+                  border: "1px dashed #d1d5db",
+                  borderRadius: 10,
+                  padding: 20,
+                  textAlign: "center",
+                  color: "#6b7280",
+                }}
+              >
+                No enquiry fields added yet.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {enquiryFields
+                  .slice()
+                  .sort((a, b) => Number(a.sequence || 0) - Number(b.sequence || 0))
+                  .map((field, index) => {
+                    const isDateField =
+                      field.fieldType === "date" || field.fieldType === "datetime" || field.fieldType === "datetime-local";
+                    const isTextField =
+                      field.fieldType === "text" || field.fieldType === "textarea" || field.fieldType === "number";
+                    return (
+                      <div
+                        key={`${field.name}-${index}`}
+                        style={{
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 10,
+                          padding: 14,
+                          background: "#fafafa",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: 12,
+                            marginBottom: 12,
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 700, color: "#1f2937" }}>{field.name}</div>
+                            <div style={{ fontSize: 12, color: "#6b7280", textTransform: "capitalize" }}>
+                              Type: {field.fieldType || "text"}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEnquiryFields((prev) => prev.filter((item) => item.name !== field.name))
+                            }
+                            style={{
+                              border: "none",
+                              background: "#ef4444",
+                              color: "#fff",
+                              borderRadius: 8,
+                              padding: "6px 10px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                            gap: 12,
+                          }}
+                        >
+                          <label style={checkboxLabel}>
+                            <input
+                              type="checkbox"
+                              checked={field.required}
+                              onChange={(e) => updateEnquiryField(index, { required: e.target.checked })}
+                            />
+                            Required
+                          </label>
+                          <label style={checkboxLabel}>
+                            <input
+                              type="checkbox"
+                              checked={field.active !== false}
+                              onChange={(e) => updateEnquiryField(index, { active: e.target.checked })}
+                            />
+                            Active
+                          </label>
+                          <div>
+                            <h4 style={labelStyle}>Sequence</h4>
+                            <input
+                              type="number"
+                              value={field.sequence}
+                              onChange={(e) =>
+                                updateEnquiryField(index, {
+                                  sequence: e.target.value === "" ? "" : Number(e.target.value),
+                                })
+                              }
+                              style={inputStyle}
+                            />
+                          </div>
+                          <div>
+                            <h4 style={labelStyle}>Label Override</h4>
+                            <input
+                              type="text"
+                              value={field.labelOverride}
+                              onChange={(e) =>
+                                updateEnquiryField(index, { labelOverride: e.target.value })
+                              }
+                              placeholder="Optional display label"
+                              style={inputStyle}
+                            />
+                          </div>
+                          <div>
+                            <h4 style={labelStyle}>Placeholder Override</h4>
+                            <input
+                              type="text"
+                              value={field.placeholderOverride}
+                              onChange={(e) =>
+                                updateEnquiryField(index, { placeholderOverride: e.target.value })
+                              }
+                              placeholder="Optional placeholder"
+                              style={inputStyle}
+                            />
+                          </div>
+                        </div>
+
+                        {(isDateField || isTextField) && (
+                          <div style={{ marginTop: 14 }}>
+                            <div style={{ fontWeight: 700, color: "#374151", marginBottom: 8 }}>
+                              Advanced Rules
+                            </div>
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                                gap: 12,
+                              }}
+                            >
+                              {isDateField && (
+                                <>
+                                  <label style={checkboxLabel}>
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(field?.rules?.noPastDates)}
+                                      onChange={(e) =>
+                                        updateEnquiryFieldRules(index, {
+                                          noPastDates: e.target.checked,
+                                        })
+                                      }
+                                    />
+                                    No Past Dates
+                                  </label>
+                                  <div>
+                                    <h4 style={labelStyle}>Max Days Ahead</h4>
+                                    <input
+                                      type="number"
+                                      value={field?.rules?.maxDaysAhead ?? ""}
+                                      onChange={(e) =>
+                                        updateEnquiryFieldRules(index, {
+                                          maxDaysAhead: e.target.value,
+                                        })
+                                      }
+                                      placeholder="Optional"
+                                      style={inputStyle}
+                                    />
+                                  </div>
+                                </>
+                              )}
+                              {isTextField && (
+                                <>
+                                  <div>
+                                    <h4 style={labelStyle}>Min Length</h4>
+                                    <input
+                                      type="number"
+                                      value={field?.rules?.minLength ?? ""}
+                                      onChange={(e) =>
+                                        updateEnquiryFieldRules(index, {
+                                          minLength: e.target.value,
+                                        })
+                                      }
+                                      placeholder="Optional"
+                                      style={inputStyle}
+                                    />
+                                  </div>
+                                  <div>
+                                    <h4 style={labelStyle}>Max Length</h4>
+                                    <input
+                                      type="number"
+                                      value={field?.rules?.maxLength ?? ""}
+                                      onChange={(e) =>
+                                        updateEnquiryFieldRules(index, {
+                                          maxLength: e.target.value,
+                                        })
+                                      }
+                                      placeholder="Optional"
+                                      style={inputStyle}
+                                    />
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
         </div>
       )}

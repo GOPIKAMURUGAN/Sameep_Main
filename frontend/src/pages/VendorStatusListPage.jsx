@@ -192,6 +192,7 @@ export default function VendorStatusListPage() {
   const [expiryDate, setExpiryDate] = useState("");
   const [loadingSubscription, setLoadingSubscription] = useState(false);
   const [assignLoading, setAssignLoading] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // Profile pictures upload state: { [vendorId]: File[] }
   const [profilePicsToUpload, setProfilePicsToUpload] = useState({});
@@ -314,6 +315,17 @@ export default function VendorStatusListPage() {
     if (!status || !categoryId) return;
     fetchVendors();
   }, [status, categoryId]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll);
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const fetchVendorCategories = async (vendorId) => {
     // If we already have this vendor’s categories, show them instantly
@@ -756,11 +768,42 @@ export default function VendorStatusListPage() {
                   } catch (e) { alert('Failed to save'); }
                 }} style={{ padding: '6px 10px', borderRadius: 6, background: '#0ea5e9', color: '#fff', border: 'none' }}>Save</button>
               </div>
-              
             </div>
           </div>
         </div>
       )}
+
+      {showScrollTop ? (
+        <button
+          type="button"
+          onClick={() =>
+            window.scrollTo({
+              top: 0,
+              behavior: "smooth",
+            })
+          }
+          aria-label="Move to top"
+          title="Move to top"
+          style={{
+            position: "fixed",
+            right: 24,
+            bottom: 24,
+            width: 48,
+            height: 48,
+            borderRadius: "999px",
+            border: "none",
+            background: "#0ea5e9",
+            color: "#fff",
+            fontSize: 22,
+            fontWeight: 700,
+            cursor: "pointer",
+            boxShadow: "0 10px 24px rgba(14, 165, 233, 0.28)",
+            zIndex: 1100,
+          }}
+        >
+          ↑
+        </button>
+      ) : null}
 
       {showPlanModal && (
         <div style={{

@@ -9,7 +9,7 @@ const VendorWalletLedgerSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ["PLAN_ALLOCATION", "BILL_MESSAGE", "OTP_USAGE", "RECHARGE"],
+    enum: ["PLAN_ALLOCATION", "BILL_MESSAGE", "ENQUIRY_MESSAGE", "OTP_USAGE", "RECHARGE"],
     required: true,
   },
   channel: {

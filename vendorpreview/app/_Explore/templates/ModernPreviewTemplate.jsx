@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { LuLogOut } from "react-icons/lu";
 import { API_BASE_URL } from "../../../config";
+import { SOCIAL_ICONS } from "../../Icons/SocialIcons";
 import "./ModernPreviewTemplate.css";
 
 const DEFAULT_NAV = [
@@ -18,6 +20,359 @@ function getPoweredByUrl() {
   )
     .trim()
     .replace(/\/$/, "");
+}
+
+function getEnquiryFieldLabel(field) {
+  const override = String(field?.labelOverride || "").trim();
+  if (override) return override;
+  return String(field?.name || "Question").trim();
+}
+
+function getEnquiryFieldPlaceholder(field) {
+  const override = String(field?.placeholderOverride || "").trim();
+  if (override) return override;
+  return `Enter ${String(getEnquiryFieldLabel(field) || "value").toLowerCase()}`;
+}
+
+function getEnquiryTypeLabel(enquiryType) {
+  const normalized = String(enquiryType || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+
+  if (normalized === "appointment" || normalized === "appointment_request") {
+    return "Appointment Request";
+  }
+
+  if (normalized === "order" || normalized === "order_request") {
+    return "Order Request";
+  }
+
+  if (
+    normalized === "enquiry" ||
+    normalized === "service_enquiry" ||
+    normalized === "service"
+  ) {
+    return "Service Enquiry";
+  }
+
+  return "Service Enquiry";
+}
+
+function getEnquiryInputType(fieldType) {
+  const normalized = String(fieldType || "text").trim().toLowerCase();
+  if (
+    normalized === "datetime" ||
+    normalized === "datetime-local" ||
+    normalized === "date & time" ||
+    normalized === "dateandtime" ||
+    normalized === "date_time"
+  ) {
+    return "datetime-local";
+  }
+  if (normalized === "phone") return "tel";
+  if (normalized === "location") return "text";
+  if (["text", "number", "date", "time", "email", "tel"].includes(normalized)) {
+    return normalized;
+  }
+  return "text";
+}
+
+function getTimeSlotOptions() {
+  const slots = [];
+
+  for (let hour = 0; hour < 24; hour += 1) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      const value = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+      const displayHour = ((hour + 11) % 12) + 1;
+      const amPm = hour >= 12 ? "PM" : "AM";
+      const displayMinute = String(minute).padStart(2, "0");
+      slots.push({
+        value,
+        label: `${displayHour}:${displayMinute} ${amPm}`,
+      });
+    }
+  }
+
+  return slots;
+}
+
+function parseHourMinuteTo24Hour(value, meridiem) {
+  let hour = Number(value || 0);
+  const minute = Number(String(value).split(":")[1] || 0);
+  const suffix = String(meridiem || "").trim().toUpperCase();
+
+  if (suffix === "PM" && hour < 12) hour += 12;
+  if (suffix === "AM" && hour === 12) hour = 0;
+
+  return {
+    hour,
+    minute,
+  };
+}
+
+function parseBusinessHoursRange(hoursText) {
+  const normalized = String(hoursText || "")
+    .replace(/[–—]/g, "-")
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return null;
+  const normalizedLower = normalized.toLowerCase();
+
+  if (
+    normalizedLower === "24 hours" ||
+    normalizedLower === "open 24 hours" ||
+    normalizedLower === "open 24 hrs" ||
+    normalizedLower === "24 hrs" ||
+    normalizedLower === "24/7" ||
+    normalizedLower === "open 24/7"
+  ) {
+    return {
+      startMinutes: 0,
+      endMinutes: 24 * 60,
+    };
+  }
+  if (normalizedLower.includes("closed")) return null;
+
+  const match = normalized.match(
+    /(\d{1,2})(?::(\d{2}))?\s*(AM|PM)\s*(?:-|to)\s*(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i
+  );
+
+  if (!match) return null;
+
+  const [
+    ,
+    startHour,
+    startMinute = "00",
+    startMeridiem,
+    endHour,
+    endMinute = "00",
+    endMeridiem,
+  ] = match;
+  const start = parseHourMinuteTo24Hour(`${startHour}:${startMinute}`, startMeridiem);
+  const end = parseHourMinuteTo24Hour(`${endHour}:${endMinute}`, endMeridiem);
+
+  const startMinutes = start.hour * 60 + start.minute;
+  let endMinutes = end.hour * 60 + end.minute;
+
+  if (endMinutes <= startMinutes) {
+    endMinutes += 24 * 60;
+  }
+
+  return {
+    startMinutes,
+    endMinutes,
+  };
+}
+
+function formatSlotLabel(totalMinutes) {
+  const normalizedMinutes = ((totalMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const hour24 = Math.floor(normalizedMinutes / 60);
+  const minute = normalizedMinutes % 60;
+  const displayHour = ((hour24 + 11) % 12) + 1;
+  const amPm = hour24 >= 12 ? "PM" : "AM";
+
+  return `${displayHour}:${String(minute).padStart(2, "0")} ${amPm}`;
+}
+
+function buildTimeSlotsFromRange(range, intervalMinutes = 30) {
+  if (!range) return [];
+
+  const slots = [];
+
+  for (
+    let totalMinutes = range.startMinutes;
+    totalMinutes <= range.endMinutes - intervalMinutes;
+    totalMinutes += intervalMinutes
+  ) {
+    const normalizedMinutes = ((totalMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+    const hour24 = Math.floor(normalizedMinutes / 60);
+    const minute = normalizedMinutes % 60;
+
+    slots.push({
+      value: `${String(hour24).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
+      label: formatSlotLabel(totalMinutes),
+    });
+  }
+
+  return slots;
+}
+
+function getWeekdayNameFromDate(dateValue) {
+  if (!dateValue) {
+    return new Date().toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+  }
+
+  const date = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+}
+
+function getTimeSlotOptionsForDate(businessHours, dateValue) {
+  const weekday = getWeekdayNameFromDate(dateValue);
+
+  if (!weekday) {
+    return getTimeSlotOptions();
+  }
+
+  if (!Array.isArray(businessHours) || businessHours.length === 0) {
+    return getTimeSlotOptions();
+  }
+
+  const dayEntry = businessHours.find((item) => {
+    const dayName = String(item?.day || "").trim().toLowerCase();
+    return dayName === weekday;
+  });
+
+  if (!dayEntry) {
+    return getTimeSlotOptions();
+  }
+
+  const rawHours = String(dayEntry?.hours || dayEntry?.time || "").trim();
+  const range = parseBusinessHoursRange(rawHours);
+  if (!range) {
+    return /closed/i.test(rawHours) ? [] : getTimeSlotOptions();
+  }
+
+  const slots = buildTimeSlotsFromRange(range);
+  return slots.length > 0 ? slots : getTimeSlotOptions();
+}
+
+function splitDateTimeValue(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return { date: "", time: "" };
+  }
+
+  if (normalized.includes("T")) {
+    const [datePart = "", timePart = ""] = normalized.split("T");
+    return {
+      date: datePart,
+      time: timePart.slice(0, 5),
+    };
+  }
+
+  if (normalized.includes(" ")) {
+    const [datePart = "", timePart = ""] = normalized.split(" ");
+    return {
+      date: datePart,
+      time: timePart.slice(0, 5),
+    };
+  }
+
+  return { date: normalized, time: "" };
+}
+
+function mergeDateTimeValue(dateValue, timeValue) {
+  if (!dateValue && !timeValue) return "";
+  if (!dateValue) return "";
+  if (!timeValue) return dateValue;
+  return `${dateValue}T${timeValue}`;
+}
+
+function isLikelyPhoneField(field) {
+  const inputType = getEnquiryInputType(field?.fieldType);
+  const name = String(field?.name || "").trim().toLowerCase();
+  const label = String(field?.labelOverride || field?.name || "").trim().toLowerCase();
+  return (
+    inputType === "tel" ||
+    name.includes("mobile") ||
+    name.includes("phone") ||
+    label.includes("mobile") ||
+    label.includes("phone")
+  );
+}
+
+function sanitizeEnquiryValue(field, rawValue) {
+  const inputType = getEnquiryInputType(field?.fieldType);
+  const value = String(rawValue ?? "");
+
+  if (isLikelyPhoneField(field)) {
+    return value.replace(/\D/g, "").slice(0, 10);
+  }
+
+  if (inputType === "number") {
+    return value.replace(/\D/g, "");
+  }
+
+  if (inputType === "text") {
+    const normalizedName = String(field?.name || "").trim().toLowerCase();
+    const normalizedLabel = String(field?.labelOverride || "").trim().toLowerCase();
+    const isNameField =
+      normalizedName === "name" ||
+      normalizedName.includes("full name") ||
+      normalizedLabel === "name" ||
+      normalizedLabel.includes("full name");
+
+    if (isNameField) {
+      return value.replace(/[^a-zA-Z\s.'-]/g, "");
+    }
+  }
+
+  return value;
+}
+
+function getEnquiryInputMode(field) {
+  if (isLikelyPhoneField(field)) return "numeric";
+
+  const inputType = getEnquiryInputType(field?.fieldType);
+  if (inputType === "number") return "numeric";
+  if (inputType === "email") return "email";
+  if (inputType === "tel") return "tel";
+  return undefined;
+}
+
+function formatDateInputValue(date, inputType) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+
+  const pad = (value) => String(value).padStart(2, "0");
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+
+  if (inputType === "date") {
+    return `${year}-${month}-${day}`;
+  }
+
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function getEnquiryDateConstraints(field) {
+  const inputType = getEnquiryInputType(field?.fieldType);
+  if (!["date", "datetime-local"].includes(inputType)) {
+    return {};
+  }
+
+  const rules = field?.rules || {};
+  const now = new Date();
+  const constraints = {};
+
+  if (rules.noPastDates) {
+    constraints.min = formatDateInputValue(now, inputType);
+  }
+
+  if (rules.maxDaysAhead != null && rules.maxDaysAhead !== "") {
+    const maxDate = new Date(now);
+    maxDate.setDate(maxDate.getDate() + Number(rules.maxDaysAhead || 0));
+    constraints.max = formatDateInputValue(maxDate, inputType);
+  }
+
+  return constraints;
+}
+
+function getEnquiryDateOnlyConstraints(field) {
+  const constraints = getEnquiryDateConstraints(field);
+  const normalize = (value) => (String(value || "").includes("T") ? String(value).split("T")[0] : value);
+
+  return {
+    min: constraints.min ? normalize(constraints.min) : undefined,
+    max: constraints.max ? normalize(constraints.max) : undefined,
+  };
 }
 
 function scrollToElementById(id) {
@@ -43,6 +398,83 @@ function toAnchor(label) {
     .trim()
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-");
+}
+
+function normalizeSocialKey(label) {
+  return String(label || "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+function getSocialHref(key, value) {
+  if (!value) return "#";
+  if (value.startsWith("http")) return value;
+  if (key === "email") return `mailto:${value}`;
+  if (key === "whatsapp") return `https://wa.me/${value}`;
+  return `https://${key}.com/${value}`;
+}
+
+function buildCartPath(...segments) {
+  const normalized = segments
+    .map((segment) => String(segment || "").trim())
+    .filter(Boolean);
+
+  return normalized.filter((segment, index) => {
+    if (index === 0) return true;
+    return segment.toLowerCase() !== normalized[index - 1].toLowerCase();
+  });
+}
+
+function getCartHierarchyLabel(item) {
+  const pathSource = Array.isArray(item?.nodePath) && item.nodePath.length > 0
+    ? item.nodePath
+    : Array.isArray(item?.categoryPath)
+      ? item.categoryPath
+      : [];
+  const path = Array.isArray(pathSource)
+    ? pathSource
+        .map((segment) => String(segment || "").trim())
+        .filter(Boolean)
+    : [];
+  const itemName = String(item?.name || "").trim();
+
+  if (path.length === 0) return itemName || "Selected service";
+  if (!itemName) return path.join(" - ");
+
+  const lastPathSegment = path[path.length - 1];
+  if (lastPathSegment?.toLowerCase() === itemName.toLowerCase()) {
+    return path.join(" - ");
+  }
+
+  return [...path, itemName].join(" - ");
+}
+
+function getCommonPathPrefix(paths) {
+  if (!Array.isArray(paths) || paths.length === 0) return [];
+
+  const normalizedPaths = paths
+    .filter((path) => Array.isArray(path) && path.length > 0)
+    .map((path) =>
+      path.map((segment) => String(segment || "").trim()).filter(Boolean)
+    )
+    .filter((path) => path.length > 0);
+
+  if (normalizedPaths.length === 0) return [];
+
+  const shortestLength = Math.min(...normalizedPaths.map((path) => path.length));
+  const prefix = [];
+
+  for (let index = 0; index < shortestLength; index += 1) {
+    const candidate = normalizedPaths[0][index];
+    const matches = normalizedPaths.every(
+      (path) => String(path[index] || "").toLowerCase() === candidate.toLowerCase()
+    );
+
+    if (!matches) break;
+    prefix.push(candidate);
+  }
+
+  return prefix;
 }
 
 function getCardImage(card) {
@@ -398,7 +830,13 @@ function ModernServiceRow({ card, sectionName, onAddToCart }) {
   const handleAddSelected = () => {
     if (typeof onAddToCart !== "function") return;
 
-    const categoryPath = [sectionName, selectedMain, selectedSub, selectedSubSub].filter(Boolean);
+    const categoryPath = buildCartPath(
+      sectionName,
+      card.title,
+      selectedMain,
+      selectedSub,
+      selectedSubSub
+    );
     const serviceId = card.id || card._id || card.categoryId || card.title;
     const serviceName = selectedSubSub || selectedSub || selectedMain || card.title;
     const cartKey = [serviceId, selectedMain, selectedSub, selectedSubSub].filter(Boolean).join("_");
@@ -579,6 +1017,7 @@ function ModernServiceRow({ card, sectionName, onAddToCart }) {
 export default function ModernPreviewTemplate({
   vendorInfo,
   category,
+  enquiryConfig,
   orderedCategories,
   sectionsWithHeading,
   cardsWithoutHeading,
@@ -598,6 +1037,11 @@ export default function ModernPreviewTemplate({
   const [activeCardId, setActiveCardId] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [galleryStartIndex, setGalleryStartIndex] = useState(0);
+  const [hasVendorSession, setHasVendorSession] = useState(false);
+  const [selectedInquiryInterest, setSelectedInquiryInterest] = useState("");
+  const [dynamicInquiryValues, setDynamicInquiryValues] = useState({});
+  const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
+  const [inquiryFeedback, setInquiryFeedback] = useState("");
 
   const navItems = useMemo(() => {
     const webMenu = Array.isArray(category?.webMenu) ? category.webMenu : [];
@@ -660,6 +1104,33 @@ export default function ModernPreviewTemplate({
     const queryName = encodeURIComponent(heroTagline || vendorInfo?.businessName || "");
     return `https://www.google.com/maps/search/?api=1&query=${queryName}&query_place_id=${placeId}`;
   }, [heroTagline, vendorInfo?.businessName, vendorInfo?.googlePlace?.mapsUrl]);
+  const socialsToRender = useMemo(() => {
+    const socialLinks = vendorInfo?.socialLinks || {};
+    const enabledSocials = Array.isArray(category?.socialHandle)
+      ? category.socialHandle
+          .map((label) => normalizeSocialKey(label))
+          .filter((key) => Boolean(key) && Boolean(SOCIAL_ICONS[key]))
+      : [];
+
+    if (enabledSocials.length > 0) {
+      return enabledSocials
+        .map((key) => {
+          const value = String(socialLinks[key] || "").trim();
+          if (!value || !SOCIAL_ICONS[key]) return null;
+          return { key, value };
+        })
+        .filter(Boolean);
+    }
+
+    return Object.entries(socialLinks)
+      .map(([key, rawValue]) => {
+        const normalizedKey = normalizeSocialKey(key);
+        const value = String(rawValue || "").trim();
+        if (!value || !SOCIAL_ICONS[normalizedKey]) return null;
+        return { key: normalizedKey, value };
+      })
+      .filter(Boolean);
+  }, [category, vendorInfo?.socialLinks]);
 
   useEffect(() => {
     let cancelled = false;
@@ -806,6 +1277,29 @@ export default function ModernPreviewTemplate({
     ...(Array.isArray(vendorInfo?.secondaryPhones) ? vendorInfo.secondaryPhones : []),
   ].filter(Boolean);
   const poweredByUrl = getPoweredByUrl();
+  const vendorId = vendorInfo?._id || vendorInfo?.vendorId || vendorInfo?.vendor?._id || "";
+  const rootCategoryId =
+    vendorInfo?.categoryId ||
+    vendorInfo?.rootCategoryId ||
+    vendorInfo?.category?._id ||
+    category?._id ||
+    category?.id ||
+    "";
+  const isEnquiryFlowEnabled = Boolean(enquiryConfig?.enabled);
+  const enquiryTypeLabel = getEnquiryTypeLabel(enquiryConfig?.enquiryType);
+  const activeEnquiryFields = useMemo(() => {
+    if (!isEnquiryFlowEnabled) return [];
+
+    return (Array.isArray(enquiryConfig?.fields) ? enquiryConfig.fields : [])
+      .filter((field) => field && field.active !== false && String(field.name || "").trim())
+      .slice()
+      .sort((a, b) => Number(a.sequence || 0) - Number(b.sequence || 0));
+  }, [enquiryConfig, isEnquiryFlowEnabled]);
+  const supportedEnquiryFields = activeEnquiryFields;
+  const shouldShowServiceInterestField = isEnquiryFlowEnabled
+    ? Boolean(enquiryConfig?.cartBasedEnquiry)
+    : true;
+  const requiresCartSelection = Boolean(isEnquiryFlowEnabled && enquiryConfig?.cartBasedEnquiry);
   const heroHighlights = getHeroHighlights({
     vendorInfo,
     serviceModes,
@@ -820,9 +1314,299 @@ export default function ModernPreviewTemplate({
     activeSection?.cards?.find((card) => card.id === activeCardId) ||
     activeSection?.cards?.[0] ||
     null;
+  const inquiryInterestOptions = useMemo(() => {
+    if (Array.isArray(cartItems) && cartItems.length > 0) {
+      return cartItems.map((item, index) => {
+        const qty = Number(item?.qty || 0) || 1;
+        const lineTotal = Number(item?.price || 0) * qty;
+        const hierarchyLabel = getCartHierarchyLabel(item);
+
+        return {
+          value: String(item?.cartKey || item?.itemId || item?.name || `cart-item-${index}`),
+          label: `${hierarchyLabel} x${qty} • ${formatCurrency(lineTotal)}`,
+        };
+      });
+    }
+
+    return [
+      {
+        value: "no-cart-items",
+        label: "Add items to cart",
+      },
+    ];
+  }, [cartItems]);
+  const activeInquiryInterest =
+    inquiryInterestOptions.some((option) => option.value === selectedInquiryInterest)
+      ? selectedInquiryInterest
+      : inquiryInterestOptions[0]?.value || "";
+  const selectedInquiryItem = useMemo(() => {
+    if (!Array.isArray(cartItems) || cartItems.length === 0) return null;
+
+    return (
+      cartItems.find((item, index) => {
+        const value = String(item?.cartKey || item?.itemId || item?.name || `cart-item-${index}`);
+        return value === activeInquiryInterest;
+      }) || null
+    );
+  }, [activeInquiryInterest, cartItems]);
+
+  useEffect(() => {
+    setDynamicInquiryValues((prev) => {
+      const next = {};
+      supportedEnquiryFields.forEach((field) => {
+        next[field.name] = prev?.[field.name] || "";
+      });
+      return next;
+    });
+  }, [supportedEnquiryFields]);
 
   const goToQuickInquiry = () => {
     scrollToElementById("quick-inquiry");
+  };
+
+  const handleInquiryFieldChange = (field, value) => {
+    setInquiryFeedback("");
+    setDynamicInquiryValues((prev) => ({
+      ...prev,
+      [field.name]: sanitizeEnquiryValue(field, value),
+    }));
+  };
+
+  const handleInquiryInterestChange = (value) => {
+    setInquiryFeedback("");
+    setSelectedInquiryInterest(value);
+  };
+
+  const handleSubmitInquiry = async () => {
+    if (isSubmittingInquiry) return;
+
+    if (!vendorId || !rootCategoryId) {
+      setInquiryFeedback("Vendor or category details are missing for this enquiry.");
+      return;
+    }
+
+    const missingRequiredField = supportedEnquiryFields.find((field) => {
+      if (!field?.required) return false;
+      return !String(dynamicInquiryValues[field.name] || "").trim();
+    });
+
+    if (missingRequiredField) {
+      setInquiryFeedback(`Please enter ${getEnquiryFieldLabel(missingRequiredField)}.`);
+      return;
+    }
+
+    const invalidPhoneField = supportedEnquiryFields.find((field) => {
+      if (!isLikelyPhoneField(field)) return false;
+      const value = String(dynamicInquiryValues[field.name] || "").trim();
+      return value && value.length !== 10;
+    });
+
+    if (invalidPhoneField) {
+      setInquiryFeedback(`Please enter a valid 10-digit ${getEnquiryFieldLabel(invalidPhoneField)}.`);
+      return;
+    }
+
+    if (requiresCartSelection && activeInquiryInterest === "no-cart-items") {
+      setInquiryFeedback("Add a service to the cart before submitting this enquiry.");
+      return;
+    }
+
+    const attributes = supportedEnquiryFields.reduce((acc, field) => {
+      const value = String(dynamicInquiryValues[field.name] || "").trim();
+      if (!value) return acc;
+      acc[field.name] = value;
+      return acc;
+    }, {});
+
+    const phoneField = supportedEnquiryFields.find((field) => isLikelyPhoneField(field));
+    const storedUser = (() => {
+      if (typeof window === "undefined") return {};
+
+      try {
+        return JSON.parse(localStorage.getItem("userData") || "{}");
+      } catch {
+        return {};
+      }
+    })();
+    const phoneValue = phoneField ? String(dynamicInquiryValues[phoneField.name] || "").trim() : "";
+    const enquiryCartItems =
+      requiresCartSelection && Array.isArray(cartItems) && cartItems.length > 0
+        ? cartItems
+        : selectedInquiryItem
+          ? [selectedInquiryItem]
+          : [];
+    const normalizedCartItems = enquiryCartItems.map((item, index) => {
+      const categoryPath = Array.isArray(item?.categoryPath)
+        ? item.categoryPath
+        : Array.isArray(item?.nodePath)
+          ? item.nodePath
+          : [];
+      const qty = Number(item?.qty || 0) || 1;
+      const unitPrice = Number(item?.price || 0) || 0;
+      const total = Number(item?.total || 0) || unitPrice * qty;
+
+      return {
+        cartKey: String(item?.cartKey || item?.itemId || `cart-item-${index}`),
+        itemId: String(item?.itemId || item?.categoryId || item?._id || item?.id || ""),
+        categoryId: String(item?.categoryId || item?.itemId || item?._id || item?.id || ""),
+        name: String(item?.name || "").trim(),
+        label: getCartHierarchyLabel(item),
+        qty,
+        price: unitPrice,
+        total,
+        categoryPath: categoryPath.map((segment) => String(segment || "").trim()).filter(Boolean),
+        categoryPathIds: (Array.isArray(item?.categoryPathIds) ? item.categoryPathIds : [])
+          .map((id) => String(id || "").trim())
+          .filter(Boolean),
+      };
+    });
+    const aggregateCategoryPath = getCommonPathPrefix(
+      normalizedCartItems.map((item) => item.categoryPath)
+    );
+    const aggregateCategoryIds = [
+      ...new Set(
+        normalizedCartItems.flatMap((item) => item.categoryPathIds || []).filter(Boolean)
+      ),
+    ];
+    const totalQty = normalizedCartItems.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+    const totalPrice = normalizedCartItems.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+    const inventorySummary = normalizedCartItems.length
+      ? normalizedCartItems
+          .map((item) => `${item.label} x${item.qty}${item.total > 0 ? ` • ${formatCurrency(item.total)}` : ""}`)
+          .join(", ")
+      : "";
+    const serviceNameSummary =
+      normalizedCartItems.length > 1
+        ? `${normalizedCartItems[0]?.name || enquiryTypeLabel} +${normalizedCartItems.length - 1} more`
+        : normalizedCartItems[0]?.name || category?.name || enquiryTypeLabel;
+    const sourceSummary =
+      aggregateCategoryPath[0] ||
+      normalizedCartItems[0]?.categoryPath?.[0] ||
+      category?.name ||
+      "modern-preview";
+
+    if (inventorySummary) {
+      attributes.inventoryName = inventorySummary;
+      attributes.inventoryNames = normalizedCartItems.map((item) => item.label);
+    }
+
+    const payload = {
+      vendorId: String(vendorId),
+      categoryId: String(rootCategoryId),
+      customerId: storedUser?.customerId ? String(storedUser.customerId) : "",
+      phone: phoneValue || String(storedUser?.phone || "").trim(),
+      serviceName: serviceNameSummary,
+      source: sourceSummary,
+      categoryPath: aggregateCategoryPath,
+      categoryIds: aggregateCategoryIds.length > 0 ? aggregateCategoryIds : [String(rootCategoryId)],
+      attributes,
+      price: totalPrice > 0 ? totalPrice : null,
+      terms: "",
+      meta: {
+        template: "modern-preview",
+        enquiryType: String(enquiryConfig?.enquiryType || "").trim(),
+        serviceInterest: activeInquiryInterest === "no-cart-items" ? "" : activeInquiryInterest,
+        serviceInterestLabel: selectedInquiryItem ? getCartHierarchyLabel(selectedInquiryItem) : "",
+        cartQty: totalQty,
+        cartLineCount: normalizedCartItems.length,
+        cartItems: normalizedCartItems,
+        cartSummary: inventorySummary,
+      },
+    };
+
+    try {
+      setIsSubmittingInquiry(true);
+      setInquiryFeedback("");
+
+      const response = await fetch(`${API_BASE_URL}/api/enquiries`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setInquiryFeedback(data?.message || "Failed to submit enquiry.");
+        return;
+      }
+
+      setInquiryFeedback("Enquiry submitted successfully.");
+      setDynamicInquiryValues(
+        supportedEnquiryFields.reduce((acc, field) => {
+          acc[field.name] = "";
+          return acc;
+        }, {})
+      );
+      if (shouldShowServiceInterestField && Array.isArray(cartItems) && cartItems.length > 0) {
+        setSelectedInquiryInterest("");
+      }
+    } catch (error) {
+      setInquiryFeedback("Unable to submit enquiry right now.");
+    } finally {
+      setIsSubmittingInquiry(false);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const syncSessionState = () => {
+      const vendorId =
+        vendorInfo?._id || vendorInfo?.vendor?._id || null;
+      const sessionVendorId = localStorage.getItem("vendorSessionVendorId");
+      const vendorToken = vendorId ? localStorage.getItem(`vendorToken:${vendorId}`) : null;
+      const hasActiveVendorSession =
+        Boolean(vendorToken) &&
+        (!sessionVendorId || String(sessionVendorId) === String(vendorId));
+
+      setHasVendorSession(hasActiveVendorSession);
+    };
+
+    syncSessionState();
+    window.addEventListener("storage", syncSessionState);
+    window.addEventListener("auth-changed", syncSessionState);
+    window.addEventListener("session-expired", syncSessionState);
+    window.addEventListener("focus", syncSessionState);
+
+    return () => {
+      window.removeEventListener("storage", syncSessionState);
+      window.removeEventListener("auth-changed", syncSessionState);
+      window.removeEventListener("session-expired", syncSessionState);
+      window.removeEventListener("focus", syncSessionState);
+    };
+  }, [vendorInfo?._id, vendorInfo?.vendor?._id]);
+
+  const handleLogout = () => {
+    if (typeof window === "undefined") return;
+
+    const vendorId =
+      vendorInfo?._id || vendorInfo?.vendor?._id || null;
+
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("token");
+    localStorage.removeItem("userData");
+    localStorage.removeItem("loginTime");
+    localStorage.removeItem("vendorLoginTime");
+    localStorage.removeItem("vendorSessionVendorId");
+    localStorage.removeItem("sessionHour");
+    localStorage.removeItem("sessionDeviceId");
+
+    if (vendorId) {
+      localStorage.removeItem(`vendorToken:${vendorId}`);
+    }
+
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("vendorToken:")) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new Event("auth-changed"));
+    setMobileMenuOpen(false);
   };
 
   return (
@@ -844,8 +1628,20 @@ export default function ModernPreviewTemplate({
         </nav>
 
         <button type="button" className="modern-book-btn" onClick={goToQuickInquiry}>
-          Book Appointment
+          {enquiryTypeLabel}
         </button>
+
+        {hasVendorSession ? (
+          <button
+            type="button"
+            className="modern-logout-btn"
+            onClick={handleLogout}
+            aria-label="Logout"
+            title="Logout"
+          >
+            <LuLogOut />
+          </button>
+        ) : null}
 
         <button
           type="button"
@@ -883,8 +1679,18 @@ export default function ModernPreviewTemplate({
               goToQuickInquiry();
             }}
           >
-            Book Appointment
+            {enquiryTypeLabel}
           </button>
+
+          {hasVendorSession ? (
+            <button
+              type="button"
+              className="modern-mobile-menu-logout"
+              onClick={handleLogout}
+            >
+              Logout
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -1066,7 +1872,11 @@ export default function ModernPreviewTemplate({
                 <ModernServiceRow
                   key={activeCard.id}
                   card={activeCard}
-                  sectionName={activeSection.sectionName}
+                  sectionName={
+                    activeSection.sectionName === "Featured Services"
+                      ? activeCard.title
+                      : activeSection.sectionName
+                  }
                   onAddToCart={onAddToCart}
                 />
               </div>
@@ -1093,9 +1903,26 @@ export default function ModernPreviewTemplate({
               </div>
             ))}
           </div>
-          <button type="button" className="modern-cart-bar-btn" onClick={onOpenMenu}>
-            Open Cart
-          </button>
+          <div className="modern-cart-bar-actions">
+            {hasVendorSession ? (
+              <button type="button" className="modern-cart-bar-btn" onClick={onOpenMenu}>
+                Open Cart
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="modern-cart-bar-btn modern-cart-bar-btn-secondary"
+                  onClick={goToQuickInquiry}
+                >
+                  {enquiryTypeLabel}
+                </button>
+                <button type="button" className="modern-cart-bar-btn" onClick={onOpenMenu}>
+                  Generate Bill
+                </button>
+              </>
+            )}
+          </div>
         </div>
       ) : null}
 
@@ -1173,27 +2000,171 @@ export default function ModernPreviewTemplate({
           ) : null}
         </div>
 
-        <div className="modern-contact-right">
+          <div className="modern-contact-right">
           <div className="modern-contact-card" id="quick-inquiry">
-            <h3>Quick Inquiry</h3>
-            <div className="modern-input-grid">
-              <input type="text" placeholder="Full Name" />
-              <input type="text" placeholder="Phone" />
-            </div>
-            <select defaultValue="">
-              <option value="" disabled>
-                Service Interest
-              </option>
-              {serviceSections.map((section) => (
-                <option key={section.sectionName} value={section.sectionName}>
-                  {section.sectionName}
-                </option>
-              ))}
-            </select>
-            <textarea placeholder="How can we help?" rows={5} />
-            <button type="button" className="modern-request-btn" onClick={goToQuickInquiry}>
-              Coming Soon
+            <h3>{enquiryTypeLabel}</h3>
+            {supportedEnquiryFields.length > 0 ? (
+              <div className="modern-inquiry-dynamic">
+                {supportedEnquiryFields.map((field) => {
+                  const inputType = getEnquiryInputType(field.fieldType);
+                  const label = getEnquiryFieldLabel(field);
+                  const isPhoneField = isLikelyPhoneField(field);
+                  const isDateTimeField = inputType === "datetime-local";
+                  const dateTimeValue = splitDateTimeValue(dynamicInquiryValues[field.name] || "");
+                  const dateAwareTimeSlots = isDateTimeField
+                    ? getTimeSlotOptionsForDate(businessHours, dateTimeValue.date)
+                    : [];
+                  const hasAvailableDateSlots = dateAwareTimeSlots.length > 0;
+                  const commonProps = {
+                    required: Boolean(field.required),
+                    placeholder: getEnquiryFieldPlaceholder(field),
+                    value: dynamicInquiryValues[field.name] || "",
+                    onChange: (event) => handleInquiryFieldChange(field, event.target.value),
+                  };
+
+                  return (
+                    <div
+                      key={field.name}
+                      className={`modern-inquiry-field ${
+                        inputType === "textarea" || isDateTimeField ? "is-full" : ""
+                      }`}
+                    >
+                      <label className="modern-inquiry-label">
+                        {label}
+                        {field.required ? <span className="modern-inquiry-required">*</span> : null}
+                      </label>
+
+                      {field.fieldType === "textarea" ? (
+                        <textarea
+                          {...commonProps}
+                          rows={4}
+                          minLength={field?.rules?.minLength || undefined}
+                          maxLength={field?.rules?.maxLength || undefined}
+                        />
+                      ) : isDateTimeField ? (
+                        <div className="modern-datetime-input">
+                          <input
+                            className="modern-datetime-date"
+                            type="date"
+                            required={Boolean(field.required)}
+                            value={dateTimeValue.date}
+                            onChange={(event) =>
+                              setDynamicInquiryValues((prev) => {
+                                const nextSlots = getTimeSlotOptionsForDate(
+                                  businessHours,
+                                  event.target.value
+                                );
+                                const nextTime = nextSlots.some(
+                                  (slot) => slot.value === dateTimeValue.time
+                                )
+                                  ? dateTimeValue.time
+                                  : "";
+
+                                return {
+                                  ...prev,
+                                  [field.name]: mergeDateTimeValue(
+                                    event.target.value,
+                                    nextTime
+                                  ),
+                                };
+                              })
+                            }
+                            {...getEnquiryDateOnlyConstraints(field)}
+                          />
+                          <select
+                            required={Boolean(field.required)}
+                            value={dateTimeValue.time}
+                            onChange={(event) =>
+                              setDynamicInquiryValues((prev) => ({
+                                ...prev,
+                                [field.name]: mergeDateTimeValue(
+                                  dateTimeValue.date,
+                                  event.target.value
+                                ),
+                              }))
+                            }
+                            className="modern-datetime-slot"
+                            disabled={Boolean(dateTimeValue.date) && !hasAvailableDateSlots}
+                          >
+                            <option value="">
+                              {Boolean(dateTimeValue.date) && !hasAvailableDateSlots
+                                ? "No slots available"
+                                : "Select time"}
+                            </option>
+                            {dateAwareTimeSlots.map((slot) => (
+                              <option key={`${field.name}-${slot.value}`} value={slot.value}>
+                                {slot.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : isPhoneField ? (
+                        <div className="modern-phone-input">
+                          <span className="modern-phone-prefix">+91</span>
+                          <input
+                            {...commonProps}
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]{10}"
+                            maxLength={10}
+                            autoComplete="tel-national"
+                          />
+                        </div>
+                      ) : (
+                        <input
+                          {...commonProps}
+                          type={inputType}
+                          {...getEnquiryDateConstraints(field)}
+                          step={inputType === "datetime-local" ? 60 : undefined}
+                          inputMode={getEnquiryInputMode(field)}
+                          minLength={
+                            inputType === "text" ? field?.rules?.minLength || undefined : undefined
+                          }
+                          maxLength={
+                            inputType === "text"
+                              ? field?.rules?.maxLength || undefined
+                              : inputType === "number"
+                                ? field?.rules?.maxLength || undefined
+                                : undefined
+                          }
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {shouldShowServiceInterestField ? (
+              <div className="modern-inquiry-field is-full">
+                <label className="modern-inquiry-label">Service Interest</label>
+                <select
+                  value={activeInquiryInterest}
+                  onChange={(event) => handleInquiryInterestChange(event.target.value)}
+                  disabled={inquiryInterestOptions[0]?.value === "no-cart-items"}
+                >
+                  <option value="" disabled>
+                    Service Interest
+                  </option>
+                  {inquiryInterestOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <button
+              type="button"
+              className="modern-request-btn"
+              onClick={handleSubmitInquiry}
+              disabled={isSubmittingInquiry}
+            >
+              {isSubmittingInquiry ? "Submitting..." : enquiryTypeLabel}
             </button>
+            {inquiryFeedback ? (
+              <p className="modern-inquiry-feedback">{inquiryFeedback}</p>
+            ) : null}
           </div>
         </div>
       </section>
@@ -1213,6 +2184,27 @@ export default function ModernPreviewTemplate({
             </a>
           ))}
         </div>
+
+        {socialsToRender.length > 0 ? (
+          <div className="modern-footer-socials" aria-label="Follow us">
+            {socialsToRender.map(({ key, value }) => {
+              const Icon = SOCIAL_ICONS[key];
+
+              return (
+                <a
+                  key={`${key}-${value}`}
+                  href={getSocialHref(key, value)}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={key}
+                  title={key}
+                >
+                  <Icon />
+                </a>
+              );
+            })}
+          </div>
+        ) : null}
 
         <div className="modern-footer-copy">
           {cartItems.length > 0 ? `Cart: ${cartItems.length} item(s) • Rs ${cartTotal}` : ""}

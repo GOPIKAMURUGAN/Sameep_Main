@@ -123,6 +123,32 @@ const DummyCategorySchema = new mongoose.Schema({
 
   dropdowns: { type: Object, default: {} },
 
+  enquiryConfig: {
+    enabled: { type: Boolean, default: false },
+    cartBasedEnquiry: { type: Boolean, default: false },
+    enquiryType: { type: String, default: 'service' },
+    fields: {
+      type: [
+        {
+          name: { type: String, default: '' },
+          fieldType: { type: String, default: 'text' },
+          required: { type: Boolean, default: false },
+          active: { type: Boolean, default: true },
+          sequence: { type: Number, default: 0 },
+          labelOverride: { type: String, default: '' },
+          placeholderOverride: { type: String, default: '' },
+          rules: {
+            noPastDates: { type: Boolean, default: false },
+            maxDaysAhead: { type: Number, default: null },
+            minLength: { type: Number, default: null },
+            maxLength: { type: Number, default: null },
+          },
+        },
+      ],
+      default: [],
+    },
+  },
+
   // Per-category enquiry workflow configuration (all labels and transitions are dynamic)
   enquiryStatusConfig: {
     type: [

@@ -13,7 +13,7 @@ function shouldHideFooter(pathname) {
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return normalized === "modern" ? "modern" : normalized === "classic" ? "classic" : "";
+  return ["classic", "modern", "catalog"].includes(normalized) ? normalized : "";
 }
 
 export default function AppChrome({ children }) {
@@ -28,7 +28,7 @@ export default function AppChrome({ children }) {
     normalizePreviewTemplateKey(defaultTemplateKey) ||
     "classic";
   const hideFooter =
-    shouldHideFooter(pathname) || effectiveTemplateKey === "modern";
+    shouldHideFooter(pathname) || effectiveTemplateKey !== "classic";
 
   useEffect(() => {
     let cancelled = false;

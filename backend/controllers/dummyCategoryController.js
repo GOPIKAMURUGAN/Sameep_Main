@@ -15,6 +15,61 @@ function parseNumber(value, defaultNull = true) {
   const n = Number(value);
   return Number.isNaN(n) ? (defaultNull ? null : 0) : n;
 }
+
+function parseEnquiryConfig(raw) {
+  if (raw === undefined || raw === null || raw === "") return null;
+
+  let parsed = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const enquiryType =
+    parsed.enquiryType === "appointment" || parsed.enquiryType === "order"
+      ? parsed.enquiryType
+      : "service";
+
+  const fields = Array.isArray(parsed.fields)
+    ? parsed.fields
+        .map((field, idx) => {
+          const name = String(field?.name || "").trim();
+          if (!name) return null;
+          return {
+            name,
+            fieldType: String(field?.fieldType || "text").trim().toLowerCase() || "text",
+            required: Boolean(field?.required),
+            active: field?.active !== false,
+            sequence:
+              field?.sequence === "" || field?.sequence == null
+                ? idx + 1
+                : Number(field.sequence) || idx + 1,
+            labelOverride: String(field?.labelOverride || "").trim(),
+            placeholderOverride: String(field?.placeholderOverride || "").trim(),
+            rules: {
+              noPastDates: Boolean(field?.rules?.noPastDates),
+              maxDaysAhead: parseNumber(field?.rules?.maxDaysAhead, true),
+              minLength: parseNumber(field?.rules?.minLength, true),
+              maxLength: parseNumber(field?.rules?.maxLength, true),
+            },
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  return {
+    enabled: Boolean(parsed.enabled),
+    cartBasedEnquiry: Boolean(parsed.cartBasedEnquiry),
+    enquiryType,
+    fields,
+  };
+}
+
 async function buildDummySegmentsForCreate(parentId, name) {
   const segs = [];
   if (!parentId) {
@@ -314,6 +369,11 @@ console.log("REQ FILES:", req.files);
 
       if (req.body.signupLevels) {
         try { const levels = JSON.parse(req.body.signupLevels); if (Array.isArray(levels)) categoryData.signupLevels = levels; } catch {}
+      }
+
+      const enquiryConfig = parseEnquiryConfig(req.body.enquiryConfig);
+      if (enquiryConfig) {
+        categoryData.enquiryConfig = enquiryConfig;
       }
 
       const category = new DummyCategory(categoryData);
@@ -667,6 +727,20 @@ exports.updateCategory = async (req, res) => {
       } else {
         const arr = Array.from({ length: 10 }, (_, i) => req.body[`freeText${i}`] || "");
         if (arr.some((x) => x !== undefined)) doc.freeTexts = arr;
+      }
+
+      if (req.body.enquiryConfig !== undefined) {
+        const enquiryConfig = parseEnquiryConfig(req.body.enquiryConfig);
+        if (enquiryConfig) {
+          doc.enquiryConfig = enquiryConfig;
+        } else {
+          doc.enquiryConfig = {
+            enabled: false,
+            cartBasedEnquiry: false,
+            enquiryType: "service",
+            fields: [],
+          };
+        }
       }
 
       // Per-category enquiry workflow config (array or JSON string)
