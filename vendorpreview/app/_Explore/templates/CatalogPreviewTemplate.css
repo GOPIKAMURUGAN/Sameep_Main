@@ -56,6 +56,15 @@
   width: 42px;
 }
 
+.catalog-brand-logo {
+  border-radius: 16px;
+  box-shadow: 0 12px 28px rgba(20, 20, 20, 0.12);
+  flex: 0 0 auto;
+  height: 46px;
+  object-fit: cover;
+  width: 46px;
+}
+
 .catalog-brand-text {
   font-size: 1.1rem;
   font-weight: 700;

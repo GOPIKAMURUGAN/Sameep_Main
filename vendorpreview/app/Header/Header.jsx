@@ -149,6 +149,8 @@ if (vendorId) {
     vendorInfo?.businessName ||
     vendorInfo?.vendor?.businessName ||
     "";
+  const logoUrl =
+    typeof vendorInfo?.logoUrl === "string" ? vendorInfo.logoUrl.trim() : "";
 
   const galleryRowId =
     vendorInfo?.galleryRowId ||
@@ -174,7 +176,10 @@ if (vendorId) {
       <nav className="navbar navbar-expand-lg bg-body-tertiary custom-navbar">
         <div className="container-fluid">
           <a className="navbar-brand fw-bold" href="#home">
-            {title}
+            {logoUrl ? (
+              <img className="navbar-brand-logo" src={logoUrl} alt={`${title || "Business"} logo`} />
+            ) : null}
+            <span className="navbar-brand-text">{title}</span>
           </a>
 
           <button

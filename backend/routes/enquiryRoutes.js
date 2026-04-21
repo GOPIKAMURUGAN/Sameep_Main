@@ -1,7 +1,7 @@
 const express = require('express');
 const Enquiry = require('../models/Enquiry');
 const DummyVendor = require('../models/DummyVendor');
-const { sendVendorEnquiryWhatsapp } = require('../utils/whatsappService');
+const { sendVendorEnquiryWhatsapp, normalizeWhatsAppMobile } = require('../utils/whatsappService');
 const { deductWhatsApp } = require('../services/vendorWalletService');
 
 const router = express.Router();
@@ -56,8 +56,9 @@ router.post('/', async (req, res) => {
       try {
         const vendor = await DummyVendor.findById(vendorId).lean();
         const vendorMobile = vendor?.phone ? String(vendor.phone).trim() : "";
+        const normalizedVendorMobile = normalizeWhatsAppMobile(vendorMobile);
 
-        if (!vendorMobile) {
+        if (!normalizedVendorMobile) {
           await Enquiry.findByIdAndUpdate(doc._id, {
             $set: {
               "meta.vendorWhatsappStatus": "skipped",
@@ -68,7 +69,7 @@ router.post('/', async (req, res) => {
         }
 
         const response = await sendVendorEnquiryWhatsapp({
-          mobile: vendorMobile,
+          mobile: normalizedVendorMobile,
         });
 
         if (response?.skipped) {
@@ -96,6 +97,7 @@ router.post('/', async (req, res) => {
             "meta.vendorWhatsappSentAt": new Date(),
             "meta.vendorWhatsappStatus": "sent",
             "meta.vendorWhatsappMessageId": responseId ? String(responseId) : "",
+            "meta.vendorWhatsappRecipient": normalizedVendorMobile,
             "meta.vendorWhatsappError": "",
           },
         });

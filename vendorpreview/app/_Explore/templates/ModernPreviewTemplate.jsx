@@ -1609,13 +1609,24 @@ export default function ModernPreviewTemplate({
     setMobileMenuOpen(false);
   };
 
+  const logoUrl =
+    typeof vendorInfo?.logoUrl === "string" ? vendorInfo.logoUrl.trim() : "";
+
   return (
     <div className="modern-template-shell">
       <header className="modern-header" id="home">
         <a className="modern-brand" href="#home">
-          <span className="modern-brand-mark">
-            {(vendorInfo?.businessName || category?.name || "B").charAt(0).toUpperCase()}
-          </span>
+          {logoUrl ? (
+            <img
+              className="modern-brand-logo"
+              src={logoUrl}
+              alt={`${vendorInfo?.businessName || "Business"} logo`}
+            />
+          ) : (
+            <span className="modern-brand-mark">
+              {(vendorInfo?.businessName || category?.name || "B").charAt(0).toUpperCase()}
+            </span>
+          )}
           <span className="modern-brand-text">{vendorInfo?.businessName || "Business"}</span>
         </a>
 

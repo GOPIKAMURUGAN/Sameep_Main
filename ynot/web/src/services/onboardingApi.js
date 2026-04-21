@@ -129,6 +129,13 @@ export function updateVendorStatus(vendorId, status) {
   });
 }
 
+export function updateVendorPricingSource(vendorId, payload) {
+  return request(`/api/vendor-menu/${vendorId}/source`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function getSubdomainSuggestions(businessName, locations) {
   return request(
     `/api/vendor/subdomain-check?businessName=${encodeURIComponent(
@@ -142,5 +149,57 @@ export function setVendorSubdomain(vendorId, subdomain) {
   return request(`/api/vendor/${vendorId}/set-subdomain`, {
     method: "POST",
     body: JSON.stringify({ subdomain }),
+  });
+}
+
+export async function parseMenuFile(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`${API_BASE_URL}/api/onboarding/parse-menu-file`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const contentType = res.headers.get("content-type") || "";
+  const data = contentType.includes("application/json")
+    ? await res.json()
+    : await res.text();
+
+  if (!res.ok) {
+    throw new Error(data?.message || "Failed to parse menu file");
+  }
+
+  return data;
+}
+
+export async function importVendorMenuExcel(vendorId, file, options = {}) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (options.archiveExisting !== undefined) {
+    formData.append("archiveExisting", String(options.archiveExisting));
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/vendor-menu/${vendorId}/import-excel`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const contentType = res.headers.get("content-type") || "";
+  const data = contentType.includes("application/json")
+    ? await res.json()
+    : await res.text();
+
+  if (!res.ok) {
+    throw new Error(data?.message || "Failed to import vendor menu from Excel");
+  }
+
+  return data;
+}
+
+export function saveVendorMenuTree(vendorId, payload) {
+  return request(`/api/vendor-menu/${vendorId}/save-tree`, {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }

@@ -205,6 +205,19 @@ function mergeCustomPackagesIntoPricingTree(pricingTree, customTree, nameMap, ro
   return clonedTree;
 }
 
+function normalizePreviewPricingTree(nodes = []) {
+  return (Array.isArray(nodes) ? nodes : []).map((node) => {
+    const normalizedId = node?.categoryId || node?.id || node?._id || null;
+    return {
+      ...node,
+      _id: node?._id || normalizedId,
+      id: node?.id || normalizedId,
+      categoryId: normalizedId,
+      children: normalizePreviewPricingTree(node?.children || []),
+    };
+  });
+}
+
 // --------------------------------------------------
 // CHIP
 // --------------------------------------------------
@@ -1950,10 +1963,13 @@ function ExploreContent({ onReady, onOpenServices }) {
 
     async function load() {
       try {
+        const isSelfManagedVendor = vendorInfo?.pricingSource === "self_managed";
         const PRICING_API =
-          `${API_BASE_URL}/api/vendor-price-nodes/tree` +
-          `?vendorId=${vendorId}` +
-          `&rootCategoryId=${rootCategoryId}`;
+          isSelfManagedVendor
+            ? `${API_BASE_URL}/api/vendor-menu/${vendorId}/tree`
+            : `${API_BASE_URL}/api/vendor-price-nodes/tree` +
+              `?vendorId=${vendorId}` +
+              `&rootCategoryId=${rootCategoryId}`;
 
         const customPackagesApi =
           `${API_BASE_URL}/api/vendor-custom-packages` +
@@ -2004,16 +2020,27 @@ function ExploreContent({ onReady, onOpenServices }) {
         const packagesMap = buildPackagesMapFromTree(categoryTree);
         const freeTextMap = buildFreeTextMapFromTree(categoryTree);
         const masterIdSet = new Set(Object.keys(nameMap));
-        const mergedPricingTree = mergeCustomPackagesIntoPricingTree(
-          pricingData?.tree || [],
-          customPackagesData?.data || [],
-          nameMap,
-          rootCategoryId
+        const normalizedPricingTree = normalizePreviewPricingTree(
+          isSelfManagedVendor ? pricingData?.children || [] : pricingData?.tree || []
         );
+        const mergedPricingTree = isSelfManagedVendor
+          ? normalizedPricingTree
+          : mergeCustomPackagesIntoPricingTree(
+              normalizedPricingTree,
+              customPackagesData?.data || [],
+              nameMap,
+              rootCategoryId
+            );
 
         // ⭐ FIND INVALID NODES
         function collectInvalidNodes(nodes, invalid = []) {
           nodes.forEach(node => {
+            if (isSelfManagedVendor) {
+              if (node.children?.length) {
+                collectInvalidNodes(node.children, invalid);
+              }
+              return invalid;
+            }
             if (!masterIdSet.has(node.categoryId)) {
               invalid.push(node);
             }
@@ -2054,7 +2081,7 @@ function ExploreContent({ onReady, onOpenServices }) {
       }
     }
     load();
-  }, [vendorId, rootCategoryId, pricingRefreshNonce]);
+  }, [vendorId, rootCategoryId, pricingRefreshNonce, vendorInfo?.pricingSource]);
 
   useEffect(() => {
     if (!rootCategoryId) return;
@@ -4525,7 +4552,10 @@ function ExploreContent({ onReady, onOpenServices }) {
               {[
                 {
                   title: "Prices",
-                  description: "Review service rates and pricing updates.",
+                  description:
+                    vendorInfo?.pricingSource === "self_managed"
+                      ? "Review your uploaded menu hierarchy and active pricing."
+                      : "Review service rates and pricing updates.",
                   onClick: () => handleOpenServices("packages"),
                 },
                 {

@@ -182,6 +182,23 @@ trustSummary: {
     default: "",
   },
 
+  pricingSource: {
+    type: String,
+    enum: ["standard", "self_managed"],
+    default: "standard",
+  },
+
+  menuSourceType: {
+    type: String,
+    enum: ["admin_tree", "excel_upload", "pdf_upload", "manual_upload"],
+    default: "admin_tree",
+  },
+
+  pricingSourceUpdatedAt: {
+    type: Date,
+    default: null,
+  },
+
   createdAt: {
     type: Date,
     default: Date.now,

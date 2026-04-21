@@ -545,14 +545,24 @@ export default function CatalogPreviewTemplate({
     ...(Array.isArray(vendorInfo?.secondaryPhones) ? vendorInfo.secondaryPhones : []),
   ].filter(Boolean);
   const serviceModeSummary = serviceModes.join(" + ");
+  const logoUrl =
+    typeof vendorInfo?.logoUrl === "string" ? vendorInfo.logoUrl.trim() : "";
 
   return (
     <div className="catalog-template-shell">
       <header className="catalog-header" id="home">
         <a className="catalog-brand" href="#home">
-          <span className="catalog-brand-mark">
-            {(vendorInfo?.businessName || category?.name || "B").charAt(0).toUpperCase()}
-          </span>
+          {logoUrl ? (
+            <img
+              className="catalog-brand-logo"
+              src={logoUrl}
+              alt={`${vendorInfo?.businessName || "Business"} logo`}
+            />
+          ) : (
+            <span className="catalog-brand-mark">
+              {(vendorInfo?.businessName || category?.name || "B").charAt(0).toUpperCase()}
+            </span>
+          )}
           <span className="catalog-brand-text">{vendorInfo?.businessName || "Business"}</span>
         </a>
 

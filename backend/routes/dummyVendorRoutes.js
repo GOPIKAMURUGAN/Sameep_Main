@@ -108,6 +108,30 @@ function normalizePrimaryPhone(value) {
     .slice(-10);
 }
 
+function normalizeVendorPricingSource(pricingSource, menuSourceType) {
+  const nextPricingSource =
+    pricingSource === "self_managed" ? "self_managed" : "standard";
+
+  let nextMenuSourceType = menuSourceType;
+  if (nextPricingSource === "standard") {
+    nextMenuSourceType = "admin_tree";
+  }
+
+  if (
+    !["admin_tree", "excel_upload", "pdf_upload", "manual_upload"].includes(
+      nextMenuSourceType
+    )
+  ) {
+    nextMenuSourceType =
+      nextPricingSource === "self_managed" ? "manual_upload" : "admin_tree";
+  }
+
+  return {
+    pricingSource: nextPricingSource,
+    menuSourceType: nextMenuSourceType,
+  };
+}
+
 function getDummyVendorDisplayName(vendor) {
   return (
     vendor?.name || vendor?.contactName || vendor?.businessName || "Vendor"
@@ -361,8 +385,15 @@ router.post("/", async (req, res) => {
       businessHours,
       openingHoursText,
       status,
-      googlePlaceDetails // 👈 optional
+      googlePlaceDetails, // 👈 optional
+      pricingSource,
+      menuSourceType,
     } = req.body;
+
+    const normalizedPricing = normalizeVendorPricingSource(
+      pricingSource,
+      menuSourceType
+    );
 
     const normalizedPhone = normalizePrimaryPhone(phone);
 
@@ -457,6 +488,10 @@ router.post("/", async (req, res) => {
         };
       }
 
+      existing.pricingSource = normalizedPricing.pricingSource;
+      existing.menuSourceType = normalizedPricing.menuSourceType;
+      existing.pricingSourceUpdatedAt = new Date();
+
       await existing.save();
       return res.json({
         ...existing.toObject(),
@@ -493,6 +528,9 @@ router.post("/", async (req, res) => {
             }
           : undefined,
       businessHours: normalizeBusinessHours(),
+      pricingSource: normalizedPricing.pricingSource,
+      menuSourceType: normalizedPricing.menuSourceType,
+      pricingSourceUpdatedAt: new Date(),
     };
 
     // Google Place (CREATE)
@@ -707,6 +745,16 @@ router.put("/:vendorId", async (req, res) => {
 
     if (update.secondaryPhones !== undefined) {
       update.secondaryPhones = normalizeSecondaryPhones(update.secondaryPhones);
+    }
+
+    if (update.pricingSource !== undefined || update.menuSourceType !== undefined) {
+      const normalizedPricing = normalizeVendorPricingSource(
+        update.pricingSource,
+        update.menuSourceType
+      );
+      update.pricingSource = normalizedPricing.pricingSource;
+      update.menuSourceType = normalizedPricing.menuSourceType;
+      update.pricingSourceUpdatedAt = new Date();
     }
 
     // Merge inventorySelections if provided as object

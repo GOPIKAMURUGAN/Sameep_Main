@@ -181,6 +181,17 @@ function normalizeTree(node) {
     children: (node.children || []).map(normalizeTree),
   };
 }
+
+function normalizeSelfManagedTree(node) {
+  const normalizedId = node?.categoryId || node?.id || node?._id;
+  return {
+    ...node,
+    _id: node?._id || normalizedId,
+    id: node?.id || normalizedId,
+    categoryId: normalizedId,
+    children: (node.children || []).map(normalizeSelfManagedTree),
+  };
+}
 function getCustomPackageContext(path) {
   if (!Array.isArray(path) || path.length === 0) return null;
 
@@ -241,8 +252,9 @@ function defaultVariantForm() {
 }
 
 export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) {
-  const { vendorInfo } = useVendor();
+  const { vendorInfo, setVendorInfo } = useVendor();
   const vendorId = vendorInfo?.vendorId || vendorInfo?._id || null;
+  const isSelfManagedVendor = vendorInfo?.pricingSource === "self_managed";
   const rootCategoryId =
     vendorInfo?.categoryId ||
     vendorInfo?.category?._id ||
@@ -257,6 +269,20 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
   const [editingService, setEditingService] = useState(null);
   const [modalPrice, setModalPrice] = useState("");
   const [selectedTerms, setSelectedTerms] = useState([]);
+  const [showSectionEditModal, setShowSectionEditModal] = useState(false);
+  const [sectionName, setSectionName] = useState("");
+  const [sectionImageUrl, setSectionImageUrl] = useState("");
+  const [uploadingSectionImage, setUploadingSectionImage] = useState(false);
+  const [showAddNodeModal, setShowAddNodeModal] = useState(false);
+  const [addingNode, setAddingNode] = useState(false);
+  const [addNodeType, setAddNodeType] = useState("subcategory");
+  const [addNodeName, setAddNodeName] = useState("");
+  const [addNodePrice, setAddNodePrice] = useState("");
+  const [addNodeImageUrl, setAddNodeImageUrl] = useState("");
+  const [uploadingAddNodeImage, setUploadingAddNodeImage] = useState(false);
+  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
+  const [editingCategoryNode, setEditingCategoryNode] = useState(null);
+  const [editCategoryName, setEditCategoryName] = useState("");
 
   const [pendingServiceId, setPendingServiceId] = useState(null);
   const [modalOfferText, setModalOfferText] = useState("");
@@ -275,6 +301,13 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
   const [savingCustomPackage, setSavingCustomPackage] = useState(false);
   const [uploadingMainImage, setUploadingMainImage] = useState(false);
   const [uploadingVariantIndex, setUploadingVariantIndex] = useState(null);
+  const [switchingSource, setSwitchingSource] = useState(false);
+  const [menuImportAdminUnlocked, setMenuImportAdminUnlocked] = useState(false);
+  const [showMenuImportAdminModal, setShowMenuImportAdminModal] = useState(false);
+  const [menuImportAdminPasscode, setMenuImportAdminPasscode] = useState("");
+  const [verifyingMenuImportAdmin, setVerifyingMenuImportAdmin] = useState(false);
+  const [importingMenuFile, setImportingMenuFile] = useState(false);
+  const [menuImportMessage, setMenuImportMessage] = useState("");
   const [customForm, setCustomForm] = useState({
     id: null,
     packageType: "single",
@@ -337,11 +370,55 @@ function defaultCustomForm() {
     setCustomTree(customData?.data || []);
   }
 
+  function rebuildPathFromTree(nodes, previousPath) {
+    if (!Array.isArray(previousPath) || previousPath.length === 0) return [];
+
+    const targetIds = previousPath.map(node =>
+      String(node?._id || node?.id || node?.categoryId || "")
+    );
+
+    const rebuilt = [];
+    let currentNodes = nodes;
+
+    for (const targetId of targetIds) {
+      const match = (currentNodes || []).find(
+        node => String(node?._id || node?.id || node?.categoryId || "") === targetId
+      );
+
+      if (!match) break;
+      rebuilt.push(match);
+      currentNodes = match.children || [];
+    }
+
+    return rebuilt;
+  }
+
+  async function reloadSelfManagedTree(pathOverride = null) {
+    if (!vendorId) return;
+
+    const selfManagedRes = await fetchWithAuth(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-menu/${vendorId}/tree`
+    );
+    const selfManagedData = await selfManagedRes.json();
+    const selfManagedTree = (selfManagedData?.children || []).map(normalizeSelfManagedTree);
+    setCategoryTree([]);
+    setRootNodes(selfManagedTree);
+    setPath(prev => rebuildPathFromTree(selfManagedTree, pathOverride || prev));
+    await loadCustomPackages();
+  }
+
   useEffect(() => {
     if (!vendorId || !rootCategoryId) return;
 
     async function load() {
       setLoading(true);
+      if (isSelfManagedVendor) {
+        await reloadSelfManagedTree();
+        setLoading(false);
+        onLoaded?.();
+        return;
+      }
+
       const pricingRes = await fetchWithAuth(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/tree?vendorId=${vendorId}&rootCategoryId=${rootCategoryId}`
       );
@@ -420,7 +497,131 @@ if (missingLeafIds.length) {
 
 
     load();
-  }, [vendorId, rootCategoryId]);
+  }, [vendorId, rootCategoryId, isSelfManagedVendor]);
+
+  async function handleSwitchPricingSource(nextSource) {
+    if (!vendorId || switchingSource) return;
+    const currentSource = isSelfManagedVendor ? "self_managed" : "standard";
+    if (nextSource === currentSource) return;
+
+    const nextLabel = nextSource === "self_managed" ? "My Menu" : "Standard Menu";
+    const confirmed = window.confirm(
+      `Switch pricing source to ${nextLabel}?\n\nYou will stay on this Prices screen and can continue editing after the switch.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setSwitchingSource(true);
+      const menuSourceType =
+        nextSource === "standard"
+          ? "admin_tree"
+          : vendorInfo?.menuSourceType || "excel_upload";
+
+      const response = await fetchWithAuth(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-menu/${vendorId}/source`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            pricingSource: nextSource,
+            menuSourceType,
+          }),
+        }
+      );
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to update pricing source");
+      }
+
+      setPath([]);
+      setMenuImportMessage("");
+      setVendorInfo?.(prev => ({
+        ...(prev || vendorInfo || {}),
+        pricingSource: data?.pricingSource || nextSource,
+        menuSourceType: data?.menuSourceType || menuSourceType,
+        pricingSourceUpdatedAt: data?.pricingSourceUpdatedAt || new Date().toISOString(),
+      }));
+      await onPricingUpdated?.();
+    } catch (error) {
+      window.alert(error.message || "Failed to switch pricing source");
+    } finally {
+      setSwitchingSource(false);
+    }
+  }
+
+  async function handleVerifyMenuImportAdmin() {
+    if (!menuImportAdminPasscode.trim()) {
+      window.alert("Enter admin passcode");
+      return;
+    }
+
+    try {
+      setVerifyingMenuImportAdmin(true);
+      const response = await fetchWithAuth(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/app-config/admin-passcode`,
+        { method: "GET" }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to verify admin passcode");
+      }
+
+      const expectedPasscode = String(data?.adminPasscode || "").trim();
+      if (!expectedPasscode || menuImportAdminPasscode.trim() !== expectedPasscode) {
+        window.alert("Invalid passcode");
+        return;
+      }
+
+      setMenuImportAdminUnlocked(true);
+      setShowMenuImportAdminModal(false);
+      setMenuImportAdminPasscode("");
+    } catch (error) {
+      window.alert(error.message || "Invalid passcode");
+    } finally {
+      setVerifyingMenuImportAdmin(false);
+    }
+  }
+
+  async function handleImportSelfManagedMenuFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file || !vendorId) return;
+
+    try {
+      setImportingMenuFile(true);
+      setMenuImportMessage("");
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("archiveExisting", "true");
+
+      const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : "";
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-menu/${vendorId}/import-excel`,
+        {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: formData,
+        }
+      );
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to import menu file");
+      }
+
+      await reloadSelfManagedTree([]);
+      await onPricingUpdated?.();
+      setMenuImportMessage(`Imported ${data?.itemCount || 0} menu records from ${file.name}.`);
+    } catch (error) {
+      setMenuImportMessage(error.message || "Failed to import menu file");
+    } finally {
+      setImportingMenuFile(false);
+    }
+  }
   if (loading) return null;
   /* ================= CURRENT LEVEL ================= */
   const showingRoot = path.length === 0;
@@ -457,6 +658,73 @@ if (missingLeafIds.length) {
 
       return node;
     });
+  }
+
+  function updateNodeFields(nodes, id, fields) {
+    return nodes.map(node => {
+      if (node._id === id) {
+        return {
+          ...node,
+          ...fields,
+        };
+      }
+
+      if (node.children?.length) {
+        return {
+          ...node,
+          children: updateNodeFields(node.children, id, fields),
+        };
+      }
+
+      return node;
+    });
+  }
+
+  function updatePathFields(pathNodes, id, fields) {
+    return pathNodes.map(node => {
+      const updatedNode = node._id === id
+        ? { ...node, ...fields }
+        : node;
+
+      return {
+        ...updatedNode,
+        children: updateNodeFields(updatedNode.children || [], id, fields),
+      };
+    });
+  }
+
+  async function updateSelfManagedNode(nodeId, payload) {
+    const response = await fetchWithAuth(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-menu/${vendorId}/nodes/${nodeId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const data = await response.json();
+    if (!response.ok || data?.success === false) {
+      throw new Error(data?.message || "Failed to update menu item");
+    }
+
+    return data?.node || null;
+  }
+
+  async function createSelfManagedNode(payload) {
+    const response = await fetchWithAuth(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-menu/${vendorId}/nodes`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const data = await response.json();
+    if (!response.ok || data?.success === false) {
+      throw new Error(data?.message || "Failed to create menu item");
+    }
+
+    return data?.node || null;
   }
   const toggleStatus = async (service) => {
     const isActive = service.pricingStatus === "Active";
@@ -495,16 +763,23 @@ if (missingLeafIds.length) {
   const confirmActivateService = async () => {
     if (!pendingServiceId) return;   // safety
 
-    await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
-      method: "PUT",
-      body: JSON.stringify({
-        vendorPriceNodeId: pendingServiceId,
+    if (isSelfManagedVendor) {
+      await updateSelfManagedNode(pendingServiceId, {
         price: Number(activationPrice),
-        terms: selectedTerms.join(", "),
-        offerText: activationOfferText,
-        pricingStatus: "Active"
-      })
-    });
+        pricingStatus: "Active",
+      });
+    } else {
+      await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
+        method: "PUT",
+        body: JSON.stringify({
+          vendorPriceNodeId: pendingServiceId,
+          price: Number(activationPrice),
+          terms: selectedTerms.join(", "),
+          offerText: activationOfferText,
+          pricingStatus: "Active"
+        })
+      });
+    }
 
     if (pendingService) {
       pendingService.price = Number(activationPrice);
@@ -526,6 +801,14 @@ if (missingLeafIds.length) {
     return aActive ? -1 : 1;
   });
 async function updateService(service, status) {
+  if (isSelfManagedVendor) {
+    await updateSelfManagedNode(service._id, {
+      price: Number(service.price),
+      pricingStatus: status,
+    });
+    await onPricingUpdated?.();
+    return;
+  }
   await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
       method: "PUT",
       body: JSON.stringify({
@@ -571,6 +854,16 @@ async function updateService(service, status) {
   const inactiveCustomPackageRoots = customPackageRoots.filter(
     node => node.isDeleted || node.pricingStatus !== "Active"
   );
+
+  const canEditCurrentSectionImage =
+    isSelfManagedVendor &&
+    !showingRoot &&
+    !currentNode?._isCustomRoot &&
+    !currentNode?.isLeaf;
+  const canAddSelfManagedNode =
+    isSelfManagedVendor &&
+    !isCustomPackagesScreen &&
+    (showingRoot || !currentNode?.isLeaf);
 
   function openCreateCustomModal() {
     setCustomModalMode("create");
@@ -709,6 +1002,140 @@ async function updateService(service, status) {
       window.alert(err.message || "Failed to upload image");
     } finally {
       setUploadingVariantIndex(null);
+    }
+  }
+
+  async function handleUploadSectionImage(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setUploadingSectionImage(true);
+      const url = await uploadImageAndGetUrl(file);
+      const cacheBustedUrl = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      setSectionImageUrl(cacheBustedUrl);
+    } catch (err) {
+      window.alert(err.message || "Failed to upload image");
+    } finally {
+      setUploadingSectionImage(false);
+    }
+  }
+
+  async function handleUploadAddNodeImage(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setUploadingAddNodeImage(true);
+      const url = await uploadImageAndGetUrl(file);
+      const cacheBustedUrl = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      setAddNodeImageUrl(cacheBustedUrl);
+    } catch (err) {
+      window.alert(err.message || "Failed to upload image");
+    } finally {
+      setUploadingAddNodeImage(false);
+    }
+  }
+
+  function openSectionEditModal() {
+    setSectionName(currentNode?.name || "");
+    setSectionImageUrl(currentNode?.imageUrl || "");
+    setShowSectionEditModal(true);
+  }
+
+  function openEditCategoryModal(node) {
+    setEditingCategoryNode(node);
+    setEditCategoryName(node?.name || "");
+    setShowEditCategoryModal(true);
+  }
+
+  function openAddNodeModal() {
+    setAddNodeType("subcategory");
+    setAddNodeName("");
+    setAddNodePrice("");
+    setAddNodeImageUrl("");
+    setShowAddNodeModal(true);
+  }
+
+  async function handleSaveSectionImage() {
+    if (!currentNode?._id) return;
+
+    try {
+      await updateSelfManagedNode(currentNode._id, {
+        name: sectionName,
+        imageUrl: sectionImageUrl,
+      });
+
+      setRootNodes(nodes =>
+        updateNodeFields(nodes, currentNode._id, {
+          name: sectionName,
+          imageUrl: sectionImageUrl,
+        })
+      );
+      setPath(prev =>
+        updatePathFields(prev, currentNode._id, {
+          name: sectionName,
+          imageUrl: sectionImageUrl,
+        })
+      );
+      setShowSectionEditModal(false);
+      await onPricingUpdated?.();
+    } catch (error) {
+      window.alert(error.message || "Failed to save section image");
+    }
+  }
+
+  async function handleSaveCategoryName() {
+    if (!editingCategoryNode?._id) return;
+
+    try {
+      await updateSelfManagedNode(editingCategoryNode._id, {
+        name: editCategoryName,
+      });
+
+      setRootNodes(nodes =>
+        updateNodeFields(nodes, editingCategoryNode._id, { name: editCategoryName })
+      );
+      setPath(prev =>
+        updatePathFields(prev, editingCategoryNode._id, { name: editCategoryName })
+      );
+      setShowEditCategoryModal(false);
+      setEditingCategoryNode(null);
+      await onPricingUpdated?.();
+    } catch (error) {
+      window.alert(error.message || "Failed to update category name");
+    }
+  }
+
+  async function handleCreateSelfManagedNode() {
+    const trimmedName = addNodeName.trim();
+    if (!trimmedName) {
+      window.alert("Name is required");
+      return;
+    }
+
+    if (addNodeType === "service" && !String(addNodePrice || "").trim()) {
+      window.alert("Price is required for a service");
+      return;
+    }
+
+    try {
+      setAddingNode(true);
+      await createSelfManagedNode({
+        parentNodeId: showingRoot ? null : currentNode?._id || null,
+        nodeType: addNodeType,
+        name: trimmedName,
+        price: addNodeType === "service" ? Number(addNodePrice) : null,
+        imageUrl: addNodeImageUrl,
+      });
+
+      await reloadSelfManagedTree(path);
+      setShowAddNodeModal(false);
+      await onPricingUpdated?.();
+    } catch (error) {
+      window.alert(error.message || "Failed to add menu item");
+    } finally {
+      setAddingNode(false);
     }
   }
 
@@ -969,6 +1396,90 @@ async function updateService(service, status) {
   return (
     <div className="packages-overlay">
       <div className="packages-card">
+        <div className="pricing-source-card">
+          <div className="pricing-source-copy">
+            <div className="pricing-source-label">Pricing Source</div>
+            <div className="pricing-source-title">
+              {isSelfManagedVendor ? "My Menu is active" : "Standard Menu is active"}
+            </div>
+            <p className="pricing-source-help">
+              Choose which pricing setup should be used in preview and dashboard prices.
+            </p>
+          </div>
+
+          <div className="pricing-source-options" role="radiogroup" aria-label="Pricing source">
+            <label className={`pricing-source-option ${!isSelfManagedVendor ? "active" : ""}`}>
+              <input
+                type="radio"
+                name="pricing-source"
+                checked={!isSelfManagedVendor}
+                disabled={switchingSource}
+                onChange={() => handleSwitchPricingSource("standard")}
+              />
+              <span className="pricing-source-radio" aria-hidden="true" />
+              <span className="pricing-source-option-copy">
+                <span className="pricing-source-option-title">Standard Menu</span>
+                <span className="pricing-source-option-desc">
+                  Use the admin-managed pricing structure.
+                </span>
+              </span>
+            </label>
+
+            <label className={`pricing-source-option ${isSelfManagedVendor ? "active" : ""}`}>
+              <input
+                type="radio"
+                name="pricing-source"
+                checked={isSelfManagedVendor}
+                disabled={switchingSource}
+                onChange={() => handleSwitchPricingSource("self_managed")}
+              />
+              <span className="pricing-source-radio" aria-hidden="true" />
+              <span className="pricing-source-option-copy">
+                <span className="pricing-source-option-title">My Menu</span>
+                <span className="pricing-source-option-desc">
+                  Use the uploaded self-managed hierarchy and pricing.
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {isSelfManagedVendor ? (
+          <div className="self-menu-import-card">
+            <div>
+              <div className="pricing-source-label">Menu Import</div>
+              <div className="self-menu-import-title">Upload My Menu file</div>
+              <p>
+                Admin-only option to replace the current self-managed menu with an Excel upload.
+              </p>
+              {menuImportMessage ? (
+                <p className="self-menu-import-message">{menuImportMessage}</p>
+              ) : null}
+            </div>
+
+            <div className="self-menu-import-actions">
+              {menuImportAdminUnlocked ? (
+                <label className={`self-menu-import-btn ${importingMenuFile ? "disabled" : ""}`}>
+                  <input
+                    type="file"
+                    accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    disabled={importingMenuFile}
+                    onChange={handleImportSelfManagedMenuFile}
+                  />
+                  {importingMenuFile ? "Importing..." : "Choose Excel File"}
+                </label>
+              ) : (
+                <button
+                  type="button"
+                  className="self-menu-import-btn"
+                  onClick={() => setShowMenuImportAdminModal(true)}
+                >
+                  Admin Unlock
+                </button>
+              )}
+            </div>
+          </div>
+        ) : null}
 
         {/* HEADER */}
         <div className="services-header">
@@ -986,6 +1497,42 @@ async function updateService(service, status) {
                 : `You are viewing: ${path.map(p => p.name).join(" > ")}`}
             </p>
           </div>
+          {canEditCurrentSectionImage ? (
+            <div className="section-image-tools">
+              <div className={`section-image-status ${currentNode?.imageUrl ? "has-image" : "empty"}`}>
+                {currentNode?.imageUrl ? (
+                  <>
+                    <img src={currentNode.imageUrl} alt={`${currentNode.name} section`} />
+                    <div className="section-image-meta">
+                      <span className="section-image-title">Section image added</span>
+                      <span className="section-image-subtitle">This image will be used in preview for this section.</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="section-image-meta">
+                    <span className="section-image-title">No section image</span>
+                    <span className="section-image-subtitle">Add one image for {currentNode.name}.</span>
+                  </div>
+                )}
+              </div>
+              <button
+                className="btn-secondary btn-secondary-compact"
+                type="button"
+                onClick={openSectionEditModal}
+              >
+                Edit Image
+              </button>
+            </div>
+          ) : null}
+          {canAddSelfManagedNode ? (
+            <button
+              className="btn-primary btn-primary-compact"
+              type="button"
+              onClick={openAddNodeModal}
+            >
+              Add Item
+            </button>
+          ) : null}
         </div>
         {!isCustomPackagesScreen && displayCategories.map(node => (
           <div
@@ -1003,7 +1550,19 @@ async function updateService(service, status) {
               }
             }}
           >
-            {node.name}
+            <span className="subcategory-title-text">{node.name}</span>
+            {isSelfManagedVendor && !node._isCustomEntry ? (
+              <button
+                type="button"
+                className="subcategory-edit-btn"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openEditCategoryModal(node);
+                }}
+              >
+                Edit
+              </button>
+            ) : null}
           </div>
         ))}
         {!isCustomPackagesScreen && displayCategories.length === 0 && serviceChildren.length > 0 && (() => {
@@ -1031,9 +1590,10 @@ async function updateService(service, status) {
                         service={service}
                         isActive
                         toggleStatus={toggleStatus}
-                        isOffer={isFreeTextEnabled(categoryTree, service.categoryId)}
+                        isOffer={isSelfManagedVendor ? false : isFreeTextEnabled(categoryTree, service.categoryId)}
                         onEdit={() => {
                           setEditingService(service);
+                          setEditCategoryName(service.name || "");
                           setModalPrice(service.price || "");
                           setModalOfferText(service.offerText || "");
 
@@ -1069,6 +1629,15 @@ async function updateService(service, status) {
                         service={service}
                         isActive={false}
                         toggleStatus={toggleStatus}
+                        onEdit={() => {
+                          setEditingService(service);
+                          setEditCategoryName(service.name || "");
+                          setModalPrice(service.price || "");
+                          setModalOfferText(service.offerText || "");
+                          setAllTerms([]);
+                          setSelectedTerms([]);
+                          setShowEditModal(true);
+                        }}
                       />
                     ))}
                   </div>
@@ -1145,6 +1714,12 @@ async function updateService(service, status) {
       {
         showEditModal && editingService && (
           <Modal title="Edit Service" onClose={() => setShowEditModal(false)}>
+            <label className="modal-label">Name</label>
+            <input
+              className="price-input"
+              value={editCategoryName}
+              onChange={e => setEditCategoryName(e.target.value)}
+            />
 
             {allTerms.length > 0 && (
               <>
@@ -1189,21 +1764,42 @@ async function updateService(service, status) {
               onClick={async () => {
                 if (!editingService) return; // safety
                 editingService.price = Number(modalPrice);
+                editingService.name = editCategoryName;
                 editingService.pricingStatus = "Active";
                 editingService.terms = selectedTerms.join(", ");
                 editingService.offerText = modalOfferText;
-                await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
-                  method: "PUT",
-                  body: JSON.stringify({
-                    vendorPriceNodeId: editingService._id,   // ✅ FIX
-                    price: Number(modalPrice),               // ✅ FIX
-                    terms: selectedTerms.join(", "),
-                    offerText: modalOfferText,
-                    pricingStatus: "Active"
-                  })
-                });
-
-                setRootNodes([...rootNodes]);
+                if (isSelfManagedVendor) {
+                  await updateSelfManagedNode(editingService._id, {
+                    name: editCategoryName,
+                    price: Number(modalPrice),
+                    pricingStatus: editingService.pricingStatus || "Active",
+                    imageUrl: editingService.imageUrl || "",
+                  });
+                  setRootNodes(nodes =>
+                    updateNodeFields(nodes, editingService._id, {
+                      name: editCategoryName,
+                      price: Number(modalPrice),
+                    })
+                  );
+                  setPath(prev =>
+                    updatePathFields(prev, editingService._id, {
+                      name: editCategoryName,
+                      price: Number(modalPrice),
+                    })
+                  );
+                } else {
+                  await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      vendorPriceNodeId: editingService._id,   // ✅ FIX
+                      price: Number(modalPrice),               // ✅ FIX
+                      terms: selectedTerms.join(", "),
+                      offerText: modalOfferText,
+                      pricingStatus: "Active"
+                    })
+                  });
+                  setRootNodes([...rootNodes]);
+                }
                 await onPricingUpdated?.();
                 setShowEditModal(false);
               }}
@@ -1270,6 +1866,166 @@ async function updateService(service, status) {
           </Modal>
         )
       }
+      {
+        showSectionEditModal && currentNode && (
+          <Modal title="Edit Section Image" onClose={() => setShowSectionEditModal(false)}>
+            <label className="modal-label">Section Name</label>
+            <input
+              className="price-input"
+              value={sectionName}
+              onChange={e => setSectionName(e.target.value)}
+            />
+
+            <label className="modal-label">Image URL</label>
+            <div className="image-row">
+              <input
+                className="price-input"
+                value={sectionImageUrl}
+                onChange={e => setSectionImageUrl(e.target.value)}
+                placeholder="https://..."
+              />
+              <label className="upload-btn">
+                {uploadingSectionImage ? "Uploading..." : "Upload"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUploadSectionImage}
+                  disabled={uploadingSectionImage}
+                />
+              </label>
+            </div>
+            {sectionImageUrl ? (
+              <div className="image-preview-row">
+                <img src={sectionImageUrl} alt={`${currentNode.name} preview`} />
+              </div>
+            ) : null}
+
+            <button className="btn-primary" onClick={handleSaveSectionImage}>
+              Save
+            </button>
+          </Modal>
+        )
+      }
+      {
+        showEditCategoryModal && editingCategoryNode && (
+          <Modal title="Edit Subcategory" onClose={() => setShowEditCategoryModal(false)}>
+            <label className="modal-label">Subcategory Name</label>
+            <input
+              className="price-input"
+              value={editCategoryName}
+              onChange={e => setEditCategoryName(e.target.value)}
+            />
+
+            <button className="btn-primary" onClick={handleSaveCategoryName}>
+              Save
+            </button>
+          </Modal>
+        )
+      }
+      {
+        showAddNodeModal && (
+          <Modal
+            title={
+              showingRoot
+                ? "Add Top-Level Item"
+                : `Add Item Under ${currentNode?.name || "This Section"}`
+            }
+            onClose={() => setShowAddNodeModal(false)}
+          >
+            <label className="modal-label">Add Type</label>
+            <div className="custom-package-type-toggle">
+              <button
+                className={`type-pill ${addNodeType === "subcategory" ? "active" : ""}`}
+                onClick={() => setAddNodeType("subcategory")}
+                type="button"
+              >
+                Subcategory
+              </button>
+              <button
+                className={`type-pill ${addNodeType === "service" ? "active" : ""}`}
+                onClick={() => setAddNodeType("service")}
+                type="button"
+              >
+                Service
+              </button>
+            </div>
+
+            <label className="modal-label">Name</label>
+            <input
+              className="price-input"
+              value={addNodeName}
+              onChange={e => setAddNodeName(e.target.value)}
+              placeholder={addNodeType === "service" ? "Enter service name" : "Enter subcategory name"}
+            />
+
+            {addNodeType === "service" ? (
+              <>
+                <label className="modal-label">Price</label>
+                <input
+                  className="price-input"
+                  value={addNodePrice}
+                  onChange={e => setAddNodePrice(e.target.value)}
+                  placeholder="Enter price"
+                />
+              </>
+            ) : null}
+
+            <label className="modal-label">Image URL (Optional)</label>
+            <div className="image-row">
+              <input
+                className="price-input"
+                value={addNodeImageUrl}
+                onChange={e => setAddNodeImageUrl(e.target.value)}
+                placeholder="https://..."
+              />
+              <label className="upload-btn">
+                {uploadingAddNodeImage ? "Uploading..." : "Upload"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUploadAddNodeImage}
+                  disabled={uploadingAddNodeImage}
+                />
+              </label>
+            </div>
+
+            {addNodeImageUrl ? (
+              <div className="image-preview-row">
+                <img src={addNodeImageUrl} alt="New node preview" />
+              </div>
+            ) : null}
+
+            <button
+              className="btn-primary"
+              onClick={handleCreateSelfManagedNode}
+              disabled={addingNode}
+            >
+              {addingNode ? "Saving..." : "Create"}
+            </button>
+          </Modal>
+        )
+      }
+      {showMenuImportAdminModal && (
+        <Modal title="Admin Verification" onClose={() => setShowMenuImportAdminModal(false)}>
+          <label className="modal-label">Admin Passcode</label>
+          <input
+            className="price-input"
+            type="password"
+            value={menuImportAdminPasscode}
+            onChange={e => setMenuImportAdminPasscode(e.target.value)}
+            placeholder="Enter admin passcode"
+            autoFocus
+          />
+
+          <button
+            className="btn-primary"
+            onClick={handleVerifyMenuImportAdmin}
+            disabled={verifyingMenuImportAdmin}
+          >
+            {verifyingMenuImportAdmin ? "Verifying..." : "Unlock Import"}
+          </button>
+        </Modal>
+      )}
       {showCustomModal && (
         <Modal
           title={customModalMode === "edit" ? "Edit Custom Package" : "Create Custom Package"}
@@ -1528,7 +2284,8 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }) {
           <input
             type="checkbox"
             checked={isActive}
-            onChange={() => toggleStatus(service)}
+            onChange={() => toggleStatus?.(service)}
+            disabled={!toggleStatus}
           />
           <span className="switch-track">
             <span className="switch-thumb" />

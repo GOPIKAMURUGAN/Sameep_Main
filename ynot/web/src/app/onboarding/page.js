@@ -11,12 +11,16 @@ import {
   fetchTrustQuestions,
   getGooglePlaceDetails,
   getSubdomainSuggestions,
+  importVendorMenuExcel,
   requestOtp,
   saveServiceAreas,
   saveTrustAnswers,
+  saveVendorMenuTree,
   searchGooglePlaces,
+  parseMenuFile,
   setVendorSubdomain,
   syncVendorPriceNodes,
+  updateVendorPricingSource,
   updateVendorStatus,
   verifyOtp,
 } from "../../services/onboardingApi";
@@ -38,6 +42,63 @@ const STEP_PROGRESS = {
   CHOOSE_DOMAIN: 97,
   PREVIEW_CHOICE: 100,
 };
+
+function createUploadedMenuItem(index = 0) {
+  return {
+    id: `item-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+    label: "",
+    price: "",
+    selected: true,
+  };
+}
+
+function createUploadedMenuSection(title = "Uploaded Menu") {
+  return {
+    id: `section-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title,
+    items: [createUploadedMenuItem(0)],
+  };
+}
+
+function getFileBaseName(fileName = "") {
+  const normalized = String(fileName || "").trim();
+  if (!normalized) return "Uploaded Menu";
+  return normalized.replace(/\.[^.]+$/, "") || "Uploaded Menu";
+}
+
+function normalizeParsedMenuSections(sections = [], fileName = "") {
+  const fallbackTitle = getFileBaseName(fileName);
+  const idSeed = Date.now();
+  return (Array.isArray(sections) ? sections : []).map((section, sectionIndex) => ({
+    id: `parsed-section-${idSeed}-${sectionIndex}`,
+    title: String(section?.title || "").trim() || `${fallbackTitle} ${sectionIndex + 1}`,
+    items: (Array.isArray(section?.items) ? section.items : []).map((item, itemIndex) => ({
+      id: `parsed-item-${idSeed}-${sectionIndex}-${itemIndex}`,
+      label: String(item?.label || "").trim(),
+      price: String(item?.price || "").trim(),
+      selected: item?.selected !== false,
+    })),
+  }));
+}
+
+function getMenuFileExtension(fileName = "") {
+  const match = String(fileName || "").toLowerCase().match(/\.([^.]+)$/);
+  return match?.[1] || "";
+}
+
+function buildManualMenuItemsFromSections(sections = []) {
+  return sections.flatMap((section) => {
+    const sectionTitle = String(section?.title || "").trim();
+    if (!sectionTitle) return [];
+
+    return (Array.isArray(section?.items) ? section.items : [])
+      .filter((item) => item?.selected && String(item?.label || "").trim())
+      .map((item) => ({
+        fullPath: [sectionTitle, String(item.label || "").trim()],
+        price: String(item.price || "").trim(),
+      }));
+  });
+}
 
 export default function OnboardingPage() {
   return (
@@ -91,6 +152,17 @@ function OnboardingFlow() {
   const [trustQuestions, setTrustQuestions] = useState([]);
   const [trustAnswers, setTrustAnswers] = useState({});
   const [serviceAreas, setServiceAreas] = useState(null);
+  const [serviceSelectionMode, setServiceSelectionMode] = useState("standard");
+  const [menuUploadAdminUnlocked, setMenuUploadAdminUnlocked] = useState(false);
+  const [showMenuUploadAdminPopup, setShowMenuUploadAdminPopup] = useState(false);
+  const [menuUploadAdminPasscode, setMenuUploadAdminPasscode] = useState("");
+  const [verifyingMenuUploadAdmin, setVerifyingMenuUploadAdmin] = useState(false);
+  const [menuUploadFile, setMenuUploadFile] = useState(null);
+  const [uploadedMenuSections, setUploadedMenuSections] = useState([]);
+  const [parsingMenuUpload, setParsingMenuUpload] = useState(false);
+  const [menuUploadError, setMenuUploadError] = useState("");
+  const [menuUploadMeta, setMenuUploadMeta] = useState(null);
+  const [menuUploadRawLines, setMenuUploadRawLines] = useState([]);
 
   const [subdomainSuggestions, setSubdomainSuggestions] = useState([]);
   const [selectedSubdomain, setSelectedSubdomain] = useState(null);
@@ -171,6 +243,14 @@ function OnboardingFlow() {
   const filteredCategories = categories.filter((category) =>
     category.name?.toLowerCase().includes(search.toLowerCase())
   );
+  const uploadedLeafCount = uploadedMenuSections.reduce(
+    (count, section) =>
+      count + section.items.filter((item) => item.selected && String(item.label || "").trim()).length,
+    0
+  );
+  const uploadedSectionCount = uploadedMenuSections.filter((section) =>
+    String(section.title || "").trim()
+  ).length;
 
   const phoneNumber =
     selectedBusiness?.internationalPhoneNumber || selectedBusiness?.phone || "";
@@ -478,6 +558,34 @@ function OnboardingFlow() {
     }
   }
 
+  async function handleVerifyMenuUploadAdminPasscode() {
+    if (!menuUploadAdminPasscode) {
+      alert("Enter admin passcode");
+      return;
+    }
+
+    try {
+      setVerifyingMenuUploadAdmin(true);
+      const data = await fetchAdminPasscode();
+      const expectedPasscode = String(data?.adminPasscode || "").trim();
+
+      if (!expectedPasscode || menuUploadAdminPasscode.trim() !== expectedPasscode) {
+        alert("Invalid passcode");
+        return;
+      }
+
+      setMenuUploadAdminUnlocked(true);
+      setServiceSelectionMode("upload");
+      setShowMenuUploadAdminPopup(false);
+      setMenuUploadAdminPasscode("");
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Invalid passcode");
+    } finally {
+      setVerifyingMenuUploadAdmin(false);
+    }
+  }
+
   async function handleTrustContinue() {
     try {
       setGlobalLoading(true);
@@ -520,15 +628,56 @@ function OnboardingFlow() {
     try {
       setSyncing(true);
       const leafIds = getSelectedLeafIds(nodes, selectedIds);
+      const rootCategoryId =
+        confirmedCategory?._id ||
+        confirmedCategory?.id ||
+        confirmedCategory?.categoryId;
 
-      await syncVendorPriceNodes({
-        vendorId,
-        rootCategoryId:
-          confirmedCategory?._id ||
-          confirmedCategory?.id ||
-          confirmedCategory?.categoryId,
-        activeLeafCategoryIds: leafIds,
-      });
+      if (serviceSelectionMode === "standard") {
+        await updateVendorPricingSource(vendorId, {
+          pricingSource: "standard",
+          menuSourceType: "admin_tree",
+        });
+
+        if (leafIds.length > 0) {
+          await syncVendorPriceNodes({
+            vendorId,
+            rootCategoryId,
+            activeLeafCategoryIds: leafIds,
+          });
+        }
+      } else {
+        const selectedManualItems = buildManualMenuItemsFromSections(
+          uploadedMenuSections
+        );
+        const fileExtension = getMenuFileExtension(menuUploadFile?.name);
+
+        if (menuUploadFile && ["xls", "xlsx"].includes(fileExtension)) {
+          await importVendorMenuExcel(vendorId, menuUploadFile, {
+            archiveExisting: true,
+          });
+        } else if (selectedManualItems.length > 0) {
+          const sourceType = menuUploadFile
+            ? fileExtension === "pdf"
+              ? "pdf_upload"
+              : "manual_upload"
+            : "manual_upload";
+          await saveVendorMenuTree(vendorId, {
+            sourceType,
+            archiveExisting: true,
+            items: selectedManualItems,
+          });
+        } else {
+          await updateVendorPricingSource(vendorId, {
+            pricingSource: "self_managed",
+            menuSourceType: menuUploadFile
+              ? fileExtension === "pdf"
+                ? "pdf_upload"
+                : "manual_upload"
+              : "manual_upload",
+          });
+        }
+      }
 
       await updateVendorStatus(vendorId, "Profile Setup");
 
@@ -582,6 +731,96 @@ function OnboardingFlow() {
       console.error(error);
       alert("Failed to open preview");
     }
+  }
+
+  async function handleMenuFileChange(file) {
+    setMenuUploadFile(file);
+    setMenuUploadError("");
+    setMenuUploadMeta(null);
+    setMenuUploadRawLines([]);
+
+    if (!file) {
+      setUploadedMenuSections([]);
+      return;
+    }
+
+    setParsingMenuUpload(true);
+    try {
+      const parsed = await parseMenuFile(file);
+      const nextSections = normalizeParsedMenuSections(parsed?.sections, file.name);
+
+      setUploadedMenuSections(nextSections);
+      setMenuUploadMeta(parsed?.meta || null);
+      setMenuUploadRawLines(
+        Array.isArray(parsed?.rawLines) ? parsed.rawLines.filter(Boolean) : []
+      );
+    } catch (error) {
+      console.error("Failed to parse uploaded menu", error);
+      setMenuUploadError(error.message || "Failed to parse uploaded menu file.");
+      setUploadedMenuSections([createUploadedMenuSection(getFileBaseName(file.name))]);
+    } finally {
+      setParsingMenuUpload(false);
+    }
+  }
+
+  function addUploadedSection() {
+    setUploadedMenuSections((prev) => [
+      ...prev,
+      createUploadedMenuSection(`Subcategory ${prev.length + 1}`),
+    ]);
+  }
+
+  function updateUploadedSectionTitle(sectionId, title) {
+    setUploadedMenuSections((prev) =>
+      prev.map((section) =>
+        section.id === sectionId ? { ...section, title } : section
+      )
+    );
+  }
+
+  function removeUploadedSection(sectionId) {
+    setUploadedMenuSections((prev) => prev.filter((section) => section.id !== sectionId));
+  }
+
+  function updateUploadedItem(sectionId, itemId, updates) {
+    setUploadedMenuSections((prev) =>
+      prev.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              items: section.items.map((item) =>
+                item.id === itemId ? { ...item, ...updates } : item
+              ),
+            }
+          : section
+      )
+    );
+  }
+
+  function removeUploadedItem(sectionId, itemId) {
+    setUploadedMenuSections((prev) =>
+      prev.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              items: section.items.filter((item) => item.id !== itemId),
+            }
+          : section
+      )
+    );
+  }
+
+  function addUploadedItem(sectionId) {
+    setUploadedMenuSections((prev) =>
+      prev.map((section) =>
+        section.id === sectionId
+          ? {
+              ...section,
+              items: [...section.items, createUploadedMenuItem(section.items.length)],
+            }
+          : section
+      )
+    );
   }
 
   return (
@@ -1209,19 +1448,339 @@ function OnboardingFlow() {
           <section className="flow-card onboarding-wide">
             <p className="step-kicker">Services</p>
             <h2 className="flow-title">Select services</h2>
+            <p className="flow-copy">
+              Choose a standard menu or upload your own menu file.
+            </p>
 
-            <div className="service-tree">
-              {rootIds.map((id) => (
-                <CategoryNode
-                  key={id}
-                  id={id}
-                  nodes={nodes}
-                  selectedIds={selectedIds}
-                  toggleNode={toggleNode}
-                  toggleSelect={toggleSelect}
-                />
-              ))}
+            <div className="service-mode-toggle" role="radiogroup" aria-label="Service source">
+              <button
+                type="button"
+                className={`service-mode-card ${
+                  serviceSelectionMode === "standard" ? "active" : ""
+                }`}
+                aria-pressed={serviceSelectionMode === "standard"}
+                onClick={() => setServiceSelectionMode("standard")}
+              >
+                <span className="service-mode-dot" aria-hidden="true" />
+                <span className="service-mode-copy">
+                  <strong>Standard Menu</strong>
+                  <small>Select services from the admin-configured menu tree.</small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className={`service-mode-card ${
+                  serviceSelectionMode === "upload" ? "active" : ""
+                } ${!menuUploadAdminUnlocked ? "locked" : ""}`}
+                aria-pressed={serviceSelectionMode === "upload"}
+                onClick={() => {
+                  if (!menuUploadAdminUnlocked) {
+                    setShowMenuUploadAdminPopup(true);
+                    return;
+                  }
+                  setServiceSelectionMode("upload");
+                }}
+              >
+                <span className="service-mode-dot" aria-hidden="true" />
+                <span className="service-mode-copy">
+                  <strong>Upload Menu</strong>
+                  <small>
+                    {menuUploadAdminUnlocked
+                      ? "Upload a PDF or Excel file and we will read the menu next."
+                      : "Admin access required to upload a custom menu file."}
+                  </small>
+                </span>
+              </button>
             </div>
+
+            {showMenuUploadAdminPopup ? (
+              <div className="admin-popup-overlay">
+                <div className="admin-popup-card">
+                  <h3>Admin verification</h3>
+                  <p className="muted-copy">Enter admin passcode to enable menu file upload</p>
+                  <input
+                    className="flow-input"
+                    type="password"
+                    placeholder="Admin passcode"
+                    value={menuUploadAdminPasscode}
+                    onChange={(event) => setMenuUploadAdminPasscode(event.target.value)}
+                    autoFocus
+                  />
+                  <div className="button-row">
+                    <button
+                      type="button"
+                      className="secondaryButton"
+                      onClick={() => {
+                        setShowMenuUploadAdminPopup(false);
+                        setMenuUploadAdminPasscode("");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="primaryButton"
+                      onClick={handleVerifyMenuUploadAdminPasscode}
+                      disabled={verifyingMenuUploadAdmin}
+                    >
+                      {verifyingMenuUploadAdmin ? "Verifying..." : "Unlock Upload"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {serviceSelectionMode === "standard" ? (
+              <div className="service-tree">
+                {rootIds.map((id) => (
+                  <CategoryNode
+                    key={id}
+                    id={id}
+                    nodes={nodes}
+                    selectedIds={selectedIds}
+                    toggleNode={toggleNode}
+                    toggleSelect={toggleSelect}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="service-upload-panel">
+                <div className="service-upload-copy">
+                  <strong>Upload menu file</strong>
+                  <p>
+                    Accepted formats: PDF, XLS, XLSX. We will try to extract subcategories and leaf
+                    items from the file and show them here before you continue.
+                  </p>
+                </div>
+                <label className="service-upload-dropzone">
+                  <input
+                    type="file"
+                    accept=".pdf,.xls,.xlsx,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    onChange={async (event) => {
+                      const file = event.target.files?.[0] || null;
+                      await handleMenuFileChange(file);
+                    }}
+                  />
+                  <span>{menuUploadFile ? menuUploadFile.name : "Choose PDF or Excel file"}</span>
+                </label>
+                {parsingMenuUpload ? (
+                  <p className="muted-copy">Reading file and preparing menu preview...</p>
+                ) : menuUploadFile ? (
+                  <p className="muted-copy">
+                    Selected file: <strong>{menuUploadFile.name}</strong>
+                  </p>
+                ) : (
+                  <p className="muted-copy">
+                    Upload is optional. If you skip it, you can continue without adding services
+                    from a file.
+                  </p>
+                )}
+
+                {menuUploadFile ? (
+                  <div className="uploaded-menu-review">
+                    <div className="uploaded-menu-review-head">
+                      <div>
+                        <strong>Menu preview</strong>
+                        <p>
+                          Review uploaded content in the same shape as pricing setup: subcategory
+                          headings with leaf service rows underneath. You can edit anything before
+                          continuing.
+                        </p>
+                      </div>
+                      <div className="uploaded-menu-review-actions">
+                        <div className="uploaded-menu-summary-chip">
+                          {uploadedSectionCount} subcategories, {uploadedLeafCount} selected items
+                        </div>
+                        <button
+                          type="button"
+                          className="secondaryButton"
+                          onClick={addUploadedSection}
+                        >
+                          Add Subcategory
+                        </button>
+                      </div>
+                    </div>
+
+                    {menuUploadMeta?.warnings?.length ? (
+                      <div className="uploaded-menu-alert">
+                        {menuUploadMeta.warnings.map((warning, index) => (
+                          <p key={`${warning}-${index}`}>{warning}</p>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {menuUploadMeta ? (
+                      <div className="uploaded-menu-status-grid">
+                        <div className="uploaded-menu-status-card">
+                          <span>Parser</span>
+                          <strong>{menuUploadMeta.parserType || "unknown"}</strong>
+                        </div>
+                        <div className="uploaded-menu-status-card">
+                          <span>Mode</span>
+                          <strong>{menuUploadMeta.parseMode || "structured"}</strong>
+                        </div>
+                        <div className="uploaded-menu-status-card">
+                          <span>Items found</span>
+                          <strong>{menuUploadMeta.itemCount ?? 0}</strong>
+                        </div>
+                        {menuUploadMeta.pageCount ? (
+                          <div className="uploaded-menu-status-card">
+                            <span>Pages</span>
+                            <strong>{menuUploadMeta.pageCount}</strong>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {menuUploadError ? (
+                      <div className="uploaded-menu-alert error">
+                        <p>{menuUploadError}</p>
+                      </div>
+                    ) : null}
+
+                    {menuUploadRawLines.length ? (
+                      <div className="uploaded-menu-detected">
+                        <strong>Detected text preview</strong>
+                        <p>
+                          This helps us show what was actually extracted from the uploaded file,
+                          especially when a PDF is image-heavy.
+                        </p>
+                        <div className="uploaded-menu-raw-list">
+                          {menuUploadRawLines.map((line, index) => (
+                            <span key={`${line}-${index}`} className="uploaded-menu-raw-chip">
+                              {line}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {uploadedMenuSections.length ? (
+                      <div className="uploaded-menu-section-list">
+                        {uploadedMenuSections.map((section) => (
+                          <div key={section.id} className="uploaded-menu-section-card">
+                            <div className="uploaded-menu-section-head">
+                              <div className="uploaded-menu-section-headline">
+                                <span className="uploaded-menu-section-badge">
+                                  Subcategory
+                                </span>
+                                <input
+                                  className="flow-input uploaded-menu-heading-input"
+                                  value={section.title}
+                                  onChange={(event) =>
+                                    updateUploadedSectionTitle(section.id, event.target.value)
+                                  }
+                                  placeholder="Subcategory heading"
+                                />
+                              </div>
+                              <div className="uploaded-menu-section-toolbar">
+                                <div className="uploaded-menu-section-meta">
+                                  {section.items.filter((item) => item.selected).length} selected
+                                </div>
+                                <button
+                                  type="button"
+                                  className="ghostButton"
+                                  onClick={() => removeUploadedSection(section.id)}
+                                  disabled={uploadedMenuSections.length === 1}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="uploaded-menu-items-head">
+                              <span>Include</span>
+                              <span>Service / Leaf item</span>
+                              <span>Price</span>
+                              <span>Action</span>
+                            </div>
+                            <div className="uploaded-menu-item-list">
+                              {section.items.map((item, itemIndex) => (
+                                <div key={item.id} className="uploaded-menu-item-row">
+                                  <label className="uploaded-menu-item-check">
+                                    <input
+                                      type="checkbox"
+                                      checked={item.selected}
+                                      onChange={(event) =>
+                                        updateUploadedItem(section.id, item.id, {
+                                          selected: event.target.checked,
+                                        })
+                                      }
+                                    />
+                                    <span>{itemIndex + 1}</span>
+                                  </label>
+
+                                  <div className="uploaded-menu-item-content">
+                                    <input
+                                      className="flow-input uploaded-menu-item-input"
+                                      value={item.label}
+                                      onChange={(event) =>
+                                        updateUploadedItem(section.id, item.id, {
+                                          label: event.target.value,
+                                        })
+                                      }
+                                      placeholder="Leaf service name"
+                                    />
+                                    <small>
+                                      Example: Hair Cut, Beard Trim, Shampoo & Conditioner
+                                    </small>
+                                  </div>
+
+                                  <div className="uploaded-menu-price-wrap">
+                                    <span className="uploaded-menu-price-prefix">Rs</span>
+                                    <input
+                                      className="flow-input uploaded-menu-price-input"
+                                      value={item.price}
+                                      onChange={(event) =>
+                                        updateUploadedItem(section.id, item.id, {
+                                          price: event.target.value.replace(/[^0-9.\-]/g, ""),
+                                        })
+                                      }
+                                      placeholder="Price"
+                                      inputMode="decimal"
+                                    />
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    className="ghostButton"
+                                    onClick={() => removeUploadedItem(section.id, item.id)}
+                                    disabled={section.items.length === 1}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+
+                            <button
+                              type="button"
+                              className="secondaryButton uploaded-menu-add-item"
+                              onClick={() => addUploadedItem(section.id)}
+                            >
+                              Add Leaf Item
+                            </button>
+                            <p className="muted-copy uploaded-menu-note">
+                              Parsed rows can be adjusted here before we create pricing records in
+                              the next step.
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="uploaded-menu-empty">
+                        <strong>No structured subcategories were recovered yet.</strong>
+                        <p>
+                          You can still review the detected text above and add subcategories
+                          manually if this file is image-based.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            )}
 
             <div className="flow-actions">
               <button
@@ -1234,7 +1793,7 @@ function OnboardingFlow() {
               <button
                 type="button"
                 className="ctaButton"
-                disabled={selectedIds.length === 0 || syncing}
+                disabled={syncing}
                 onClick={handleServicesContinue}
               >
                 {syncing ? "Saving..." : "Continue"}

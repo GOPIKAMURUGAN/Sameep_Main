@@ -2,6 +2,24 @@ const axios = require("axios");
 const { getWhatsAppBillingConfig } = require("./whatsappBillingConfig");
 const { getWhatsAppEnquiryConfig } = require("./whatsappEnquiryConfig");
 
+function normalizeWhatsAppMobile(mobile) {
+  let digits = String(mobile || "")
+    .replace(/\D/g, "")
+    .trim();
+
+  if (!digits) return "";
+
+  while (digits.length > 10 && digits.startsWith("0")) {
+    digits = digits.slice(1);
+  }
+
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+
+  return digits;
+}
+
 async function sendTemplateWhatsapp({
   mobile,
   templateName,
@@ -9,7 +27,7 @@ async function sendTemplateWhatsapp({
   bodyParameters = [],
   buttonComponent = null,
 }) {
-  const cleanMobile = String(mobile || "").replace("+", "").trim();
+  const cleanMobile = normalizeWhatsAppMobile(mobile);
 
   if (!cleanMobile) {
     throw new Error("Mobile number is required");
@@ -142,4 +160,4 @@ async function sendVendorEnquiryWhatsapp(data) {
   }
 }
 
-module.exports = { sendBillWhatsapp, sendVendorEnquiryWhatsapp };
+module.exports = { sendBillWhatsapp, sendVendorEnquiryWhatsapp, normalizeWhatsAppMobile };
