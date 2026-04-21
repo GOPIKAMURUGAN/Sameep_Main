@@ -5,6 +5,7 @@ import API_BASE_URL, { PREVIEW_BASE_URL } from "../config";
 import DummyBusinessHoursModal from "../components/DummyBusinessHoursModal";
 import DummyBusinessLocationModal from "../components/DummyBusinessLocationModal";
 import DummyLocationPickerModal from "../components/DummyLocationPickerModal";
+import PricingDetailsModal from "../components/PricingDetailsModal";
 
 const FALLBACK_STATUSES = [
   "Accepted",
@@ -42,6 +43,7 @@ export default function DummyVendorStatusListPage() {
   const [statusSaving, setStatusSaving] = useState(false);
   const [newStatus, setNewStatus] = useState("Waiting for Approval");
   const [showSocialHandlesModal, setShowSocialHandlesModal] = useState(false);
+  const [pricingDetailsVendor, setPricingDetailsVendor] = useState(null);
   const [categorySocialHandles, setCategorySocialHandles] = useState([]);
   const [socialHandlesLoading, setSocialHandlesLoading] = useState(false);
   const [socialHandlesError, setSocialHandlesError] = useState("");
@@ -470,6 +472,14 @@ export default function DummyVendorStatusListPage() {
             cursor: isRegisteredStatus ? 'not-allowed' : 'pointer',
           }}
         >View Categories</button>
+        <button
+          onClick={() => {
+            const v = vendors.find(x => x._id === selectedVendorId);
+            if (!v) return alert('Please select a vendor first');
+            setPricingDetailsVendor(v);
+          }}
+          style={{ padding: '6px 12px', borderRadius: 6, background: '#2563eb', color: '#fff', border: 'none' }}
+        >Pricing Details</button>
         <button
           onClick={() => {
             const v = vendors.find(x => x._id === selectedVendorId);
@@ -1143,6 +1153,22 @@ export default function DummyVendorStatusListPage() {
             }}
           />
         </>
+      )}
+      {pricingDetailsVendor && (
+        <PricingDetailsModal
+          vendor={pricingDetailsVendor}
+          rootCategoryId={categoryId || pricingDetailsVendor.categoryId}
+          apiBaseUrl={API_PREFIX}
+          onClose={() => setPricingDetailsVendor(null)}
+          onVendorUpdated={(updatedVendor) => {
+            setPricingDetailsVendor(updatedVendor);
+            setVendors((prev) =>
+              prev.map((vendor) =>
+                vendor._id === updatedVendor._id ? { ...vendor, ...updatedVendor } : vendor
+              )
+            );
+          }}
+        />
       )}
     </div>
   );

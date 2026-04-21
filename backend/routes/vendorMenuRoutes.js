@@ -274,23 +274,6 @@ async function ensureVendor(vendorId) {
   return vendor;
 }
 
-async function ensureSelfManagedLeafStatuses(vendorId, datasetStatus = "active") {
-  await VendorMenuNode.updateMany(
-    {
-      vendorId,
-      datasetStatus,
-      isLeaf: true,
-      price: { $ne: null },
-      pricingStatus: { $ne: "Active" },
-    },
-    {
-      $set: {
-        pricingStatus: "Active",
-      },
-    }
-  );
-}
-
 function normalizeOptionalString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -361,8 +344,6 @@ router.get("/:vendorId/tree", async (req, res) => {
     const datasetStatus =
       req.query.datasetStatus === "archived" ? "archived" : "active";
 
-    await ensureSelfManagedLeafStatuses(req.params.vendorId, datasetStatus);
-
     const nodes = await VendorMenuNode.find({
       vendorId: req.params.vendorId,
       datasetStatus,
@@ -384,8 +365,6 @@ router.get("/:vendorId/flat", async (req, res) => {
     await ensureVendor(req.params.vendorId);
     const datasetStatus =
       req.query.datasetStatus === "archived" ? "archived" : "active";
-
-    await ensureSelfManagedLeafStatuses(req.params.vendorId, datasetStatus);
 
     const nodes = await VendorMenuNode.find({
       vendorId: req.params.vendorId,
