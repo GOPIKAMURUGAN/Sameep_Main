@@ -273,6 +273,11 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
   const [sectionName, setSectionName] = useState("");
   const [sectionImageUrl, setSectionImageUrl] = useState("");
   const [uploadingSectionImage, setUploadingSectionImage] = useState(false);
+  const [showImageLibrary, setShowImageLibrary] = useState(false);
+  const [imageLibrarySearch, setImageLibrarySearch] = useState("");
+  const [imageLibraryItems, setImageLibraryItems] = useState([]);
+  const [loadingImageLibrary, setLoadingImageLibrary] = useState(false);
+  const [imageLibraryError, setImageLibraryError] = useState("");
   const [showAddNodeModal, setShowAddNodeModal] = useState(false);
   const [addingNode, setAddingNode] = useState(false);
   const [addNodeType, setAddNodeType] = useState("subcategory");
@@ -622,6 +627,17 @@ if (missingLeafIds.length) {
       setImportingMenuFile(false);
     }
   }
+
+  useEffect(() => {
+    if (!showSectionEditModal || !showImageLibrary) return;
+
+    const timer = setTimeout(() => {
+      loadImageLibrary(imageLibrarySearch);
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [imageLibrarySearch, showImageLibrary, showSectionEditModal]);
+
   if (loading) return null;
   /* ================= CURRENT LEVEL ================= */
   const showingRoot = path.length === 0;
@@ -1040,7 +1056,53 @@ async function updateService(service, status) {
   function openSectionEditModal() {
     setSectionName(currentNode?.name || "");
     setSectionImageUrl(currentNode?.imageUrl || "");
+    setShowImageLibrary(false);
+    setImageLibrarySearch(currentNode?.name || "");
+    setImageLibraryItems([]);
+    setImageLibraryError("");
     setShowSectionEditModal(true);
+  }
+
+  async function loadImageLibrary(searchText = imageLibrarySearch) {
+    if (!rootCategoryId) {
+      setImageLibraryError("Root category is missing");
+      return;
+    }
+
+    try {
+      setLoadingImageLibrary(true);
+      setImageLibraryError("");
+      const params = new URLSearchParams({
+        rootCategoryId: String(rootCategoryId),
+      });
+      const query = String(searchText || "").trim();
+      if (query) params.set("q", query);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/menu-image-library?${params.toString()}`,
+        { cache: "no-store" }
+      );
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to load image library");
+      }
+
+      setImageLibraryItems(Array.isArray(data?.items) ? data.items : []);
+    } catch (error) {
+      setImageLibraryItems([]);
+      setImageLibraryError(error.message || "Failed to load image library");
+    } finally {
+      setLoadingImageLibrary(false);
+    }
+  }
+
+  function handleToggleImageLibrary() {
+    const nextVisible = !showImageLibrary;
+    setShowImageLibrary(nextVisible);
+    if (nextVisible && imageLibraryItems.length === 0) {
+      loadImageLibrary(imageLibrarySearch || sectionName);
+    }
   }
 
   function openEditCategoryModal(node) {
@@ -1884,15 +1946,31 @@ async function updateService(service, status) {
                 onChange={e => setSectionImageUrl(e.target.value)}
                 placeholder="https://..."
               />
-              <label className="upload-btn">
-                {uploadingSectionImage ? "Uploading..." : "Upload"}
+              <label className={`upload-btn ${showImageLibrary ? "disabled" : ""}`}>
+                {showImageLibrary
+                  ? "Upload Disabled"
+                  : uploadingSectionImage
+                    ? "Uploading..."
+                    : "Upload"}
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleUploadSectionImage}
-                  disabled={uploadingSectionImage}
+                  disabled={uploadingSectionImage || showImageLibrary}
                 />
               </label>
+            </div>
+            <div className="image-source-actions">
+              <button
+                type="button"
+                className="library-toggle-btn"
+                onClick={handleToggleImageLibrary}
+              >
+                {showImageLibrary ? "Hide Library" : "Choose from Library"}
+              </button>
+              <span className="image-source-hint">
+                Search existing standard-menu images by names like hair cut, shampoo, facial, bridal.
+              </span>
             </div>
             {sectionImageUrl ? (
               <div className="image-preview-row">
@@ -1900,9 +1978,53 @@ async function updateService(service, status) {
               </div>
             ) : null}
 
-            <button className="btn-primary" onClick={handleSaveSectionImage}>
-              Save
-            </button>
+            <div className="section-image-save-row">
+              <button className="btn-primary" onClick={handleSaveSectionImage}>
+                Save
+              </button>
+            </div>
+            {showImageLibrary && (
+              <div className="image-library-panel">
+                <div className="image-library-search">
+                  <input
+                    className="price-input"
+                    value={imageLibrarySearch}
+                    onChange={event => setImageLibrarySearch(event.target.value)}
+                    placeholder="Search library images..."
+                  />
+                  <button
+                    type="button"
+                    className="upload-btn"
+                    onClick={() => loadImageLibrary(imageLibrarySearch)}
+                    disabled={loadingImageLibrary}
+                  >
+                    {loadingImageLibrary ? "Searching..." : "Refresh"}
+                  </button>
+                </div>
+                {imageLibraryError ? (
+                  <div className="image-library-message error">{imageLibraryError}</div>
+                ) : null}
+                {!imageLibraryError && !loadingImageLibrary && imageLibraryItems.length === 0 ? (
+                  <div className="image-library-message">
+                    No matching images found. Try a broader word like hair, makeup, facial, or bridal.
+                  </div>
+                ) : null}
+                <div className="image-library-grid">
+                  {imageLibraryItems.map(item => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      className={`image-library-card ${sectionImageUrl === item.imageUrl ? "selected" : ""}`}
+                      onClick={() => setSectionImageUrl(item.imageUrl)}
+                    >
+                      <img src={item.imageUrl} alt={item.name} />
+                      <span className="image-library-card-name">{item.name}</span>
+                      <span className="image-library-card-path">{item.pathLabel}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </Modal>
         )
       }

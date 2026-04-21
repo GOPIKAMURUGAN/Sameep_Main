@@ -45,6 +45,7 @@ const vendorCustomPackageRoutes = require("./routes/vendorCustomPackageRoutes");
 const previewTemplateRoutes = require("./routes/previewTemplateRoutes");
 const onboardingMenuRoutes = require("./routes/onboardingMenuRoutes");
 const vendorMenuRoutes = require("./routes/vendorMenuRoutes");
+const menuImageLibraryRoutes = require("./routes/menuImageLibraryRoutes");
 
 const vendorPriceNodeRoutes = require(
   path.resolve(__dirname, "routes", "vendorPriceNodeRoutes")
@@ -175,6 +176,7 @@ app.use("/api/vendor-custom-packages", vendorCustomPackageRoutes);
 app.use("/api/preview-templates", previewTemplateRoutes);
 app.use("/api/onboarding", onboardingMenuRoutes);
 app.use("/api/vendor-menu", vendorMenuRoutes);
+app.use("/api/menu-image-library", menuImageLibraryRoutes);
 // Vendor Dashboard APIs
 app.use("/api/vendor/dashboard", require("./routes/vendorDashboardRoutes"));
 app.use("/api/vendor/dashboard", require("./routes/customerAnalyticsRoutes"));
