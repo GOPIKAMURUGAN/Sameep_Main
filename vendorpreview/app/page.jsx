@@ -5,7 +5,6 @@ import { useVendor } from "./context/VendorContext";
 import { API_BASE_URL } from "../config";
 
 import Explore from "./_Explore/Explore";
-import Hero from "./Hero/Hero";
 import Header from "./Header/Header";
 import Root from "./Root/RootSection";
 import About from "./About/About";
@@ -150,7 +149,6 @@ if (!sessionAllowed) {
 
         {/* HEADER */}
       {!isImmersiveTemplate ? <Header /> : null}
-<Hero />
 <Explore onReady={() => setLoading(false)} />
 <Root />
 <About />

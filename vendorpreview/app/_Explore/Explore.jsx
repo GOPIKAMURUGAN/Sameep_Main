@@ -1825,6 +1825,45 @@ function ExploreContent({ onReady, onOpenServices }) {
 
 
 
+  function extractSelfManagedHeroImages(pricingTree) {
+    const images = [];
+
+    function walk(nodes, inheritedActive = false) {
+      (nodes || []).forEach((node) => {
+        const isActive =
+          String(node?.pricingStatus || "Active").trim().toLowerCase() !== "inactive";
+        const hasActiveDescendant = (node?.children || []).some((child) => {
+          if (String(child?.pricingStatus || "Active").trim().toLowerCase() !== "inactive") {
+            return true;
+          }
+          return (child?.children || []).length ? hasActiveDescendantInTree([child]) : false;
+        });
+        const shouldUseNodeImage = isActive || inheritedActive || hasActiveDescendant;
+
+        if (shouldUseNodeImage && node?.imageUrl) {
+          images.push(node.imageUrl);
+        }
+
+        if (node?.children?.length) {
+          walk(node.children, isActive || inheritedActive);
+        }
+      });
+    }
+
+    function hasActiveDescendantInTree(nodes) {
+      return (nodes || []).some((node) => {
+        if (String(node?.pricingStatus || "Active").trim().toLowerCase() !== "inactive") {
+          return true;
+        }
+        return hasActiveDescendantInTree(node?.children || []);
+      });
+    }
+
+    walk(pricingTree || []);
+
+    return [...new Set(images.filter(Boolean))].slice(0, 5);
+  }
+
   function extractHeroImages(categoryTree, pricingTree) {
     const images = [];
 
@@ -2059,7 +2098,9 @@ function ExploreContent({ onReady, onOpenServices }) {
 
 
         setHeroImages(
-          extractHeroImages(categoryTree, mergedPricingTree)
+          isSelfManagedVendor
+            ? extractSelfManagedHeroImages(mergedPricingTree)
+            : extractHeroImages(categoryTree, mergedPricingTree)
         );
 
         setMenuTree(filterActiveMenuTree(mergedPricingTree));

@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import Explore from "./_Explore/Explore";
-import Hero from "./Hero/Hero";
 import Header from "./Header/Header";
 import Root from "./Root/RootSection";
 import About from "./About/About";
@@ -59,7 +58,6 @@ function PageContent() {
   return (
     <div>
       {!isImmersiveTemplate ? <Header /> : null}
-      <Hero />
       <Explore />
       <Root />
       <About />

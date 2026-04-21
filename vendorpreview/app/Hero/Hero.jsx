@@ -97,7 +97,9 @@ const HeroSection = ({
     return true;
   });
 
-  const allImages = images;
+  const allImages = (Array.isArray(images) ? images : [])
+    .map((image) => String(image || "").trim())
+    .filter(Boolean);
 
   /* ================= AUTO SLIDER ================= */
 
@@ -118,8 +120,8 @@ const HeroSection = ({
 
   /* ================= SAFETY ================= */
 
-  if (!allImages.length) return null;
-  const currentIndex = index % allImages.length;
+  const hasHeroImages = allImages.length > 0;
+  const currentIndex = hasHeroImages ? index % allImages.length : 0;
 
   /* ================= GOOGLE MAP LINK ================= */
 
@@ -144,7 +146,7 @@ const HeroSection = ({
   /* ================= UI ================= */
 
   return (
-    <section id="home" className="hero">
+    <section id="home" className={`hero ${hasHeroImages ? "" : "hero-no-image"}`}>
       <div className="hero-left">
         <h1>{tagline}</h1>
 
@@ -167,8 +169,8 @@ const HeroSection = ({
             );
           })}
 
-          <div className="stat-item">
-            {typeof googleRating === "number" ? (
+          {typeof googleRating === "number" && (
+            <div className="stat-item">
               <a
                 className="rating-clickable"
                 href={mapsLink}
@@ -182,13 +184,8 @@ const HeroSection = ({
                   {googleReviews ? ` (${googleReviews})` : ""}
                 </p>
               </a>
-            ) : (
-              <>
-                <h2>Top-Rated</h2>
-                <p>Quality Service</p>
-              </>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {serviceModes.length > 0 && (
@@ -220,13 +217,15 @@ const HeroSection = ({
       </div>
 
       {/* RIGHT IMAGE SLIDER */}
-      <div className="hero-right">
-        <img
-          src={allImages[currentIndex]}
-          alt="Hero Slide"
-          className={`hero-img ${slide ? "slide-transition" : ""}`}
-        />
-      </div>
+      {hasHeroImages ? (
+        <div className="hero-right">
+          <img
+            src={allImages[currentIndex]}
+            alt="Hero Slide"
+            className={`hero-img ${slide ? "slide-transition" : ""}`}
+          />
+        </div>
+      ) : null}
     </section>
   );
 };

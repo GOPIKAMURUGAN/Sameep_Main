@@ -38,6 +38,26 @@
   min-width: 300px; /* prevents shrinking too much */
 }
 
+.hero.hero-no-image .hero-left {
+  max-width: 760px;
+}
+
+.hero.hero-no-image {
+  min-height: auto;
+  align-items: flex-start;
+  padding-top: 120px;
+  padding-bottom: 56px;
+}
+
+.hero.hero-no-image .hero-left h1:empty,
+.hero.hero-no-image .hero-text:empty {
+  display: none;
+}
+
+.hero.hero-no-image .stats {
+  margin-top: 0;
+}
+
 .hero-left h1 {
   font-size: clamp(32px, 6vw, 80px); /* responsive text */
   line-height: 1.1;
@@ -231,6 +251,10 @@
     gap: 30px;
   }
 
+  .hero.hero-no-image {
+    padding: 96px 6% 42px;
+  }
+
   .hero-right {
     order: -1; /* image comes first on tablets */
   }
@@ -278,5 +302,10 @@
 @media (max-width: 768px) {
   .hero {
     min-height: 90vh;
+  }
+
+  .hero.hero-no-image {
+    min-height: auto;
+    padding: 84px 6% 36px;
   }
 }
