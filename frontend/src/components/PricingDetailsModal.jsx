@@ -13,11 +13,21 @@ function normalizeTreePayload(data) {
 function flattenNodes(nodes = [], path = []) {
   return nodes.flatMap((node) => {
     const nodePath = [...path, node.name].filter(Boolean);
+    const normalizedId = node._id || node.id || node.categoryId || "";
     return [
-      { ...node, pathLabel: nodePath.join(" > ") },
+      {
+        ...node,
+        _id: normalizedId,
+        id: node.id || normalizedId,
+        pathLabel: nodePath.join(" > "),
+      },
       ...flattenNodes(node.children || [], nodePath),
     ];
   });
+}
+
+function getNodeId(node = {}) {
+  return node._id || node.id || node.categoryId || "";
 }
 
 function defaultEditForm(node = {}) {
@@ -54,6 +64,12 @@ export default function PricingDetailsModal({
     price: "",
     imageUrl: "",
   });
+  const [showEditImageLibrary, setShowEditImageLibrary] = useState(false);
+  const [editImageLibrarySearch, setEditImageLibrarySearch] = useState("");
+  const [editImageLibraryItems, setEditImageLibraryItems] = useState([]);
+  const [loadingEditImageLibrary, setLoadingEditImageLibrary] = useState(false);
+  const [editImageLibraryError, setEditImageLibraryError] = useState("");
+  const [uploadingEditImage, setUploadingEditImage] = useState(false);
 
   const standardRows = useMemo(
     () => flattenNodes(standardTree).filter((node) => node.isLeaf),
@@ -135,17 +151,108 @@ export default function PricingDetailsModal({
   }
 
   function openEdit(node) {
+    setShowAddPanel(false);
+    setAddParent(null);
     setEditingNode(node);
     setEditForm(defaultEditForm(node));
+    setShowEditImageLibrary(false);
+    setEditImageLibrarySearch(node?.name || "");
+    setEditImageLibraryItems([]);
+    setEditImageLibraryError("");
   }
+
+  async function uploadImageAndGetUrl(file) {
+    if (!file || !vendorId) throw new Error("File or vendor missing");
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("folderType", "newvendor");
+    formData.append("hierarchy", JSON.stringify([
+      "admin-pricing",
+      String(vendorId),
+      `asset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    ]));
+
+    const response = await fetch(`${apiBaseUrl}/api/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data?.success === false) {
+      throw new Error(data?.message || data?.error || "Upload failed");
+    }
+
+    return data?.url || "";
+  }
+
+  async function handleUploadEditImage(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      setUploadingEditImage(true);
+      const url = await uploadImageAndGetUrl(file);
+      const cacheBustedUrl = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      setEditForm((prev) => ({ ...prev, imageUrl: cacheBustedUrl }));
+    } catch (err) {
+      alert(err.message || "Failed to upload image");
+    } finally {
+      setUploadingEditImage(false);
+    }
+  }
+
+  async function loadEditImageLibrary(searchText = editImageLibrarySearch) {
+    if (!rootCategoryId) {
+      setEditImageLibraryError("Root category is missing");
+      return;
+    }
+
+    try {
+      setLoadingEditImageLibrary(true);
+      setEditImageLibraryError("");
+      const params = new URLSearchParams({ rootCategoryId: String(rootCategoryId) });
+      const query = String(searchText || "").trim();
+      if (query) params.set("q", query);
+
+      const response = await axios.get(`${apiBaseUrl}/api/menu-image-library?${params.toString()}`);
+      setEditImageLibraryItems(Array.isArray(response.data?.items) ? response.data.items : []);
+    } catch (err) {
+      setEditImageLibraryItems([]);
+      setEditImageLibraryError(err?.response?.data?.message || err.message || "Failed to load image library");
+    } finally {
+      setLoadingEditImageLibrary(false);
+    }
+  }
+
+  function toggleEditImageLibrary() {
+    const nextVisible = !showEditImageLibrary;
+    setShowEditImageLibrary(nextVisible);
+    if (nextVisible && editImageLibraryItems.length === 0) {
+      loadEditImageLibrary(editImageLibrarySearch || editForm.name);
+    }
+  }
+
+  useEffect(() => {
+    if (!editingNode || !showEditImageLibrary) return;
+
+    const timer = setTimeout(() => {
+      loadEditImageLibrary(editImageLibrarySearch);
+    }, 350);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editImageLibrarySearch, showEditImageLibrary, editingNode]);
 
   async function saveEdit() {
     if (!editingNode) return;
+    const nodeId = getNodeId(editingNode);
 
     try {
       setSaving(true);
       if (source === "self_managed") {
-        await axios.patch(`${apiBaseUrl}/api/vendor-menu/${vendorId}/nodes/${editingNode._id}`, {
+        await axios.patch(`${apiBaseUrl}/api/vendor-menu/${vendorId}/nodes/${nodeId}`, {
           name: editForm.name,
           price: editingNode.isLeaf ? editForm.price : undefined,
           terms: editForm.terms,
@@ -155,7 +262,7 @@ export default function PricingDetailsModal({
         await loadMyMenuTree();
       } else {
         await axios.put(`${apiBaseUrl}/api/vendor-price-nodes/update`, {
-          vendorPriceNodeId: editingNode._id,
+          vendorPriceNodeId: nodeId,
           price: editForm.price === "" ? null : Number(editForm.price),
           terms: editForm.terms,
           pricingStatus: editForm.pricingStatus,
@@ -172,17 +279,18 @@ export default function PricingDetailsModal({
 
   async function toggleStatus(node) {
     const nextStatus = node.pricingStatus === "Active" ? "Inactive" : "Active";
+    const nodeId = getNodeId(node);
 
     try {
       setSaving(true);
       if (source === "self_managed") {
-        await axios.patch(`${apiBaseUrl}/api/vendor-menu/${vendorId}/nodes/${node._id}`, {
+        await axios.patch(`${apiBaseUrl}/api/vendor-menu/${vendorId}/nodes/${nodeId}`, {
           pricingStatus: nextStatus,
         });
         await loadMyMenuTree();
       } else {
         await axios.put(`${apiBaseUrl}/api/vendor-price-nodes/update`, {
-          vendorPriceNodeId: node._id,
+          vendorPriceNodeId: nodeId,
           pricingStatus: nextStatus,
         });
         await loadStandardTree();
@@ -195,6 +303,7 @@ export default function PricingDetailsModal({
   }
 
   function openAdd(parentNode = null) {
+    setEditingNode(null);
     setShowAddPanel(true);
     setAddParent(parentNode);
     setAddForm({
@@ -218,7 +327,7 @@ export default function PricingDetailsModal({
     try {
       setSaving(true);
       await axios.post(`${apiBaseUrl}/api/vendor-menu/${vendorId}/nodes`, {
-        parentNodeId: addParent?._id || null,
+        parentNodeId: getNodeId(addParent) || null,
         nodeType: addForm.nodeType,
         name: addForm.name,
         price: addForm.nodeType === "service" ? addForm.price : undefined,
@@ -280,48 +389,18 @@ export default function PricingDetailsModal({
           <div style={styles.empty}>No pricing records found.</div>
         ) : null}
 
-        {!loading && activeRows.length ? (
-          <div style={styles.tableWrap}>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Type</th>
-                  <th style={styles.th}>Path / Name</th>
-                  <th style={styles.th}>Price</th>
-                  <th style={styles.th}>Status</th>
-                  <th style={styles.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeRows.map((node) => (
-                  <tr key={node._id}>
-                    <td style={styles.td}>{node.isLeaf ? "Service" : "Category"}</td>
-                    <td style={styles.td}>{node.pathLabel || node.name}</td>
-                    <td style={styles.td}>{node.isLeaf ? `₹${node.price ?? 0}` : "-"}</td>
-                    <td style={styles.td}>
-                      <span style={node.pricingStatus === "Active" ? styles.activePill : styles.inactivePill}>
-                        {node.pricingStatus || "Inactive"}
-                      </span>
-                    </td>
-                    <td style={styles.td}>
-                      <button style={styles.smallButton} onClick={() => openEdit(node)}>Edit</button>
-                      <button style={styles.smallButton} onClick={() => toggleStatus(node)}>
-                        {node.pricingStatus === "Active" ? "Inactivate" : "Activate"}
-                      </button>
-                      {source === "self_managed" && !node.isLeaf ? (
-                        <button style={styles.smallButton} onClick={() => openAdd(node)}>Add Child</button>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-
         {editingNode ? (
-          <div style={styles.formPanel}>
-            <h3 style={styles.formTitle}>Edit {editingNode.isLeaf ? "Service" : "Category"}</h3>
+          <div style={styles.nestedOverlay} onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setEditingNode(null);
+          }}>
+            <div style={styles.editModal}>
+              <div style={styles.editModalHeader}>
+                <div>
+                  <h3 style={styles.formTitle}>Edit {editingNode.isLeaf ? "Service" : "Category"}</h3>
+                  <p style={styles.formHint}>{editingNode.pathLabel || editingNode.name}</p>
+                </div>
+                <button type="button" style={styles.closeButton} onClick={() => setEditingNode(null)}>Close</button>
+              </div>
             {source === "self_managed" ? (
               <label style={styles.label}>
                 Name
@@ -345,14 +424,85 @@ export default function PricingDetailsModal({
               <textarea style={styles.textarea} value={editForm.terms} onChange={(e) => setEditForm((p) => ({ ...p, terms: e.target.value }))} />
             </label>
             {source === "self_managed" ? (
-              <label style={styles.label}>
-                Image URL
-                <input style={styles.input} value={editForm.imageUrl} onChange={(e) => setEditForm((p) => ({ ...p, imageUrl: e.target.value }))} />
-              </label>
+              <div style={styles.imageTools}>
+                <label style={styles.label}>
+                  Image URL
+                  <input style={styles.input} value={editForm.imageUrl} onChange={(e) => setEditForm((p) => ({ ...p, imageUrl: e.target.value }))} />
+                </label>
+                <div style={styles.imageActions}>
+                  <button type="button" style={styles.secondaryButton} onClick={toggleEditImageLibrary}>
+                    {showEditImageLibrary ? "Hide Library" : "Choose from Library"}
+                  </button>
+                  <label style={{
+                    ...styles.secondaryButton,
+                    ...(showEditImageLibrary ? styles.disabledButton : {}),
+                    cursor: showEditImageLibrary ? "not-allowed" : "pointer",
+                  }}>
+                    {showEditImageLibrary ? "Upload Disabled" : uploadingEditImage ? "Uploading..." : "Upload Image"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      disabled={showEditImageLibrary || uploadingEditImage}
+                      onChange={handleUploadEditImage}
+                    />
+                  </label>
+                </div>
+                {editForm.imageUrl ? (
+                  <div style={styles.imagePreviewRow}>
+                    <img style={styles.imagePreview} src={editForm.imageUrl} alt={editForm.name || "Selected preview"} />
+                    <span style={styles.imagePreviewText}>Selected image preview</span>
+                  </div>
+                ) : null}
+                {showEditImageLibrary ? (
+                  <div style={styles.libraryPanel}>
+                    <div style={styles.librarySearchRow}>
+                      <input
+                        style={styles.input}
+                        value={editImageLibrarySearch}
+                        onChange={(e) => setEditImageLibrarySearch(e.target.value)}
+                        placeholder="Search hair cut, shampoo, facial, bridal..."
+                      />
+                      <button
+                        type="button"
+                        style={styles.secondaryButton}
+                        disabled={loadingEditImageLibrary}
+                        onClick={() => loadEditImageLibrary(editImageLibrarySearch)}
+                      >
+                        {loadingEditImageLibrary ? "Searching..." : "Refresh"}
+                      </button>
+                    </div>
+                    {editImageLibraryError ? (
+                      <div style={styles.libraryError}>{editImageLibraryError}</div>
+                    ) : null}
+                    {!editImageLibraryError && !loadingEditImageLibrary && editImageLibraryItems.length === 0 ? (
+                      <div style={styles.libraryEmpty}>No matching images found. Try broader words like hair, makeup, facial, or bridal.</div>
+                    ) : null}
+                    <div style={styles.libraryGrid}>
+                      {editImageLibraryItems.map((item) => (
+                        <button
+                          type="button"
+                          key={item.id}
+                          style={{
+                            ...styles.libraryCard,
+                            ...(editForm.imageUrl === item.imageUrl ? styles.libraryCardSelected : {}),
+                          }}
+                          onClick={() => setEditForm((prev) => ({ ...prev, imageUrl: item.imageUrl }))}
+                        >
+                          <img style={styles.libraryImage} src={item.imageUrl} alt={item.name} />
+                          <span style={styles.libraryName}>{item.name}</span>
+                          <span style={styles.libraryPath}>{item.pathLabel}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
             <div style={styles.formActions}>
-              <button style={styles.secondaryButton} onClick={() => setEditingNode(null)}>Cancel</button>
-              <button style={styles.primaryButton} disabled={saving} onClick={saveEdit}>{saving ? "Saving..." : "Save"}</button>
+              <button type="button" style={styles.secondaryButton} onClick={() => setEditingNode(null)}>Cancel</button>
+              <button type="button" style={styles.primaryButton} disabled={saving} onClick={saveEdit}>{saving ? "Saving..." : "Save"}</button>
+            </div>
             </div>
           </div>
         ) : null}
@@ -382,14 +532,54 @@ export default function PricingDetailsModal({
               <input style={styles.input} value={addForm.imageUrl} onChange={(e) => setAddForm((p) => ({ ...p, imageUrl: e.target.value }))} />
             </label>
             <div style={styles.formActions}>
-              <button style={styles.secondaryButton} onClick={() => {
+              <button type="button" style={styles.secondaryButton} onClick={() => {
                 setShowAddPanel(false);
                 setAddParent(null);
               }}>Cancel</button>
-              <button style={styles.primaryButton} disabled={saving} onClick={saveAdd}>{saving ? "Saving..." : "Add"}</button>
+              <button type="button" style={styles.primaryButton} disabled={saving} onClick={saveAdd}>{saving ? "Saving..." : "Add"}</button>
             </div>
           </div>
         ) : null}
+
+        {!loading && activeRows.length ? (
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Type</th>
+                  <th style={styles.th}>Path / Name</th>
+                  <th style={styles.th}>Price</th>
+                  <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activeRows.map((node) => (
+                  <tr key={getNodeId(node) || node.pathLabel}>
+                    <td style={styles.td}>{node.isLeaf ? "Service" : "Category"}</td>
+                    <td style={styles.td}>{node.pathLabel || node.name}</td>
+                    <td style={styles.td}>{node.isLeaf ? `₹${node.price ?? 0}` : "-"}</td>
+                    <td style={styles.td}>
+                      <span style={node.pricingStatus === "Active" ? styles.activePill : styles.inactivePill}>
+                        {node.pricingStatus || "Inactive"}
+                      </span>
+                    </td>
+                    <td style={styles.td}>
+                      <button type="button" style={styles.smallButton} disabled={saving} onClick={() => openEdit(node)}>Edit</button>
+                      <button type="button" style={styles.smallButton} disabled={saving} onClick={() => toggleStatus(node)}>
+                        {node.pricingStatus === "Active" ? "Inactivate" : "Activate"}
+                      </button>
+                      {source === "self_managed" && !node.isLeaf ? (
+                        <button type="button" style={styles.smallButton} disabled={saving} onClick={() => openAdd(node)}>Add Child</button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
       </div>
     </div>
   );
@@ -424,7 +614,7 @@ const styles = {
   sourceButtonActive: { background: "#111827", color: "#fff", borderColor: "#111827" },
   primaryButton: { padding: "9px 14px", borderRadius: 8, border: 0, background: "#0ea5e9", color: "#fff", fontWeight: 700 },
   secondaryButton: { padding: "9px 14px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#fff", fontWeight: 700 },
-  smallButton: { marginRight: 6, marginBottom: 4, padding: "5px 9px", borderRadius: 6, border: "1px solid #cbd5e1", background: "#fff" },
+  smallButton: { marginRight: 6, marginBottom: 4, padding: "5px 9px", borderRadius: 6, border: "1px solid #cbd5e1", background: "#fff", cursor: "pointer" },
   note: { padding: 10, borderRadius: 10, background: "#f8fafc", color: "#475569", marginBottom: 12 },
   error: { padding: 10, borderRadius: 10, background: "#fee2e2", color: "#991b1b", marginBottom: 12 },
   empty: { padding: 18, color: "#64748b" },
@@ -435,9 +625,47 @@ const styles = {
   activePill: { display: "inline-block", padding: "3px 8px", borderRadius: 999, background: "#dcfce7", color: "#166534", fontWeight: 700 },
   inactivePill: { display: "inline-block", padding: "3px 8px", borderRadius: 999, background: "#fee2e2", color: "#991b1b", fontWeight: 700 },
   formPanel: { marginTop: 16, padding: 14, border: "1px solid #e2e8f0", borderRadius: 12, background: "#f8fafc" },
+  nestedOverlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 1100,
+    background: "rgba(15, 23, 42, 0.45)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 18,
+  },
+  editModal: {
+    width: "min(760px, 94vw)",
+    maxHeight: "88vh",
+    overflowY: "auto",
+    padding: 18,
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
+    background: "#fff",
+    boxShadow: "0 24px 70px rgba(15, 23, 42, 0.3)",
+  },
+  editModalHeader: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 8 },
   formTitle: { margin: "0 0 12px", fontSize: 18 },
+  formHint: { margin: "-6px 0 12px", color: "#64748b", fontSize: 13 },
   label: { display: "block", marginBottom: 10, fontWeight: 700, color: "#334155" },
   input: { width: "100%", marginTop: 5, padding: 9, border: "1px solid #cbd5e1", borderRadius: 8 },
   textarea: { width: "100%", minHeight: 72, marginTop: 5, padding: 9, border: "1px solid #cbd5e1", borderRadius: 8 },
   formActions: { display: "flex", justifyContent: "flex-end", gap: 10 },
+  imageTools: { marginBottom: 10 },
+  imageActions: { display: "flex", gap: 10, flexWrap: "wrap", margin: "8px 0 10px" },
+  disabledButton: { opacity: 0.55 },
+  imagePreviewRow: { display: "flex", alignItems: "center", gap: 10, margin: "8px 0 10px" },
+  imagePreview: { width: 78, height: 78, objectFit: "cover", borderRadius: 10, border: "1px solid #cbd5e1" },
+  imagePreviewText: { color: "#64748b", fontSize: 13 },
+  libraryPanel: { marginTop: 10, padding: 12, border: "1px solid #e2e8f0", borderRadius: 12, background: "#fff" },
+  librarySearchRow: { display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "center" },
+  libraryError: { marginTop: 10, padding: 10, borderRadius: 8, background: "#fee2e2", color: "#991b1b" },
+  libraryEmpty: { marginTop: 10, padding: 10, borderRadius: 8, background: "#f8fafc", color: "#64748b" },
+  libraryGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10, maxHeight: 260, overflowY: "auto", marginTop: 12 },
+  libraryCard: { display: "flex", flexDirection: "column", gap: 6, padding: 8, border: "1px solid #e2e8f0", borderRadius: 10, background: "#fff", textAlign: "left", cursor: "pointer" },
+  libraryCardSelected: { borderColor: "#0ea5e9", boxShadow: "0 0 0 2px rgba(14, 165, 233, 0.15)" },
+  libraryImage: { width: "100%", height: 86, objectFit: "cover", borderRadius: 8 },
+  libraryName: { fontWeight: 800, color: "#0f172a", fontSize: 13 },
+  libraryPath: { color: "#64748b", fontSize: 11, lineHeight: 1.3 },
 };
