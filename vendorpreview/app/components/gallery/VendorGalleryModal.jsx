@@ -297,6 +297,13 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
     [readOnly]
   );
 
+  const handlePreviewKeyDown = useCallback((event, index) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setPreviewImageIndex(index);
+    }
+  }, []);
+
   useEffect(() => {
     if (!previewImage) return undefined;
 
@@ -397,11 +404,13 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
 
                 <div className="gallery-existing-grid">
                   {selectedImages.map((image, index) => (
-                    <button
-                      type="button"
+                    <div
                       key={image._id || image.imageUrl}
                       className="gallery-existing-item"
                       onClick={() => setPreviewImageIndex(index)}
+                      onKeyDown={(event) => handlePreviewKeyDown(event, index)}
+                      role="button"
+                      tabIndex={0}
                       aria-label={`Preview ${selectedAlbum.title} image ${index + 1}`}
                     >
                       <img src={image.imageUrl} alt={image.caption || selectedAlbum.title} loading="lazy" />
@@ -432,7 +441,7 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
                           </button>
                         </>
                       )}
-                    </button>
+                    </div>
                   ))}
                 </div>
                 {!selectedImages.length && <div className="gallery-muted">No images uploaded in this album yet.</div>}
@@ -455,11 +464,13 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
             <div className="gallery-section-title">Uploaded Images</div>
             <div className="gallery-existing-grid">
               {fallbackImages.map((url, idx) => (
-                <button
-                  type="button"
+                <div
                   key={`${url}-${idx}`}
                   className="gallery-existing-item"
                   onClick={() => setPreviewImageIndex(idx)}
+                  onKeyDown={(event) => handlePreviewKeyDown(event, idx)}
+                  role="button"
+                  tabIndex={0}
                   aria-label={`Preview gallery image ${idx + 1}`}
                 >
                   <img src={url} alt={`Gallery image ${idx + 1}`} loading="lazy" />
@@ -477,7 +488,7 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
                       {deletingImage === url ? "..." : "x"}
                     </button>
                   )}
-                </button>
+                </div>
               ))}
             </div>
             {!fallbackImages.length && <div className="gallery-muted">No images uploaded yet.</div>}

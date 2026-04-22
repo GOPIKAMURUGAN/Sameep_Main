@@ -121,6 +121,82 @@ function formatAlbum(album) {
   };
 }
 
+function formatFeaturedImage(album, imageUrl, sequence) {
+  return {
+    imageUrl,
+    url: imageUrl,
+    albumId: album._id,
+    albumTitle: album.title,
+    sequence,
+  };
+}
+
+router.get("/:vendorId/featured", async (req, res) => {
+  try {
+    const vendor = await DummyVendor.findById(req.params.vendorId).lean();
+    if (!vendor) return res.status(404).json({ success: false, message: "Vendor not found" });
+
+    await ensureDefaultAlbums(vendor);
+
+    const limit = Math.min(Math.max(Number(req.query?.limit) || 5, 1), 8);
+    const albums = await VendorGalleryAlbum.find({
+      vendorId: vendor._id,
+      isActive: { $ne: false },
+    })
+      .sort({ sequence: 1, createdAt: 1 })
+      .lean();
+
+    const seen = new Set();
+    const featured = [];
+
+    for (const album of albums) {
+      const activeImages = Array.isArray(album.images)
+        ? album.images
+            .filter((image) => image?.isActive !== false && image?.imageUrl)
+            .sort((a, b) => (a.sequence || 0) - (b.sequence || 0))
+        : [];
+
+      const candidateUrls = [album.coverImageUrl, ...activeImages.map((image) => image.imageUrl)]
+        .map((url) => String(url || "").trim())
+        .filter(Boolean);
+
+      for (const imageUrl of candidateUrls) {
+        if (seen.has(imageUrl)) continue;
+        seen.add(imageUrl);
+        featured.push(formatFeaturedImage(album, imageUrl, featured.length + 1));
+        break;
+      }
+
+      if (featured.length >= limit) break;
+    }
+
+    if (featured.length < limit) {
+      for (const album of albums) {
+        const activeImages = Array.isArray(album.images)
+          ? album.images
+              .filter((image) => image?.isActive !== false && image?.imageUrl)
+              .sort((a, b) => (a.sequence || 0) - (b.sequence || 0))
+          : [];
+
+        for (const image of activeImages) {
+          const imageUrl = String(image.imageUrl || "").trim();
+          if (!imageUrl || seen.has(imageUrl)) continue;
+          seen.add(imageUrl);
+          featured.push(formatFeaturedImage(album, imageUrl, featured.length + 1));
+          if (featured.length >= limit) break;
+        }
+
+        if (featured.length >= limit) break;
+      }
+    }
+
+    return res.json({ success: true, images: featured, count: featured.length });
+  } catch (err) {
+    console.error("GET /vendor-gallery/:vendorId/featured error:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 router.get("/:vendorId", async (req, res) => {
   try {
     const vendor = await DummyVendor.findById(req.params.vendorId).lean();

@@ -1243,7 +1243,7 @@ export default function ModernPreviewTemplate({
       ? mergedHeroImages.map((item) => String(item || "").trim()).filter(Boolean)
       : [];
 
-    const preferredPool = [...new Set([...serviceImages, ...galleryImages])];
+    const preferredPool = [...new Set([...galleryImages, ...serviceImages])];
     return preferredPool.length > 0 ? preferredPool : [...new Set(fallbackImages)];
   }, [mergedHeroImages, serviceSections, vendorGalleryImages]);
 

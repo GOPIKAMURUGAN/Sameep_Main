@@ -1898,7 +1898,7 @@ function ExploreContent({ onReady, onOpenServices }) {
   const [heroImages, setHeroImages] = useState([]);
   const [vendorGalleryImages, setVendorGalleryImages] = useState([]);
   const mergedHeroImages = useMemo(
-    () => [...new Set([...heroImages, ...vendorGalleryImages])],
+    () => [...new Set([...vendorGalleryImages, ...heroImages])],
     [heroImages, vendorGalleryImages]
   );
 
@@ -2159,15 +2159,47 @@ function ExploreContent({ onReady, onOpenServices }) {
   useEffect(() => {
     if (!vendorId) return;
 
-    fetch(`${API_BASE_URL}/api/dummy-vendors/${vendorId}`)
-      .then((res) => res.json())
-      .then((vendor) => {
-        if (!vendor?.rowImages) return;
-
-        const images = Object.values(vendor.rowImages).flat();
-        setVendorGalleryImages(images);
+    fetch(`${API_BASE_URL}/api/vendor-gallery/${vendorId}/featured?limit=5`, {
+      cache: "no-store",
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Featured gallery API failed");
+        return res.json();
       })
-      .catch((err) => console.error("Vendor gallery fetch failed", err));
+      .then((data) => {
+        const images = Array.isArray(data?.images)
+          ? data.images
+              .map((image) => image?.imageUrl || image?.url || "")
+              .map((imageUrl) => String(imageUrl || "").trim())
+              .filter(Boolean)
+          : [];
+
+        if (images.length > 0) {
+          setVendorGalleryImages([...new Set(images)]);
+          return;
+        }
+
+        return fetch(`${API_BASE_URL}/api/dummy-vendors/${vendorId}`, {
+          cache: "no-store",
+        })
+          .then((res) => res.json())
+          .then((vendor) => {
+            if (!vendor?.rowImages) {
+              setVendorGalleryImages([]);
+              return;
+            }
+
+            const fallbackImages = Object.values(vendor.rowImages)
+              .flat()
+              .map((imageUrl) => String(imageUrl || "").trim())
+              .filter(Boolean);
+            setVendorGalleryImages([...new Set(fallbackImages)].slice(0, 5));
+          });
+      })
+      .catch((err) => {
+        console.error("Vendor gallery fetch failed", err);
+        setVendorGalleryImages([]);
+      });
   }, [vendorId]);
 
   useEffect(() => {
