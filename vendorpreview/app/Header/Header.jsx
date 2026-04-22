@@ -40,6 +40,7 @@ export default function Header() {
   const [openProfile, setOpenProfile] = useState(false);
   const [openServices, setOpenServices] = useState(false);
   const [serviceType, setServiceType] = useState(null);
+  const [galleryReadOnly, setGalleryReadOnly] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   // --------------------------------------------------
@@ -137,6 +138,9 @@ if (vendorId) {
   // 🔹 Menu helpers
   // --------------------------------------------------
   const webMenu = categoryData?.webMenu || [];
+  const showGalleryMenu = webMenu.some(
+    (item) => String(item || "").trim().toLowerCase() === "gallery"
+  );
   const enquiryConfig = categoryData?.enquiryConfig || null;
   const enquiryCtaLabel = enquiryConfig?.enabled
     ? getEnquiryTypeLabel(enquiryConfig?.enquiryType)
@@ -171,6 +175,13 @@ if (vendorId) {
     contactSection?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const openGallery = (readOnly = true) => {
+    setGalleryReadOnly(readOnly);
+    setServiceType("gallery");
+    setOpenProfile(false);
+    setOpenServices(true);
+  };
+
   return (
     <>
       <nav className="navbar navbar-expand-lg bg-body-tertiary custom-navbar">
@@ -195,12 +206,26 @@ if (vendorId) {
             <ul className="navbar-nav ms-auto mb-lg-0">
               {/* 🔹 Dynamic menu */}
               {webMenu.map((item) => (
-                <li key={item} className="nav-item">
-                  <a className="nav-link" href={`#${PAGE_SECTIONS[item]}`}>
-                    {item}
-                  </a>
-                </li>
+                String(item || "").trim().toLowerCase() === "gallery" ? null : (
+                  <li key={item} className="nav-item">
+                    <a className="nav-link" href={`#${PAGE_SECTIONS[item]}`}>
+                      {item}
+                    </a>
+                  </li>
+                )
               ))}
+
+              {showGalleryMenu ? (
+                <li className="nav-item">
+                  <button
+                    className="nav-link btn-link gallery-nav-btn"
+                    onClick={() => openGallery(true)}
+                    type="button"
+                  >
+                    Gallery
+                  </button>
+                </li>
+              ) : null}
 
               <li className="nav-item">
                 <button
@@ -275,6 +300,7 @@ if (vendorId) {
             onOpenServices={(type) => {
               setProfileLoading(type === "packages");
               setServiceType(type);
+              setGalleryReadOnly(type === "gallery" ? false : galleryReadOnly);
               setOpenProfile(false);
               setOpenServices(true);
             }}
@@ -300,10 +326,12 @@ if (vendorId) {
           <VendorGalleryModal
             vendorId={vendorInfo?.vendorId || vendorInfo?._id || vendorInfo?.vendor?._id || null}
             rowId={galleryRowId}
+            readOnly={galleryReadOnly}
             onClose={() => {
               setOpenServices(false);
               setServiceType(null);
               setProfileLoading(false);
+              setGalleryReadOnly(false);
             }}
           />
         </Portal>

@@ -1280,7 +1280,7 @@ const [subcategoryNameById, setSubcategoryNameById] = useState({});
           />
           <ChipSelect
             label="Web Menu"
-            options={["Home", "Categories", "Why Us", "About", "Contact"]}
+            options={["Home", "Categories", "Gallery", "Why Us", "About", "Contact"]}
             value={webMenuItems}
             onChange={(vals) => {
               const arr = Array.isArray(vals) ? vals : [];

@@ -3241,6 +3241,10 @@ function ExploreContent({ onReady, onOpenServices }) {
           heroButton2={heroButton2}
           onPrimaryAction={handleHeroButton1Click}
           onOpenMenu={() => setViewMode("menu")}
+          onOpenGallery={() => {
+            setServiceType("gallery");
+            setOpenServices(true);
+          }}
           cartItems={cartItems}
           cartTotal={cartTotal}
           onAddToCart={addToCart}
@@ -3258,6 +3262,10 @@ function ExploreContent({ onReady, onOpenServices }) {
           heroTagline={heroTagline}
           heroDescription={heroDescription}
           onOpenMenu={() => setViewMode("menu")}
+          onOpenGallery={() => {
+            setServiceType("gallery");
+            setOpenServices(true);
+          }}
           cartItems={cartItems}
           cartTotal={cartTotal}
           onAddToCart={addToCart}

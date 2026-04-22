@@ -3,9 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import GalleryPreview from "./GalleryPreview";
 
-const MAX_IMAGES = 5;
-
-export default function GalleryUploader({ endpoint, disabled, onUploaded }) {
+export default function GalleryUploader({ endpoint, disabled, onUploaded, maxImages = 20 }) {
   const [selectedImages, setSelectedImages] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -33,10 +31,10 @@ export default function GalleryUploader({ endpoint, disabled, onUploaded }) {
       return;
     }
 
-    const remaining = MAX_IMAGES - selectedImages.length;
+    const remaining = maxImages - selectedImages.length;
 
     if (onlyImages.length > remaining) {
-      setError(`You can upload a maximum of ${MAX_IMAGES} images.`);
+      setError(`You can upload a maximum of ${maxImages} images at a time.`);
       event.target.value = "";
       return;
     }
@@ -126,12 +124,12 @@ export default function GalleryUploader({ endpoint, disabled, onUploaded }) {
             accept="image/*"
             multiple
             onChange={handleFileSelect}
-            disabled={disabled || uploading || selectedImages.length >= MAX_IMAGES}
+            disabled={disabled || uploading || selectedImages.length >= maxImages}
           />
         </label>
 
         <div className="gallery-file-meta">
-          {selectedImages.length}/{MAX_IMAGES} selected
+          {selectedImages.length}/{maxImages} selected
         </div>
       </div>
 

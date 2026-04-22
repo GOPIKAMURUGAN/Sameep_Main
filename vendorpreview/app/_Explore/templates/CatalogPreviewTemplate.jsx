@@ -389,6 +389,7 @@ export default function CatalogPreviewTemplate({
   heroTagline,
   heroDescription,
   onOpenMenu,
+  onOpenGallery,
   cartItems,
   cartTotal,
   onAddToCart,
@@ -407,6 +408,7 @@ export default function CatalogPreviewTemplate({
         const normalized = String(item || "").trim().toLowerCase();
         if (!normalized) return null;
         if (normalized === "categories") return { label: item, href: "#services" };
+        if (normalized === "gallery") return { label: item, href: "#gallery", action: "gallery" };
         if (normalized === "about" || normalized === "why us") return { label: item, href: "#services" };
         if (normalized === "contact") return { label: item, href: "#contact" };
         return { label: item, href: `#${toAnchor(item)}` };
@@ -415,6 +417,14 @@ export default function CatalogPreviewTemplate({
 
     return mapped.length > 0 ? mapped : DEFAULT_NAV;
   }, [category]);
+
+  const handleNavClick = (event, item) => {
+    if (item?.action === "gallery") {
+      event.preventDefault();
+      onOpenGallery?.();
+      setMobileMenuOpen(false);
+    }
+  };
 
   const trustSummary = vendorInfo?.trustSummary || vendorInfo?.trust || {};
   const trustEntries = Object.entries(trustSummary || {}).filter(
@@ -568,7 +578,7 @@ export default function CatalogPreviewTemplate({
 
         <nav className="catalog-nav" aria-label="Primary">
           {navItems.map((item) => (
-            <a key={`${item.label}-${item.href}`} href={item.href}>
+            <a key={`${item.label}-${item.href}`} href={item.href} onClick={(event) => handleNavClick(event, item)}>
               {item.label}
             </a>
           ))}
@@ -597,7 +607,14 @@ export default function CatalogPreviewTemplate({
       {mobileMenuOpen ? (
         <div className="catalog-mobile-menu">
           {navItems.map((item) => (
-            <a key={`${item.label}-mobile`} href={item.href} onClick={() => setMobileMenuOpen(false)}>
+            <a
+              key={`${item.label}-mobile`}
+              href={item.href}
+              onClick={(event) => {
+                handleNavClick(event, item);
+                if (item?.action !== "gallery") setMobileMenuOpen(false);
+              }}
+            >
               {item.label}
             </a>
           ))}

@@ -1026,6 +1026,7 @@ export default function ModernPreviewTemplate({
   heroTagline,
   heroDescription,
   onOpenMenu,
+  onOpenGallery,
   cartItems,
   cartTotal,
   onAddToCart,
@@ -1051,6 +1052,7 @@ export default function ModernPreviewTemplate({
         if (!normalized) return null;
 
         if (normalized === "categories") return { label: item, href: "#services" };
+        if (normalized === "gallery") return { label: item, href: "#gallery", action: "gallery" };
         if (normalized === "about" || normalized === "why us") {
           return { label: item, href: "#our-story" };
         }
@@ -1061,6 +1063,14 @@ export default function ModernPreviewTemplate({
 
     return mapped.length > 0 ? mapped : DEFAULT_NAV;
   }, [category]);
+
+  const handleNavClick = (event, item) => {
+    if (item?.action === "gallery") {
+      event.preventDefault();
+      onOpenGallery?.();
+      setMobileMenuOpen(false);
+    }
+  };
 
   const heroCopy = useMemo(
     () =>
@@ -1632,7 +1642,7 @@ export default function ModernPreviewTemplate({
 
         <nav className="modern-nav" aria-label="Primary">
           {navItems.map((item) => (
-            <a key={`${item.label}-${item.href}`} href={item.href}>
+            <a key={`${item.label}-${item.href}`} href={item.href} onClick={(event) => handleNavClick(event, item)}>
               {item.label}
             </a>
           ))}
@@ -1676,7 +1686,10 @@ export default function ModernPreviewTemplate({
               <a
                 key={`mobile-${item.label}-${item.href}`}
                 href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={(event) => {
+                  handleNavClick(event, item);
+                  if (item?.action !== "gallery") setMobileMenuOpen(false);
+                }}
               >
                 {item.label}
               </a>
@@ -2190,7 +2203,7 @@ export default function ModernPreviewTemplate({
 
         <div className="modern-footer-links">
           {navItems.map((item) => (
-            <a key={`${item.label}-footer`} href={item.href}>
+            <a key={`${item.label}-footer`} href={item.href} onClick={(event) => handleNavClick(event, item)}>
               {item.label}
             </a>
           ))}
