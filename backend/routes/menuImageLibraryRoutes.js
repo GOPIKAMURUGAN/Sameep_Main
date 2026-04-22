@@ -20,8 +20,39 @@ function matchesSearch(item, query) {
   const compactQuery = query.replace(/\s+/g, "");
   const haystack = normalizeSearch([item.name, item.pathLabel].filter(Boolean).join(" "));
   const compactHaystack = haystack.replace(/\s+/g, "");
+  const tokens = query
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3);
 
-  return haystack.includes(query) || compactHaystack.includes(compactQuery);
+  return (
+    haystack.includes(query) ||
+    compactHaystack.includes(compactQuery) ||
+    tokens.some((token) => haystack.includes(token))
+  );
+}
+
+function scoreSearch(item, query) {
+  if (!query) return 0;
+
+  const haystack = normalizeSearch([item.name, item.pathLabel].filter(Boolean).join(" "));
+  const compactQuery = query.replace(/\s+/g, "");
+  const compactHaystack = haystack.replace(/\s+/g, "");
+  const tokens = query
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3);
+
+  let score = 0;
+  if (haystack.includes(query)) score += 100;
+  if (compactQuery && compactHaystack.includes(compactQuery)) score += 80;
+
+  tokens.forEach((token) => {
+    if (haystack.includes(token)) score += 20;
+    if (normalizeSearch(item.name).includes(token)) score += 15;
+  });
+
+  return score;
 }
 
 router.get("/", async (req, res) => {
@@ -79,6 +110,7 @@ router.get("/", async (req, res) => {
         };
       })
       .filter((item) => matchesSearch(item, query))
+      .sort((a, b) => scoreSearch(b, query) - scoreSearch(a, query))
       .slice(0, 80);
 
     return res.json({

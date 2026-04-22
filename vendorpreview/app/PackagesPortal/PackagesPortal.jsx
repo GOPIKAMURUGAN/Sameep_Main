@@ -1969,7 +1969,7 @@ async function updateService(service, status) {
                 {showImageLibrary ? "Hide Library" : "Choose from Library"}
               </button>
               <span className="image-source-hint">
-                Search existing standard-menu images by names like hair cut, shampoo, facial, bridal.
+                Matching images load as you type. We search by any word from this section name, like hair, spa, shampoo, facial, or bridal.
               </span>
             </div>
             {sectionImageUrl ? (
@@ -2000,6 +2000,11 @@ async function updateService(service, status) {
                   >
                     {loadingImageLibrary ? "Searching..." : "Refresh"}
                   </button>
+                </div>
+                <div className="image-library-count">
+                  {loadingImageLibrary
+                    ? "Searching image library..."
+                    : `${imageLibraryItems.length} matching image${imageLibraryItems.length === 1 ? "" : "s"} found`}
                 </div>
                 {imageLibraryError ? (
                   <div className="image-library-message error">{imageLibraryError}</div>
