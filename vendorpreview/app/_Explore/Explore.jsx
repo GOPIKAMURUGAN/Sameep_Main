@@ -1109,6 +1109,7 @@ function ExploreContent({ onReady, onOpenServices }) {
   const [showOptions, setShowOptions] = useState(false);
   const [openServices, setOpenServices] = useState(false);
   const [serviceType, setServiceType] = useState(null);
+  const [galleryReadOnly, setGalleryReadOnly] = useState(true);
   const [serviceLoading, setServiceLoading] = useState(false);
 
   const [showVendorLogin, setShowVendorLogin] = useState(false);
@@ -1408,6 +1409,7 @@ function ExploreContent({ onReady, onOpenServices }) {
     }
 
     setServiceLoading(type === "packages");
+    setGalleryReadOnly(type === "gallery" ? false : true);
     setServiceType(type);
     setOpenServices(true);
   };
@@ -2964,13 +2966,29 @@ function ExploreContent({ onReady, onOpenServices }) {
     });
   };
   const [verifyingOtp, setVerifyingOtp] = useState(false);
-  const categoryHome = category?.homePopup || {};
+  const previewCategory = useMemo(() => {
+    if (!category && !hrCategory) return null;
+    if (!category) return hrCategory;
+    if (!hrCategory) return category;
+
+    const categoryWebMenu = Array.isArray(category?.webMenu) ? category.webMenu : [];
+    const hrWebMenu = Array.isArray(hrCategory?.webMenu) ? hrCategory.webMenu : [];
+
+    return {
+      ...hrCategory,
+      ...category,
+      webMenu: categoryWebMenu.length > 0 ? categoryWebMenu : hrWebMenu,
+      enquiryConfig: category?.enquiryConfig || hrCategory?.enquiryConfig,
+      homePopup: category?.homePopup || hrCategory?.homePopup,
+    };
+  }, [category, hrCategory]);
+  const categoryHome = previewCategory?.homePopup || {};
 
   const heroTagline =
     vendorInfo?.customFields?.freeText1?.trim() ||
     categoryHome?.tagline?.trim() ||
     vendorInfo?.businessName ||
-    category?.name ||
+    previewCategory?.name ||
     "Premium Services";
 
   const heroDescription =
@@ -3260,8 +3278,8 @@ function ExploreContent({ onReady, onOpenServices }) {
       {activeTemplateKey === "modern" ? (
         <ModernPreviewTemplate
           vendorInfo={vendorInfo}
-          category={category}
-          enquiryConfig={hrCategory?.enquiryConfig || category?.enquiryConfig || null}
+          category={previewCategory}
+          enquiryConfig={previewCategory?.enquiryConfig || null}
           orderedCategories={orderedCategories}
           sectionsWithHeading={sectionsWithHeading}
           cardsWithoutHeading={cardsWithoutHeading}
@@ -3274,6 +3292,7 @@ function ExploreContent({ onReady, onOpenServices }) {
           onPrimaryAction={handleHeroButton1Click}
           onOpenMenu={() => setViewMode("menu")}
           onOpenGallery={() => {
+            setGalleryReadOnly(true);
             setServiceType("gallery");
             setOpenServices(true);
           }}
@@ -3286,7 +3305,7 @@ function ExploreContent({ onReady, onOpenServices }) {
       ) : activeTemplateKey === "catalog" ? (
         <CatalogPreviewTemplate
           vendorInfo={vendorInfo}
-          category={category}
+          category={previewCategory}
           orderedCategories={orderedCategories}
           sectionsWithHeading={sectionsWithHeading}
           cardsWithoutHeading={cardsWithoutHeading}
@@ -3295,6 +3314,7 @@ function ExploreContent({ onReady, onOpenServices }) {
           heroDescription={heroDescription}
           onOpenMenu={() => setViewMode("menu")}
           onOpenGallery={() => {
+            setGalleryReadOnly(true);
             setServiceType("gallery");
             setOpenServices(true);
           }}
@@ -5001,10 +5021,12 @@ function ExploreContent({ onReady, onOpenServices }) {
         <VendorGalleryModal
           vendorId={vendorId}
           rowId={galleryRowId}
+          readOnly={galleryReadOnly}
           onClose={() => {
             setOpenServices(false);
             setServiceType(null);
             setServiceLoading(false);
+            setGalleryReadOnly(true);
           }}
         />
       )}
