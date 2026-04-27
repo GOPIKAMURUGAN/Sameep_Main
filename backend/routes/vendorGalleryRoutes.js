@@ -5,6 +5,7 @@ const DummyVendor = require("../models/DummyVendor");
 const DummyCategory = require("../models/dummyCategory");
 const VendorGalleryAlbum = require("../models/VendorGalleryAlbum");
 const { uploadBufferToS3WithLabel, deleteS3ObjectByUrl } = require("../utils/s3Upload");
+const { requireVendorParamWriteAccess } = require("../utils/vendorWriteAuth");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -214,7 +215,7 @@ router.get("/:vendorId", async (req, res) => {
   }
 });
 
-router.post("/:vendorId/albums", async (req, res) => {
+router.post("/:vendorId/albums", requireVendorParamWriteAccess(), async (req, res) => {
   try {
     const vendor = await DummyVendor.findById(req.params.vendorId).lean();
     if (!vendor) return res.status(404).json({ success: false, message: "Vendor not found" });
@@ -248,7 +249,7 @@ router.post("/:vendorId/albums", async (req, res) => {
   }
 });
 
-router.patch("/:vendorId/albums/:albumId", async (req, res) => {
+router.patch("/:vendorId/albums/:albumId", requireVendorParamWriteAccess(), async (req, res) => {
   try {
     const update = {};
     if (req.body?.title !== undefined) {
@@ -275,7 +276,7 @@ router.patch("/:vendorId/albums/:albumId", async (req, res) => {
   }
 });
 
-router.delete("/:vendorId/albums/:albumId", async (req, res) => {
+router.delete("/:vendorId/albums/:albumId", requireVendorParamWriteAccess(), async (req, res) => {
   try {
     const album = await VendorGalleryAlbum.findOne({
       _id: req.params.albumId,
@@ -302,7 +303,7 @@ router.delete("/:vendorId/albums/:albumId", async (req, res) => {
   }
 });
 
-router.post("/:vendorId/albums/:albumId/images", upload.any(), async (req, res) => {
+router.post("/:vendorId/albums/:albumId/images", requireVendorParamWriteAccess(), upload.any(), async (req, res) => {
   try {
     const vendor = await DummyVendor.findById(req.params.vendorId).lean();
     if (!vendor) return res.status(404).json({ success: false, message: "Vendor not found" });
@@ -351,7 +352,7 @@ router.post("/:vendorId/albums/:albumId/images", upload.any(), async (req, res) 
   }
 });
 
-router.delete("/:vendorId/albums/:albumId/images/:imageId", async (req, res) => {
+router.delete("/:vendorId/albums/:albumId/images/:imageId", requireVendorParamWriteAccess(), async (req, res) => {
   try {
     const album = await VendorGalleryAlbum.findOne({
       _id: req.params.albumId,

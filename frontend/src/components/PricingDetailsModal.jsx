@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { getToken } from "../utils/adminAuth";
 
 const STATUS_OPTIONS = ["Active", "Inactive"];
+
+function adminRequestConfig(config = {}) {
+  const token = getToken();
+  return {
+    ...config,
+    headers: {
+      ...(config.headers || {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  };
+}
 
 function normalizeTreePayload(data) {
   if (Array.isArray(data?.tree)) return data.tree;
@@ -82,10 +94,14 @@ export default function PricingDetailsModal({
     if (!vendorId || !rootCategoryId) return;
 
     try {
-      await axios.post(`${apiBaseUrl}/api/vendor-price-nodes/add-missing-leaves`, {
-        vendorId,
-        rootCategoryId,
-      });
+      await axios.post(
+        `${apiBaseUrl}/api/vendor-price-nodes/add-missing-leaves`,
+        {
+          vendorId,
+          rootCategoryId,
+        },
+        adminRequestConfig()
+      );
     } catch {
       // The tree read below is still useful even if backfill has nothing to add.
     }
@@ -129,10 +145,14 @@ export default function PricingDetailsModal({
 
     try {
       setSaving(true);
-      const res = await axios.patch(`${apiBaseUrl}/api/vendor-menu/${vendorId}/source`, {
-        pricingSource: nextSource,
-        menuSourceType: nextSource === "self_managed" ? vendor?.menuSourceType || "manual_upload" : "admin_tree",
-      });
+      const res = await axios.patch(
+        `${apiBaseUrl}/api/vendor-menu/${vendorId}/source`,
+        {
+          pricingSource: nextSource,
+          menuSourceType: nextSource === "self_managed" ? vendor?.menuSourceType || "manual_upload" : "admin_tree",
+        },
+        adminRequestConfig()
+      );
       setSource(res.data?.pricingSource || nextSource);
       setEditingNode(null);
       setShowAddPanel(false);
@@ -252,21 +272,29 @@ export default function PricingDetailsModal({
     try {
       setSaving(true);
       if (source === "self_managed") {
-        await axios.patch(`${apiBaseUrl}/api/vendor-menu/${vendorId}/nodes/${nodeId}`, {
-          name: editForm.name,
-          price: editingNode.isLeaf ? editForm.price : undefined,
-          terms: editForm.terms,
-          imageUrl: editForm.imageUrl,
-          pricingStatus: editForm.pricingStatus,
-        });
+        await axios.patch(
+          `${apiBaseUrl}/api/vendor-menu/${vendorId}/nodes/${nodeId}`,
+          {
+            name: editForm.name,
+            price: editingNode.isLeaf ? editForm.price : undefined,
+            terms: editForm.terms,
+            imageUrl: editForm.imageUrl,
+            pricingStatus: editForm.pricingStatus,
+          },
+          adminRequestConfig()
+        );
         await loadMyMenuTree();
       } else {
-        await axios.put(`${apiBaseUrl}/api/vendor-price-nodes/update`, {
-          vendorPriceNodeId: nodeId,
-          price: editForm.price === "" ? null : Number(editForm.price),
-          terms: editForm.terms,
-          pricingStatus: editForm.pricingStatus,
-        });
+        await axios.put(
+          `${apiBaseUrl}/api/vendor-price-nodes/update`,
+          {
+            vendorPriceNodeId: nodeId,
+            price: editForm.price === "" ? null : Number(editForm.price),
+            terms: editForm.terms,
+            pricingStatus: editForm.pricingStatus,
+          },
+          adminRequestConfig()
+        );
         await loadStandardTree();
       }
       setEditingNode(null);
@@ -284,15 +312,23 @@ export default function PricingDetailsModal({
     try {
       setSaving(true);
       if (source === "self_managed") {
-        await axios.patch(`${apiBaseUrl}/api/vendor-menu/${vendorId}/nodes/${nodeId}`, {
-          pricingStatus: nextStatus,
-        });
+        await axios.patch(
+          `${apiBaseUrl}/api/vendor-menu/${vendorId}/nodes/${nodeId}`,
+          {
+            pricingStatus: nextStatus,
+          },
+          adminRequestConfig()
+        );
         await loadMyMenuTree();
       } else {
-        await axios.put(`${apiBaseUrl}/api/vendor-price-nodes/update`, {
-          vendorPriceNodeId: nodeId,
-          pricingStatus: nextStatus,
-        });
+        await axios.put(
+          `${apiBaseUrl}/api/vendor-price-nodes/update`,
+          {
+            vendorPriceNodeId: nodeId,
+            pricingStatus: nextStatus,
+          },
+          adminRequestConfig()
+        );
         await loadStandardTree();
       }
     } catch (err) {
@@ -326,13 +362,17 @@ export default function PricingDetailsModal({
 
     try {
       setSaving(true);
-      await axios.post(`${apiBaseUrl}/api/vendor-menu/${vendorId}/nodes`, {
-        parentNodeId: getNodeId(addParent) || null,
-        nodeType: addForm.nodeType,
-        name: addForm.name,
-        price: addForm.nodeType === "service" ? addForm.price : undefined,
-        imageUrl: addForm.imageUrl,
-      });
+      await axios.post(
+        `${apiBaseUrl}/api/vendor-menu/${vendorId}/nodes`,
+        {
+          parentNodeId: getNodeId(addParent) || null,
+          nodeType: addForm.nodeType,
+          name: addForm.name,
+          price: addForm.nodeType === "service" ? addForm.price : undefined,
+          imageUrl: addForm.imageUrl,
+        },
+        adminRequestConfig()
+      );
       await loadMyMenuTree();
       setShowAddPanel(false);
       setAddParent(null);

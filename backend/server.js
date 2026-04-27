@@ -47,6 +47,7 @@ const onboardingMenuRoutes = require("./routes/onboardingMenuRoutes");
 const vendorMenuRoutes = require("./routes/vendorMenuRoutes");
 const menuImageLibraryRoutes = require("./routes/menuImageLibraryRoutes");
 const vendorGalleryRoutes = require("./routes/vendorGalleryRoutes");
+const siteAnalyticsRoutes = require("./routes/siteAnalyticsRoutes");
 
 const vendorPriceNodeRoutes = require(
   path.resolve(__dirname, "routes", "vendorPriceNodeRoutes")
@@ -179,6 +180,7 @@ app.use("/api/onboarding", onboardingMenuRoutes);
 app.use("/api/vendor-menu", vendorMenuRoutes);
 app.use("/api/menu-image-library", menuImageLibraryRoutes);
 app.use("/api/vendor-gallery", vendorGalleryRoutes);
+app.use("/api/site-analytics", siteAnalyticsRoutes);
 // Vendor Dashboard APIs
 app.use("/api/vendor/dashboard", require("./routes/vendorDashboardRoutes"));
 app.use("/api/vendor/dashboard", require("./routes/customerAnalyticsRoutes"));

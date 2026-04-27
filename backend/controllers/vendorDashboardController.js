@@ -3,6 +3,9 @@ const Customer = require("../models/Customer");
 const LoyaltyLedger = require("../models/LoyaltyLedger");
 const mongoose = require("mongoose");
 
+const NO_STYLIST_SELECTED_ID = "NO_STYLIST_SELECTED";
+const NO_STYLIST_SELECTED_LABEL = "No Stylist Selected";
+
 // Helper: start of day
 const startOfToday = () => {
   const d = new Date();
@@ -131,38 +134,34 @@ exports.getFinancialYearMonthly = async (req, res) => {
     }
 
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0-based
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const rollingStart = new Date(currentMonthStart);
+    rollingStart.setMonth(rollingStart.getMonth() - 11);
 
-    // FY start year
-    const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
-
-    const fyStart = new Date(fyStartYear, 3, 1); // Apr 1
-    const fyEnd = new Date(fyStartYear + 1, 2, 31, 23, 59, 59); // Mar 31
+    const rollingEnd = new Date(currentMonthStart);
+    rollingEnd.setMonth(rollingEnd.getMonth() + 1);
 
     const aggregationResult = await BillingSession.aggregate([
       {
         $match: {
           vendorId: new mongoose.Types.ObjectId(vendorId),
           status: "COMPLETED",
-          createdAt: { $gte: fyStart, $lte: fyEnd },
+          createdAt: { $gte: rollingStart, $lt: rollingEnd },
         },
       },
       {
         $group: {
-          _id: { month: { $month: "$createdAt" } },
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          },
           revenue: { $sum: "$totalAmount" },
           orders: { $sum: 1 },
         },
       },
-      { $sort: { "_id": 1 } },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
     ]);
 
-    // ================= FINANCIAL YEAR MONTH ORDER (APR → MAR) =================
-    const FINANCIAL_MONTHS = [
-      "Apr", "May", "Jun", "Jul", "Aug", "Sep",
-      "Oct", "Nov", "Dec", "Jan", "Feb", "Mar",
-    ];
     const MONTH_LABELS = [
       "Jan", "Feb", "Mar", "Apr", "May", "Jun",
       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
@@ -171,23 +170,42 @@ exports.getFinancialYearMonthly = async (req, res) => {
     // Convert aggregation into lookup
     const monthMap = {};
     aggregationResult.forEach((m) => {
+      const monthKey = `${m._id.year}-${String(m._id.month).padStart(2, "0")}`;
       const label = MONTH_LABELS[m._id.month - 1];
-      monthMap[label] = {
+      monthMap[monthKey] = {
+        month: label,
+        year: m._id.year,
         revenue: m.revenue || 0,
         orders: m.orders || 0,
         avgBill: m.orders ? Math.round(m.revenue / m.orders) : 0,
       };
     });
 
-    // Build financial year ordered array
-    const financialYearData = FINANCIAL_MONTHS.map((label) => ({
-      month: label,
-      revenue: monthMap[label]?.revenue || 0,
-      orders: monthMap[label]?.orders || 0,
-      avgBill: monthMap[label]?.avgBill || 0,
-    }));
+    const rollingYearData = Array.from({ length: 12 }, (_, index) => {
+      const date = new Date(rollingStart);
+      date.setMonth(rollingStart.getMonth() + index);
+      const year = date.getFullYear();
+      const monthNumber = date.getMonth() + 1;
+      const month = MONTH_LABELS[date.getMonth()];
+      const monthKey = `${year}-${String(monthNumber).padStart(2, "0")}`;
+      const row = monthMap[monthKey] || {};
 
-    res.json({ success: true, data: financialYearData });
+      return {
+        month,
+        year,
+        monthKey,
+        label: `${month} ${year}`,
+        startDate: date.toISOString(),
+        endDate: new Date(year, monthNumber, 1).toISOString(),
+        isCurrentMonth:
+          year === now.getFullYear() && date.getMonth() === now.getMonth(),
+        revenue: row.revenue || 0,
+        orders: row.orders || 0,
+        avgBill: row.avgBill || 0,
+      };
+    });
+
+    res.json({ success: true, data: rollingYearData });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false });
@@ -323,7 +341,7 @@ function maskPhone(phone) {
 
 exports.getStylistPerformance = async (req, res) => {
   try {
-    const { vendorId, range } = req.query;
+    const { vendorId, range, from, to } = req.query;
 
     if (!vendorId) {
       return res.status(400).json({ message: "vendorId required" });
@@ -331,15 +349,30 @@ exports.getStylistPerformance = async (req, res) => {
 
     const now = new Date();
     let startDate;
+    let endDate;
 
-    if (range === "today") {
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+
+    if (fromDate && !Number.isNaN(fromDate.getTime())) {
+      startDate = fromDate;
+      if (toDate && !Number.isNaN(toDate.getTime())) {
+        endDate = toDate;
+      }
+    } else if (range === "today") {
       startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     } else if (range === "mtd") {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     } else if (range === "ytd") {
-      startDate = new Date(now.getFullYear(), 0, 1);
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      startDate.setMonth(startDate.getMonth() - 11);
     } else {
       startDate = new Date(0);
+    }
+
+    const createdAtMatch = { $gte: startDate };
+    if (endDate) {
+      createdAtMatch.$lt = endDate;
     }
 
     const result = await BillingSession.aggregate([
@@ -347,19 +380,46 @@ exports.getStylistPerformance = async (req, res) => {
         $match: {
           vendorId: new mongoose.Types.ObjectId(vendorId),
           status: "COMPLETED",
-          createdAt: { $gte: startDate },
+          createdAt: createdAtMatch,
         },
       },
       { $unwind: "$cartItems" },
       {
-        $match: {
-          "cartItems.resourceId": { $ne: null },
-        },
-      },
-      {
         $group: {
-          _id: "$cartItems.resourceId",
-          stylist: { $first: "$cartItems.resourceName" },
+          _id: {
+            $let: {
+              vars: {
+                resourceId: { $ifNull: ["$cartItems.resourceId", ""] },
+              },
+              in: {
+                $cond: [
+                  { $eq: ["$$resourceId", ""] },
+                  NO_STYLIST_SELECTED_ID,
+                  "$$resourceId",
+                ],
+              },
+            },
+          },
+          stylist: {
+            $first: {
+              $cond: [
+                {
+                  $gt: [
+                    {
+                      $strLenCP: {
+                        $trim: {
+                          input: { $ifNull: ["$cartItems.resourceName", ""] },
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                "$cartItems.resourceName",
+                NO_STYLIST_SELECTED_LABEL,
+              ],
+            },
+          },
           revenue: { $sum: "$cartItems.total" },
           services: { $sum: "$cartItems.qty" },
         },

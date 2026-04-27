@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import CategoryCard from "../components/CategoryCard";
-import { getCategories, getSiteContact } from "../services/api";
+import { getCategories, getSiteContact, getTrustedPartners } from "../services/api";
+import {
+  buildSiteAnalyticsPayload,
+  buildPageViewPayload,
+  shouldTrackPageViewOnce,
+  trackSiteEvent,
+  trackSitePageView,
+} from "../utils/siteAnalytics";
 
 export default function Home() {
   const router = useRouter();
@@ -13,6 +20,7 @@ export default function Home() {
     addressLine2: "",
     phone: "",
   });
+  const [trustedPartners, setTrustedPartners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -48,6 +56,25 @@ export default function Home() {
     }
 
     fetchSiteContact();
+  }, []);
+
+  useEffect(() => {
+    async function fetchTrustedPartners() {
+      try {
+        const data = await getTrustedPartners(8);
+        setTrustedPartners(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    fetchTrustedPartners();
+  }, []);
+
+  useEffect(() => {
+    if (!shouldTrackPageViewOnce("ynot_home:/")) return;
+    const payload = buildPageViewPayload({ pageType: "ynot_home" });
+    trackSitePageView(payload);
   }, []);
 
   const sortedCategories = useMemo(
@@ -87,13 +114,33 @@ export default function Home() {
     Boolean(siteContact.addressLine1) ||
     Boolean(siteContact.addressLine2) ||
     Boolean(siteContact.phone);
+  const trustedPartnersDisplay = useMemo(
+    () =>
+      trustedPartners.length > 1
+        ? [...trustedPartners, ...trustedPartners]
+        : trustedPartners,
+    [trustedPartners]
+  );
+
+  const trackHomeCta = (ctaName, meta = {}) => {
+    const payload = buildSiteAnalyticsPayload({
+      pageType: "ynot_home",
+      eventType: "cta_click",
+      meta: {
+        sourceLabel: ctaName,
+        ...meta,
+      },
+    });
+    trackSiteEvent(payload);
+  };
 
   const scrollToSection = (id) => {
     const target = document.getElementById(id);
     target?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const startOnboarding = (categoryId) => {
+  const startOnboarding = (categoryId, source = "onboarding_cta") => {
+    trackHomeCta(source, categoryId ? { utmContent: String(categoryId) } : {});
     const base = "/onboarding";
     router.push(categoryId ? `${base}?categoryId=${categoryId}` : base);
   };
@@ -123,7 +170,10 @@ export default function Home() {
             </button>
           </nav>
 
-          <button className="navCtaButton" onClick={() => startOnboarding()}>
+          <button
+            className="navCtaButton"
+            onClick={() => startOnboarding("", "header_set_up_business")}
+          >
             Set up business
           </button>
         </div>
@@ -146,13 +196,16 @@ export default function Home() {
               <div className="heroButtons">
                 <button
                   className="primaryHeroButton"
-                  onClick={() => startOnboarding()}
+                  onClick={() => startOnboarding("", "hero_get_started")}
                 >
                   Get started now
                 </button>
                 <button
                   className="secondaryHeroButton"
-                  onClick={() => scrollToSection("categories")}
+                  onClick={() => {
+                    trackHomeCta("hero_view_categories");
+                    scrollToSection("categories");
+                  }}
                 >
                   View categories
                 </button>
@@ -207,7 +260,8 @@ export default function Home() {
                     className="previewAction"
                     onClick={() =>
                       startOnboarding(
-                        topCategory?.categoryId || topCategory?.id || topCategory?._id
+                        topCategory?.categoryId || topCategory?.id || topCategory?._id,
+                        "featured_category_start"
                       )
                     }
                   >
@@ -227,6 +281,71 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {trustedPartners.length > 0 ? (
+          <section className="trustedPartnersSection">
+            <div className="siteShell">
+              <div className="sectionIntro trustedPartnersIntro">
+                <div>
+                  <p className="sectionKicker">Trusted partners</p>
+                  <h2>Businesses already growing with YNOT</h2>
+                </div>
+              </div>
+
+              <div className="trustedPartnersGrid">
+                <div className="trustedPartnersTrack">
+                  {trustedPartnersDisplay.map((partner, index) => {
+                  const mediaUrl = partner.imageUrl || partner.categoryImageUrl || "";
+                  const cardProps = partner.googleProfileUrl
+                    ? {
+                        href: partner.googleProfileUrl,
+                        target: "_blank",
+                        rel: "noreferrer",
+                        onClick: () =>
+                          trackHomeCta("trusted_partner_click", {
+                            utmContent: String(partner.vendorId || ""),
+                          }),
+                      }
+                    : {};
+                  const CardTag = partner.googleProfileUrl ? "a" : "div";
+
+                    return (
+                      <CardTag
+                        key={`${partner.vendorId}-${index}`}
+                        className={`trustedPartnerCard ${
+                          partner.googleProfileUrl ? "isClickable" : "isStatic"
+                        }`}
+                        {...cardProps}
+                      >
+                        <div className="trustedPartnerMedia" aria-hidden="true">
+                          {mediaUrl ? (
+                            <img
+                              src={mediaUrl}
+                              alt={partner.businessName}
+                            />
+                          ) : (
+                            <span>{String(partner.businessName || "Y").charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="trustedPartnerContent">
+                          {partner.googleProfileUrl ? (
+                            <span className="trustedPartnerLinkIcon" aria-hidden="true">
+                              ↗
+                            </span>
+                          ) : null}
+                          <h3>{partner.businessName}</h3>
+                          <p className="trustedPartnerMeta">
+                            {[partner.city, partner.categoryName].filter(Boolean).join(" · ")}
+                          </p>
+                        </div>
+                      </CardTag>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="processSection" id="how-it-works">
           <div className="siteShell">
@@ -305,7 +424,7 @@ export default function Home() {
                       key={categoryId}
                       category={category}
                       variant="featured"
-                      onClick={() => startOnboarding(categoryId)}
+                      onClick={() => startOnboarding(categoryId, "featured_category_card")}
                     />
                   );
                 })}
@@ -327,7 +446,7 @@ export default function Home() {
                       category={category}
                       variant="compact"
                       disabled={disabled}
-                      onClick={() => startOnboarding(categoryId)}
+                      onClick={() => startOnboarding(categoryId, "secondary_category_card")}
                     />
                   );
                 })}
@@ -352,13 +471,16 @@ export default function Home() {
               <div className="ctaBannerActions">
                 <button
                   className="primaryHeroButton"
-                  onClick={() => startOnboarding()}
+                  onClick={() => startOnboarding("", "cta_banner_set_up_business")}
                 >
                   Set up my business
                 </button>
                 <button
                   className="secondaryDarkButton"
-                  onClick={() => scrollToSection("categories")}
+                  onClick={() => {
+                    trackHomeCta("cta_banner_browse_categories");
+                    scrollToSection("categories");
+                  }}
                 >
                   Browse categories
                 </button>
@@ -405,7 +527,10 @@ export default function Home() {
             <button type="button" onClick={() => scrollToSection("how-it-works")}>
               How it works
             </button>
-            <button type="button" onClick={() => startOnboarding()}>
+            <button
+              type="button"
+              onClick={() => startOnboarding("", "footer_vendor_onboarding")}
+            >
               Vendor onboarding
             </button>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useVendor } from "../../context/VendorContext";
+import { getVendorToken } from "../../utils/vendorAuth";
 import "./MyStylists.css";
 
 const API_BASE_URL =
@@ -24,6 +25,7 @@ export default function MyStylists({
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
+  const [editingStylist, setEditingStylist] = useState(null);
   const { setVendorInfo } = useVendor();
 
   const loadStylists = async () => {
@@ -36,6 +38,7 @@ export default function MyStylists({
     try {
       setLoading(true);
       const token =
+        getVendorToken(vendorId) ||
         localStorage.getItem("authToken") ||
         localStorage.getItem("token") ||
         "";
@@ -78,6 +81,29 @@ export default function MyStylists({
     }));
   };
 
+  const openAddModal = () => {
+    setEditingStylist(null);
+    setFormData(EMPTY_FORM);
+    setShowModal(true);
+  };
+
+  const openEditModal = (stylist) => {
+    setEditingStylist(stylist);
+    setFormData({
+      name: stylist?.name || "",
+      phone: stylist?.phone || "",
+      role: stylist?.role || "",
+    });
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    if (submitting) return;
+    setShowModal(false);
+    setEditingStylist(null);
+    setFormData(EMPTY_FORM);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -87,35 +113,45 @@ export default function MyStylists({
 
     try {
       setSubmitting(true);
+      const isEditing = Boolean(editingStylist?._id);
       const token =
+        getVendorToken(vendorId) ||
         localStorage.getItem("authToken") ||
         localStorage.getItem("token") ||
         "";
 
-      const response = await fetch(`${API_BASE_URL}/api/vendor-resources`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          phone: formData.phone.trim(),
-          role: formData.role.trim(),
-          vendorId,
-        }),
-      });
+      const response = await fetch(
+        isEditing
+          ? `${API_BASE_URL}/api/vendor-resources/${editingStylist._id}`
+          : `${API_BASE_URL}/api/vendor-resources`,
+        {
+          method: isEditing ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            name: formData.name.trim(),
+            phone: formData.phone.trim(),
+            role: formData.role.trim(),
+            ...(isEditing ? {} : { vendorId }),
+          }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(`Failed to create ${resourceLabelSingular.toLowerCase()}`);
+        throw new Error(
+          `Failed to ${isEditing ? "update" : "create"} ${resourceLabelSingular.toLowerCase()}`
+        );
       }
 
       setFormData(EMPTY_FORM);
+      setEditingStylist(null);
       setShowModal(false);
       await loadStylists();
     } catch (error) {
-      console.error(`Failed to create ${resourceLabelSingular.toLowerCase()}`, error);
-      alert(error.message || `Failed to create ${resourceLabelSingular.toLowerCase()}`);
+      console.error(`Failed to save ${resourceLabelSingular.toLowerCase()}`, error);
+      alert(error.message || `Failed to save ${resourceLabelSingular.toLowerCase()}`);
     } finally {
       setSubmitting(false);
     }
@@ -128,6 +164,7 @@ const handleToggleStatus = async (stylistId, currentStatus) => {
     setUpdatingStatusId(stylistId);
 
     const token =
+      getVendorToken(vendorId) ||
       localStorage.getItem("authToken") ||
       localStorage.getItem("token") ||
       "";
@@ -178,7 +215,7 @@ const handleToggleStatus = async (stylistId, currentStatus) => {
         <button
           className="add-stylist-btn"
           type="button"
-          onClick={() => setShowModal(true)}
+          onClick={openAddModal}
         >
           {`+ Add ${resourceLabelSingular}`}
         </button>
@@ -232,6 +269,15 @@ const handleToggleStatus = async (stylistId, currentStatus) => {
                   </span>
                 </label>
               </div>
+              <div className="stylist-card-actions">
+                <button
+                  className="stylist-edit-btn"
+                  type="button"
+                  onClick={() => openEditModal(stylist)}
+                >
+                  Edit
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -240,17 +286,13 @@ const handleToggleStatus = async (stylistId, currentStatus) => {
       {showModal && (
         <div
           className="stylist-modal-overlay"
-          onClick={() => {
-            if (!submitting) {
-              setShowModal(false);
-            }
-          }}
+          onClick={closeModal}
         >
           <div
             className="stylist-modal"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3>{`Add ${resourceLabelSingular}`}</h3>
+            <h3>{`${editingStylist ? "Edit" : "Add"} ${resourceLabelSingular}`}</h3>
 
             <form className="stylist-form" onSubmit={handleSubmit}>
               <label className="stylist-field">
@@ -284,7 +326,7 @@ const handleToggleStatus = async (stylistId, currentStatus) => {
                 <button
                   className="stylist-cancel-btn"
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={closeModal}
                   disabled={submitting}
                 >
                   Cancel
@@ -299,7 +341,9 @@ const handleToggleStatus = async (stylistId, currentStatus) => {
                     !formData.role.trim()
                   }
                 >
-                  {submitting ? "Saving..." : `Save ${resourceLabelSingular}`}
+                  {submitting
+                    ? "Saving..."
+                    : `${editingStylist ? "Update" : "Save"} ${resourceLabelSingular}`}
                 </button>
               </div>
             </form>

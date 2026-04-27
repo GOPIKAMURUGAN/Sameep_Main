@@ -53,6 +53,7 @@ import EnquiriesPage from "./pages/EnquiriesPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import PlansPage from "./pages/subscriptionPlans/PlansPage";
 import TemplatesPage from "./pages/TemplatesPage";
+import SiteAnalyticsPage from "./pages/SiteAnalyticsPage";
 
 
 function App() {
@@ -151,6 +152,7 @@ function AppContent() {
             path="/app-configurations"
             element={<AppConfigurationsPage />}
           />
+          <Route path="/site-analytics" element={<SiteAnalyticsPage />} />
 
           {/* Dummy Categories */}
           <Route path="/dummy-categories" element={<DummyCategoryPage />} />

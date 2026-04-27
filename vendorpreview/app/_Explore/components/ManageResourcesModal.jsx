@@ -19,6 +19,7 @@ export default function ManageResourcesModal({ vendorId, label, onClose }) {
 
   async function markInactive(r) {
     await resourceService.updateResource(r._id, {
+      vendorId,
       status: "Inactive",
     });
 

@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const axios = require("axios");
+const { validateVendorWriteRequest } = require("../utils/vendorWriteAuth");
 
 const router = express.Router();
 
@@ -277,6 +278,14 @@ router.post("/add-missing-leaves", async (req, res) => {
     }
     if (!Array.isArray(leafCategoryIds)) {
       return res.status(400).json({ message: "leafCategoryIds must be an array" });
+    }
+
+    const authResult = await validateVendorWriteRequest(req, vendorId);
+    if (!authResult.ok) {
+      return res.status(authResult.status || 403).json({
+        message: authResult.message || "Vendor write access denied",
+        code: authResult.code || "forbidden",
+      });
     }
 
     const baseUrl = getBackendBaseUrl(req);
@@ -597,6 +606,14 @@ router.put("/update", async (req, res) => {
       return res
         .status(400)
         .json({ message: "Only leaf nodes can be updated" });
+    }
+
+    const authResult = await validateVendorWriteRequest(req, record.vendorId);
+    if (!authResult.ok) {
+      return res.status(authResult.status || 403).json({
+        message: authResult.message || "Vendor write access denied",
+        code: authResult.code || "forbidden",
+      });
     }
 
     if (price !== undefined) record.price = price;

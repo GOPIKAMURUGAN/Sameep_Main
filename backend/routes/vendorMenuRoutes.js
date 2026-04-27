@@ -5,6 +5,7 @@ const XLSX = require("xlsx");
 
 const DummyVendor = require("../models/DummyVendor");
 const VendorMenuNode = require("../models/VendorMenuNode");
+const { requireVendorParamWriteAccess } = require("../utils/vendorWriteAuth");
 
 const router = express.Router();
 
@@ -408,7 +409,7 @@ router.get("/:vendorId/flat", async (req, res) => {
   }
 });
 
-router.post("/:vendorId/import-excel", upload.single("file"), async (req, res) => {
+router.post("/:vendorId/import-excel", requireVendorParamWriteAccess(), upload.single("file"), async (req, res) => {
   try {
     const vendor = await ensureVendor(req.params.vendorId);
 
@@ -459,7 +460,7 @@ router.post("/:vendorId/import-excel", upload.single("file"), async (req, res) =
   }
 });
 
-router.post("/:vendorId/save-tree", async (req, res) => {
+router.post("/:vendorId/save-tree", requireVendorParamWriteAccess(), async (req, res) => {
   try {
     const vendor = await ensureVendor(req.params.vendorId);
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
@@ -518,7 +519,7 @@ router.post("/:vendorId/save-tree", async (req, res) => {
   }
 });
 
-router.patch("/:vendorId/source", async (req, res) => {
+router.patch("/:vendorId/source", requireVendorParamWriteAccess(), async (req, res) => {
   try {
     const vendor = await ensureVendor(req.params.vendorId);
     const next = normalizePricingSource(
@@ -545,7 +546,7 @@ router.patch("/:vendorId/source", async (req, res) => {
   }
 });
 
-router.post("/:vendorId/nodes", async (req, res) => {
+router.post("/:vendorId/nodes", requireVendorParamWriteAccess(), async (req, res) => {
   try {
     const vendor = await ensureVendor(req.params.vendorId);
 
@@ -668,7 +669,7 @@ router.post("/:vendorId/nodes", async (req, res) => {
   }
 });
 
-router.patch("/:vendorId/nodes/:nodeId", async (req, res) => {
+router.patch("/:vendorId/nodes/:nodeId", requireVendorParamWriteAccess(), async (req, res) => {
   try {
     await ensureVendor(req.params.vendorId);
 

@@ -1,9 +1,20 @@
 import { API_BASE_URL } from "../utils/config";
 
+function getAuthToken() {
+  if (typeof window === "undefined") return "";
+  try {
+    return String(window.localStorage.getItem("authToken") || "").trim();
+  } catch {
+    return "";
+  }
+}
+
 async function request(path, options = {}) {
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
     ...options,
@@ -136,6 +147,13 @@ export function updateVendorPricingSource(vendorId, payload) {
   });
 }
 
+export function scopeCustomerSession(payload) {
+  return request("/api/customers/scope-session", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function getSubdomainSuggestions(businessName, locations) {
   return request(
     `/api/vendor/subdomain-check?businessName=${encodeURIComponent(
@@ -180,8 +198,10 @@ export async function importVendorMenuExcel(vendorId, file, options = {}) {
     formData.append("archiveExisting", String(options.archiveExisting));
   }
 
+  const token = getAuthToken();
   const res = await fetch(`${API_BASE_URL}/api/vendor-menu/${vendorId}/import-excel`, {
     method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: formData,
   });
 

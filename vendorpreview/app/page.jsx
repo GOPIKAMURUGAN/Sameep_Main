@@ -12,6 +12,11 @@ import Contact from "./Contact/Contact";
 import Load from "./Load/Load";
 import Portal from "./Portal/Portal";
 import ScrollToTop from "./components/ScrollToTop";
+import {
+  buildVendorPreviewPageViewPayload,
+  shouldTrackVendorPageViewOnce,
+  trackVendorPreviewPageView,
+} from "./utils/siteAnalytics";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -129,6 +134,19 @@ useEffect(() => {
     window.removeEventListener("storage", onStorage);
   };
 }, []);
+
+useEffect(() => {
+  const vendorId =
+    vendorInfo?.vendorId ||
+    vendorInfo?._id ||
+    vendorInfo?.vendor?._id ||
+    "";
+  if (!vendorId) return;
+  if (!shouldTrackVendorPageViewOnce(vendorId)) return;
+
+  const payload = buildVendorPreviewPageViewPayload(vendorId);
+  trackVendorPreviewPageView(API_BASE_URL, payload);
+}, [vendorInfo]);
 if (checkingSession) {
   return <Load />; // reuse your loader
 }

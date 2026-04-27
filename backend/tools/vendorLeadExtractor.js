@@ -98,7 +98,8 @@ async function run() {
     //`barber shop near ${area}`,
     //`hair salon near ${area}`,
     //`unisex salon near ${area}`,
-    `Makeup Artists near ${area}`,
+    `Makeup Artists in ${area}`,
+    `women beauty parlour in ${area}`,
 
   ];
 

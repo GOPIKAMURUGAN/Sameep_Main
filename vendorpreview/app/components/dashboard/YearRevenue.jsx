@@ -19,6 +19,7 @@ export default function YearRevenue({
   const [activeSection, setActiveSection] = useState("revenue");
   const [summary, setSummary] = useState(null);
   const [months, setMonths] = useState([]);
+  const [selectedMonthKey, setSelectedMonthKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [stylists, setStylists] = useState([]);
   const [loadingStylists, setLoadingStylists] = useState(true);
@@ -33,6 +34,7 @@ export default function YearRevenue({
     if (!vendorId) {
       setSummary(null);
       setMonths([]);
+      setSelectedMonthKey("");
       setLoading(false);
       setStylists([]);
       setLoadingStylists(false);
@@ -55,21 +57,34 @@ export default function YearRevenue({
         ]);
 
         if (!summaryRes.ok || !fyRes.ok) {
-          throw new Error("Failed to load yearly revenue");
+          throw new Error("Failed to load rolling revenue");
         }
 
         const summaryJson = await summaryRes.json();
         const fyJson = await fyRes.json();
 
         if (!cancelled) {
+          const nextMonths = Array.isArray(fyJson?.data) ? fyJson.data : [];
           setSummary(summaryJson?.data || null);
-          setMonths(Array.isArray(fyJson?.data) ? fyJson.data : []);
+          setMonths(nextMonths);
+          setSelectedMonthKey((currentKey) => {
+            if (nextMonths.some((month) => month.monthKey === currentKey)) {
+              return currentKey;
+            }
+
+            return (
+              nextMonths.find((month) => month.isCurrentMonth)?.monthKey ||
+              nextMonths[nextMonths.length - 1]?.monthKey ||
+              ""
+            );
+          });
         }
       } catch (error) {
-        console.error("Failed to fetch yearly revenue", error);
+        console.error("Failed to fetch rolling revenue", error);
         if (!cancelled) {
           setSummary(null);
           setMonths([]);
+          setSelectedMonthKey("");
         }
       } finally {
         if (!cancelled) {
@@ -77,6 +92,31 @@ export default function YearRevenue({
         }
       }
     };
+
+    loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [vendorId]);
+
+  const selectedMonth = useMemo(() => {
+    return (
+      months.find((month) => month.monthKey === selectedMonthKey) ||
+      months.find((month) => month.isCurrentMonth) ||
+      months[months.length - 1] ||
+      null
+    );
+  }, [months, selectedMonthKey]);
+
+  useEffect(() => {
+    if (!vendorId) {
+      setStylists([]);
+      setLoadingStylists(false);
+      return;
+    }
+
+    let cancelled = false;
 
     const loadStylists = async () => {
       if (!hrEnabled) {
@@ -87,10 +127,23 @@ export default function YearRevenue({
         return;
       }
 
+      if (!selectedMonth?.startDate || !selectedMonth?.endDate) {
+        if (!cancelled) {
+          setStylists([]);
+          setLoadingStylists(false);
+        }
+        return;
+      }
+
       try {
         setLoadingStylists(true);
+        const params = new URLSearchParams({
+          vendorId,
+          from: selectedMonth.startDate,
+          to: selectedMonth.endDate,
+        });
         const res = await fetch(
-          `${API_BASE_URL}/api/vendor/dashboard/stylist-performance?vendorId=${encodeURIComponent(vendorId)}&range=ytd`,
+          `${API_BASE_URL}/api/vendor/dashboard/stylist-performance?${params.toString()}`,
           { cache: "no-store" }
         );
 
@@ -120,13 +173,12 @@ export default function YearRevenue({
       }
     };
 
-    loadData();
     loadStylists();
 
     return () => {
       cancelled = true;
     };
-  }, [vendorId, hrEnabled, hrLabelSingular]);
+  }, [vendorId, hrEnabled, hrLabelSingular, selectedMonth]);
 
   const totals = useMemo(() => {
     const summaryRevenue = Number(
@@ -145,21 +197,21 @@ export default function YearRevenue({
     }, null);
 
     return {
-      totalRevenue: summaryRevenue > 0 ? summaryRevenue : monthlyRevenue,
+      totalRevenue: monthlyRevenue || summaryRevenue,
       totalOrders,
       activeMonths: months.filter((month) => Number(month?.revenue || 0) > 0).length,
       bestMonth,
     };
   }, [months, summary]);
 
-  const currentMonth = new Date().toLocaleString("en-IN", { month: "short" });
+  const selectedMonthLabel = selectedMonth?.label || selectedMonth?.month || "Selected Month";
 
   return (
     <section className="revenue-panel">
       <div className="revenue-panel-header">
-        <div className="revenue-panel-title">This Year Revenue</div>
+        <div className="revenue-panel-title">Last 12 Months Revenue</div>
         <div className="revenue-panel-subtitle">
-          Financial year revenue with month-by-month performance.
+          Rolling 12-month revenue with month-by-month performance.
         </div>
       </div>
       <div className="revenue-panel-tabs">
@@ -183,42 +235,58 @@ export default function YearRevenue({
 
       {activeSection === "revenue" ? (
         loading ? (
-          <div className="revenue-panel-loading">Loading yearly revenue...</div>
+          <div className="revenue-panel-loading">Loading last 12 months revenue...</div>
         ) : (
           <>
             <div className="revenue-panel-stat-grid">
               <div className="revenue-panel-stat-card">
-                <div className="revenue-panel-stat-label">Total Revenue</div>
+                <div className="revenue-panel-stat-label">{selectedMonthLabel} Revenue</div>
                 <div className="revenue-panel-stat-value">
-                  {currencyFmt.format(totals.totalRevenue)}
+                  {currencyFmt.format(Number(selectedMonth?.revenue || 0))}
                 </div>
               </div>
               <div className="revenue-panel-stat-card">
-                <div className="revenue-panel-stat-label">Orders This Year</div>
-                <div className="revenue-panel-stat-value">{totals.totalOrders}</div>
+                <div className="revenue-panel-stat-label">{selectedMonthLabel} Orders</div>
+                <div className="revenue-panel-stat-value">
+                  {Number(selectedMonth?.orders || 0)}
+                </div>
               </div>
               <div className="revenue-panel-stat-card">
-                <div className="revenue-panel-stat-label">Best Month</div>
+                <div className="revenue-panel-stat-label">Last 12 Months Total</div>
                 <div className="revenue-panel-stat-value">
-                  {totals.bestMonth?.month || "-"}
+                  {currencyFmt.format(totals.totalRevenue)}
                 </div>
               </div>
             </div>
 
             <div className="revenue-panel-section">
-              <div className="revenue-panel-section-title">Monthly Breakdown</div>
+              <div className="revenue-panel-section-title">
+                Monthly Breakdown
+                {selectedMonth ? (
+                  <span className="revenue-panel-section-note">
+                    Selected: {selectedMonthLabel}
+                  </span>
+                ) : null}
+              </div>
               {months.length === 0 ? (
-                <div className="revenue-panel-empty">No yearly revenue data found.</div>
+                <div className="revenue-panel-empty">No revenue data found for the last 12 months.</div>
               ) : (
                 <div className="revenue-panel-month-grid">
                   {months.map((month) => (
-                    <div
-                      key={month.month}
+                    <button
+                      type="button"
+                      key={month.monthKey || `${month.month}-${month.year || ""}`}
                       className={`revenue-panel-month-card ${
-                        month.month === currentMonth ? "active" : ""
+                        month.isCurrentMonth ? "active" : ""
+                      } ${
+                        month.monthKey === selectedMonth?.monthKey ? "selected" : ""
                       }`}
+                      onClick={() => setSelectedMonthKey(month.monthKey)}
                     >
                       <div className="revenue-panel-month-name">{month.month}</div>
+                      {month.year ? (
+                        <div className="revenue-panel-month-year">{month.year}</div>
+                      ) : null}
                       <div className="revenue-panel-month-revenue">
                         {currencyFmt.format(Number(month.revenue || 0))}
                       </div>
@@ -226,7 +294,7 @@ export default function YearRevenue({
                         {Number(month.orders || 0)} orders • Avg{" "}
                         {currencyFmt.format(Number(month.avgBill || 0))}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -235,12 +303,19 @@ export default function YearRevenue({
         )
       ) : (
         <div className="revenue-panel-section">
-          <div className="revenue-panel-section-title">{hrPerformanceTitle}</div>
+          <div className="revenue-panel-section-title">
+            {hrPerformanceTitle}
+            {selectedMonth ? (
+              <span className="revenue-panel-section-note">
+                {selectedMonthLabel}
+              </span>
+            ) : null}
+          </div>
           {loadingStylists ? (
             <div className="revenue-panel-loading">{`Loading ${hrLabelSingular.toLowerCase()} performance...`}</div>
           ) : stylists.length === 0 ? (
             <div className="revenue-panel-empty">
-              {`No ${hrLabelSingular.toLowerCase()} performance data available for this year.`}
+              {`No ${hrLabelSingular.toLowerCase()} performance data available for ${selectedMonthLabel}.`}
             </div>
           ) : (
             <div className="revenue-panel-list">

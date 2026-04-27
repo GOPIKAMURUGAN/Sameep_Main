@@ -4842,8 +4842,8 @@ function ExploreContent({ onReady, onOpenServices }) {
                   key: "month",
                 },
                 {
-                  title: "This Year Revenue",
-                  description: "Track total revenue generated in this year.",
+                  title: "Last 12 Months Revenue",
+                  description: "Track rolling monthly revenue trends.",
                   key: "year",
                 },
                 {

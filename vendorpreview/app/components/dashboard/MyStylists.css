@@ -135,6 +135,27 @@
   border-top: 1px solid rgba(255, 215, 130, 0.14);
 }
 
+.stylist-card-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.stylist-edit-btn {
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 215, 130, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 215, 130, 0.1);
+  color: #ffd27d;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.stylist-edit-btn:hover {
+  border-color: rgba(255, 215, 130, 0.65);
+  background: rgba(255, 215, 130, 0.18);
+}
+
 .stylist-status-label {
   color: rgba(255, 215, 130, 0.76);
   font-size: 13px;

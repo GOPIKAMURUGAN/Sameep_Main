@@ -8,6 +8,7 @@ const DummyVendor = require("../models/DummyVendor");
 const Vendor = require("../models/Vendor");
 const { getSessionValidityHours } = require("../utils/sessionConfig");
 const { getAdminPasscode } = require("../utils/adminConfig");
+const { requireCustomerSession } = require("../utils/authMiddleware");
 
 const router = express.Router();
 
@@ -92,7 +93,7 @@ router.post("/bypass-otp", async (req, res) => {
       return res.status(403).json({ message: "OTP bypass disabled" });
     }
 
-    const { countryCode, phone } = req.body || {};
+    const { countryCode, phone, vendorId, categoryId } = req.body || {};
     const cc = typeof countryCode === "string" ? countryCode.trim() : String(countryCode || "").trim();
     const ph = typeof phone === "string" ? phone.trim() : String(phone || "").trim();
     if (!cc || !ph) {
@@ -116,7 +117,44 @@ router.post("/bypass-otp", async (req, res) => {
       if (!customer) throw upErr;
     }
 
-    return res.json({ message: "bypassed", customer });
+    let session = null;
+    let token = null;
+    try {
+      const hours = await getSessionValidityHours(4);
+      const now = new Date();
+      const expiryTime = new Date(now.getTime() + hours * 60 * 60 * 1000);
+      const deviceInfo = req.headers["user-agent"] || "OTP bypass";
+
+      session = await Session.create({
+        userId: customer._id,
+        vendorId: vendorId ? String(vendorId) : "",
+        categoryId: categoryId ? String(categoryId) : "",
+        loginTime: now,
+        expiryTime,
+        isActive: true,
+        deviceInfo,
+      });
+
+      token = jwt.sign(
+        {
+          customerId: String(customer._id),
+          vendorId: vendorId ? String(vendorId) : "",
+          categoryId: categoryId ? String(categoryId) : "",
+          sessionId: String(session._id),
+        },
+        JWT_SECRET,
+        { expiresIn: `${hours}h` }
+      );
+
+      if (token) {
+        await Session.updateOne({ _id: session._id }, { $set: { token } });
+        session.token = token;
+      }
+    } catch (sessionErr) {
+      console.error("bypass-otp session error:", sessionErr?.message || sessionErr);
+    }
+
+    return res.json({ message: "bypassed", customer, session, token });
   } catch (err) {
     console.error("bypass-otp error:", err?.message || err);
     return res.status(500).json({ message: err?.message || "Failed to bypass OTP" });
@@ -559,6 +597,96 @@ router.post("/verify-otp", async (req, res) => {
     console.error("verify-otp error:", err?.response?.data || err.message);
     const msg = err?.response?.data?.message || "Failed to verify OTP";
     res.status(500).json({ message: msg });
+  }
+});
+
+router.post("/scope-session", requireCustomerSession, async (req, res) => {
+  logApi(req, res, "scope-session");
+  try {
+    const customerId = String(req.auth?.customerId || "").trim();
+    const vendorId = String(req.body?.vendorId || "").trim();
+    const categoryId = String(req.body?.categoryId || "").trim();
+
+    if (!customerId || !vendorId) {
+      return res.status(400).json({ message: "vendorId is required" });
+    }
+
+    let ownsVendor = false;
+    const vendor = await Vendor.findOne({ _id: vendorId, customerId }).select("_id").lean();
+    if (vendor) {
+      ownsVendor = true;
+    } else {
+      const dummyVendor = await DummyVendor.findOne({ _id: vendorId, customerId })
+        .select("_id categoryId")
+        .lean();
+      if (dummyVendor) {
+        ownsVendor = true;
+      }
+    }
+
+    if (!ownsVendor) {
+      return res.status(403).json({ message: "Vendor owner session required" });
+    }
+
+    const hours = await getSessionValidityHours(4);
+    const now = new Date();
+    const expiryTime = new Date(now.getTime() + hours * 60 * 60 * 1000);
+    const deviceInfo = req.headers["user-agent"] || "";
+
+    try {
+      await Session.updateMany(
+        {
+          userId: customerId,
+          vendorId,
+          ...(categoryId ? { categoryId } : {}),
+          isActive: true,
+        },
+        { $set: { isActive: false, expiryTime: now } }
+      );
+    } catch (expireErr) {
+      console.error("scope-session expire existing error:", expireErr?.message || expireErr);
+    }
+
+    const session = await Session.create({
+      userId: customerId,
+      vendorId,
+      categoryId,
+      loginTime: now,
+      expiryTime,
+      isActive: true,
+      deviceInfo,
+    });
+
+    const token = jwt.sign(
+      {
+        customerId,
+        vendorId,
+        categoryId,
+        sessionId: String(session._id),
+      },
+      JWT_SECRET,
+      { expiresIn: `${hours}h` }
+    );
+
+    if (token) {
+      await Session.updateOne({ _id: session._id }, { $set: { token } });
+    }
+
+    return res.json({
+      message: "session_scoped",
+      token,
+      session: {
+        _id: session._id,
+        userId: session.userId,
+        vendorId: session.vendorId,
+        categoryId: session.categoryId,
+        loginTime: session.loginTime,
+        expiryTime: session.expiryTime,
+      },
+    });
+  } catch (err) {
+    console.error("scope-session error:", err?.message || err);
+    return res.status(500).json({ message: "Failed to scope session" });
   }
 });
 

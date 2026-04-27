@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import GalleryPreview from "./GalleryPreview";
 
-export default function GalleryUploader({ endpoint, disabled, onUploaded, maxImages = 20 }) {
+export default function GalleryUploader({ endpoint, disabled, onUploaded, maxImages = 20, headers = {} }) {
   const [selectedImages, setSelectedImages] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -94,6 +94,7 @@ export default function GalleryUploader({ endpoint, disabled, onUploaded, maxIma
 
       const res = await fetch(endpoint, {
         method: "POST",
+        headers,
         body: formData,
       });
 

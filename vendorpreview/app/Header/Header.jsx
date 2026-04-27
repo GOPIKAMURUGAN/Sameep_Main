@@ -12,6 +12,10 @@ import Portal from "../Portal/Portal";
 import PackagesPortal from "../PackagesPortal/PackagesPortal";
 import VendorGalleryModal from "../components/gallery/VendorGalleryModal";
 import {
+  buildVendorPreviewAnalyticsPayload,
+  trackVendorPreviewEvent,
+} from "../utils/siteAnalytics";
+import {
   ENQUIRY_OPEN_EVENT,
   getEnquiryTypeLabel,
 } from "../utils/enquiryFlow";
@@ -163,6 +167,16 @@ if (vendorId) {
     "default";
 
   const handleEnquiryClick = () => {
+    if (vendorId) {
+      trackVendorPreviewEvent(
+        process.env.NEXT_PUBLIC_API_BASE_URL,
+        buildVendorPreviewAnalyticsPayload({
+          vendorId,
+          eventType: "cta_click",
+          meta: { sourceLabel: "header_enquiry_cta" },
+        })
+      );
+    }
     if (typeof window === "undefined") return;
 
     window.dispatchEvent(
@@ -176,6 +190,16 @@ if (vendorId) {
   };
 
   const openGallery = (readOnly = true) => {
+    if (vendorId) {
+      trackVendorPreviewEvent(
+        process.env.NEXT_PUBLIC_API_BASE_URL,
+        buildVendorPreviewAnalyticsPayload({
+          vendorId,
+          eventType: "cta_click",
+          meta: { sourceLabel: readOnly ? "gallery_open_public" : "gallery_open_edit" },
+        })
+      );
+    }
     setGalleryReadOnly(readOnly);
     setServiceType("gallery");
     setOpenProfile(false);

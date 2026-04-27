@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "../../../config";
+import { getVendorAuthHeaders } from "../../utils/vendorAuth";
 
 const API = `${API_BASE_URL}/api/vendor-resources`;
 
@@ -10,7 +11,7 @@ async function getResources(vendorId) {
 async function createResource(data) {
   const res = await fetch(API, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getVendorAuthHeaders(data?.vendorId) },
     body: JSON.stringify(data),
   });
 
@@ -20,7 +21,7 @@ async function createResource(data) {
 async function updateResource(id, data) {
   const res = await fetch(`${API}/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getVendorAuthHeaders(data?.vendorId) },
     body: JSON.stringify(data),
   });
 

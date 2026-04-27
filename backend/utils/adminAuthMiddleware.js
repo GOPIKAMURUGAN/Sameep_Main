@@ -37,6 +37,35 @@ function requireAdminAuth(req, res, next) {
   }
 }
 
+function validateAdminTokenFromRequest(req) {
+  if (!JWT_SECRET) {
+    return { ok: false, code: "jwt_secret_missing" };
+  }
+
+  const token = getAdminToken(req);
+  if (!token) {
+    return { ok: false, code: "no_token" };
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (!decoded || !decoded.adminId) {
+      return { ok: false, code: "invalid_token" };
+    }
+
+    return {
+      ok: true,
+      admin: {
+        id: decoded.adminId,
+        email: decoded.email || null,
+      },
+    };
+  } catch (err) {
+    return { ok: false, code: "invalid_token" };
+  }
+}
+
 module.exports = {
   requireAdminAuth,
+  validateAdminTokenFromRequest,
 };

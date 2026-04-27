@@ -62,9 +62,22 @@
 }
 
 .revenue-panel-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
   color: #f5d97a;
   font-size: 16px;
+  font-weight: 700;
+}
+
+.revenue-panel-section-note {
+  padding: 4px 10px;
+  border: 1px solid rgba(230, 195, 122, 0.24);
+  border-radius: 999px;
+  color: rgba(245, 242, 234, 0.68);
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -291,13 +304,29 @@
 }
 
 .revenue-panel-month-card {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
   padding: 16px;
   border-radius: 18px;
   border: 1px solid rgba(230, 195, 122, 0.14);
   background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.revenue-panel-month-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(230, 195, 122, 0.36);
 }
 
 .revenue-panel-month-card.active {
+  border-color: rgba(230, 195, 122, 0.42);
+  background: rgba(230, 195, 122, 0.07);
+}
+
+.revenue-panel-month-card.selected {
   border-color: rgba(230, 195, 122, 0.7);
   background: rgba(230, 195, 122, 0.1);
 }
@@ -305,6 +334,12 @@
 .revenue-panel-month-name {
   font-size: 13px;
   color: rgba(245, 242, 234, 0.72);
+}
+
+.revenue-panel-month-year {
+  margin-top: 2px;
+  font-size: 11px;
+  color: rgba(245, 242, 234, 0.46);
 }
 
 .revenue-panel-month-revenue {

@@ -4,14 +4,16 @@ import { useEffect, useState } from "react";
 import "./PackagesPortal.css";
 import { useVendor } from "../context/VendorContext";
 function fetchWithAuth(url, options = {}) {
-  const token = localStorage.getItem("authToken");
+  const sessionVendorId = localStorage.getItem("vendorSessionVendorId");
+  const vendorToken = sessionVendorId ? localStorage.getItem(`vendorToken:${sessionVendorId}`) : "";
+  const token = vendorToken || localStorage.getItem("authToken");
 
   return fetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {}),
-      Authorization: token ? `Bearer ${token}` : "",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
 }
@@ -268,6 +270,9 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [modalPrice, setModalPrice] = useState("");
+  const [modalTerms, setModalTerms] = useState("");
+  const [modalImageUrl, setModalImageUrl] = useState("");
+  const [uploadingEditServiceImage, setUploadingEditServiceImage] = useState(false);
   const [selectedTerms, setSelectedTerms] = useState([]);
   const [showSectionEditModal, setShowSectionEditModal] = useState(false);
   const [sectionName, setSectionName] = useState("");
@@ -283,6 +288,7 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
   const [addNodeType, setAddNodeType] = useState("subcategory");
   const [addNodeName, setAddNodeName] = useState("");
   const [addNodePrice, setAddNodePrice] = useState("");
+  const [addNodeTerms, setAddNodeTerms] = useState("");
   const [addNodeImageUrl, setAddNodeImageUrl] = useState("");
   const [uploadingAddNodeImage, setUploadingAddNodeImage] = useState(false);
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
@@ -603,7 +609,12 @@ if (missingLeafIds.length) {
       formData.append("file", file);
       formData.append("archiveExisting", "true");
 
-      const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : "";
+      const sessionVendorId = typeof window !== "undefined" ? localStorage.getItem("vendorSessionVendorId") : "";
+      const vendorToken =
+        typeof window !== "undefined" && sessionVendorId
+          ? localStorage.getItem(`vendorToken:${sessionVendorId}`)
+          : "";
+      const token = vendorToken || (typeof window !== "undefined" ? localStorage.getItem("authToken") : "");
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-menu/${vendorId}/import-excel`,
         {
@@ -750,11 +761,21 @@ if (missingLeafIds.length) {
 
       // update full tree
       setRootNodes(nodes =>
-        updateNodeStatus(nodes, service._id, "Inactive")
+        updateNodeFields(
+          updateNodeStatus(nodes, service._id, "Inactive"),
+          service._id,
+          { price: "", offerText: "" }
+        )
       );
 
       // ⭐ update currently opened path level
-      setPath(p => updatePathStatus(p, service._id, "Inactive"));
+      setPath(p =>
+        updatePathFields(
+          updatePathStatus(p, service._id, "Inactive"),
+          service._id,
+          { price: "", offerText: "" }
+        )
+      );
 
       await updateService(service, "Inactive");
 
@@ -819,7 +840,8 @@ if (missingLeafIds.length) {
 async function updateService(service, status) {
   if (isSelfManagedVendor) {
     await updateSelfManagedNode(service._id, {
-      price: Number(service.price),
+      price: status === "Inactive" ? null : Number(service.price),
+      offerText: status === "Inactive" ? "" : service.offerText || "",
       pricingStatus: status,
     });
     await onPricingUpdated?.();
@@ -829,7 +851,8 @@ async function updateService(service, status) {
       method: "PUT",
       body: JSON.stringify({
         vendorPriceNodeId: service._id,
-        price: Number(service.price),
+        price: status === "Inactive" ? null : Number(service.price),
+        offerText: status === "Inactive" ? "" : service.offerText || "",
         pricingStatus: status   // ⭐ use param
       })
   });
@@ -1053,6 +1076,22 @@ async function updateService(service, status) {
     }
   }
 
+  async function handleUploadEditServiceImage(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setUploadingEditServiceImage(true);
+      const url = await uploadImageAndGetUrl(file);
+      const cacheBustedUrl = `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      setModalImageUrl(cacheBustedUrl);
+    } catch (err) {
+      window.alert(err.message || "Failed to upload image");
+    } finally {
+      setUploadingEditServiceImage(false);
+    }
+  }
+
   function openSectionEditModal() {
     setSectionName(currentNode?.name || "");
     setSectionImageUrl(currentNode?.imageUrl || "");
@@ -1115,6 +1154,7 @@ async function updateService(service, status) {
     setAddNodeType("subcategory");
     setAddNodeName("");
     setAddNodePrice("");
+    setAddNodeTerms("");
     setAddNodeImageUrl("");
     setShowAddNodeModal(true);
   }
@@ -1188,6 +1228,7 @@ async function updateService(service, status) {
         nodeType: addNodeType,
         name: trimmedName,
         price: addNodeType === "service" ? Number(addNodePrice) : null,
+        terms: addNodeTerms.trim(),
         imageUrl: addNodeImageUrl,
       });
 
@@ -1657,6 +1698,8 @@ async function updateService(service, status) {
                           setEditingService(service);
                           setEditCategoryName(service.name || "");
                           setModalPrice(service.price || "");
+                          setModalTerms(service.terms || "");
+                          setModalImageUrl(service.imageUrl || "");
                           setModalOfferText(service.offerText || "");
 
                           const masterTerms = findTermsInCategoryTree(
@@ -1695,6 +1738,8 @@ async function updateService(service, status) {
                           setEditingService(service);
                           setEditCategoryName(service.name || "");
                           setModalPrice(service.price || "");
+                          setModalTerms(service.terms || "");
+                          setModalImageUrl(service.imageUrl || "");
                           setModalOfferText(service.offerText || "");
                           setAllTerms([]);
                           setSelectedTerms([]);
@@ -1783,25 +1828,6 @@ async function updateService(service, status) {
               onChange={e => setEditCategoryName(e.target.value)}
             />
 
-            {allTerms.length > 0 && (
-              <>
-                <label className="modal-label">Terms</label>
-
-              <div className="terms-checkbox-list">
-                {allTerms.map(term => (
-                  <label key={term} className="term-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={selectedTerms.includes(term)}
-                      onChange={() => toggleTerm(term)}
-                    />
-                    <span className="checkmark" />
-                    <span className="term-text">{term}</span>
-                  </label>
-                ))}
-              </div>
-              </>
-            )}
             {isFreeTextEnabled(categoryTree, editingService.categoryId) ? (
               <>
                 <label className="modal-label">Offer Text</label>
@@ -1821,32 +1847,93 @@ async function updateService(service, status) {
                 />
               </>
             )}
+            <label className="modal-label">Terms (give multiple terms with a comma separator)</label>
+            {allTerms.length > 0 ? (
+              <div className="terms-checkbox-list">
+                {allTerms.map(term => (
+                  <label key={term} className="term-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedTerms.includes(term)}
+                      onChange={() => {
+                        const nextTerms = selectedTerms.includes(term)
+                          ? selectedTerms.filter(t => t !== term)
+                          : [...selectedTerms, term];
+                        setSelectedTerms(nextTerms);
+                        setModalTerms(nextTerms.join(", "));
+                      }}
+                    />
+                    <span className="checkmark" />
+                    <span className="term-text">{term}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <textarea
+                className="price-input"
+                value={modalTerms}
+                onChange={e => setModalTerms(e.target.value)}
+                placeholder="Example: Age under 10 only, Weekends only, Base price only"
+                rows={3}
+              />
+            )}
+            <label className="modal-label">Image URL</label>
+            <div className="image-row">
+              <input
+                className="price-input"
+                value={modalImageUrl}
+                onChange={e => setModalImageUrl(e.target.value)}
+                placeholder="https://..."
+              />
+              <label className="upload-btn">
+                {uploadingEditServiceImage ? "Uploading..." : "Upload"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUploadEditServiceImage}
+                  disabled={uploadingEditServiceImage}
+                />
+              </label>
+            </div>
+            {modalImageUrl ? (
+              <div className="image-preview-row">
+                <img src={modalImageUrl} alt={`${editCategoryName || "Service"} preview`} />
+              </div>
+            ) : null}
             <button
               className="btn-primary"
               onClick={async () => {
                 if (!editingService) return; // safety
+                const resolvedTerms =
+                  allTerms.length > 0 ? selectedTerms.join(", ") : modalTerms.trim();
                 editingService.price = Number(modalPrice);
                 editingService.name = editCategoryName;
                 editingService.pricingStatus = "Active";
-                editingService.terms = selectedTerms.join(", ");
+                editingService.terms = resolvedTerms;
+                editingService.imageUrl = modalImageUrl;
                 editingService.offerText = modalOfferText;
                 if (isSelfManagedVendor) {
                   await updateSelfManagedNode(editingService._id, {
                     name: editCategoryName,
                     price: Number(modalPrice),
                     pricingStatus: editingService.pricingStatus || "Active",
-                    imageUrl: editingService.imageUrl || "",
+                    terms: resolvedTerms,
+                    imageUrl: modalImageUrl || "",
                   });
                   setRootNodes(nodes =>
                     updateNodeFields(nodes, editingService._id, {
                       name: editCategoryName,
                       price: Number(modalPrice),
+                      terms: resolvedTerms,
+                      imageUrl: modalImageUrl,
                     })
                   );
                   setPath(prev =>
                     updatePathFields(prev, editingService._id, {
                       name: editCategoryName,
                       price: Number(modalPrice),
+                      terms: resolvedTerms,
+                      imageUrl: modalImageUrl,
                     })
                   );
                 } else {
@@ -1855,7 +1942,7 @@ async function updateService(service, status) {
                     body: JSON.stringify({
                       vendorPriceNodeId: editingService._id,   // ✅ FIX
                       price: Number(modalPrice),               // ✅ FIX
-                      terms: selectedTerms.join(", "),
+                      terms: resolvedTerms,
                       offerText: modalOfferText,
                       pricingStatus: "Active"
                     })
@@ -2096,6 +2183,15 @@ async function updateService(service, status) {
                 />
               </>
             ) : null}
+
+            <label className="modal-label">Terms (give multiple terms with a comma separator)</label>
+            <textarea
+              className="price-input"
+              value={addNodeTerms}
+              onChange={e => setAddNodeTerms(e.target.value)}
+              placeholder="Example: Age under 10 only, Weekends only, Base price only"
+              rows={3}
+            />
 
             <label className="modal-label">Image URL (Optional)</label>
             <div className="image-row">

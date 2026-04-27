@@ -6,6 +6,10 @@ import { FaPhoneAlt, FaMapMarkerAlt, FaClock } from "react-icons/fa";
 import { useVendor } from "@/app/context/VendorContext";
 import { API_BASE_URL } from "../../config";
 import {
+  buildVendorPreviewAnalyticsPayload,
+  trackVendorPreviewEvent,
+} from "../utils/siteAnalytics";
+import {
   CART_UPDATED_EVENT,
   ENQUIRY_OPEN_EVENT,
   formatCurrency,
@@ -312,6 +316,17 @@ export default function ContactSection() {
       }
 
       setFeedback("Enquiry submitted successfully.");
+      trackVendorPreviewEvent(
+        API_BASE_URL,
+        buildVendorPreviewAnalyticsPayload({
+          vendorId,
+          eventType: "enquiry_submit",
+          meta: {
+            sourceLabel: String(enquiryConfig?.enquiryType || "service_enquiry") || "service_enquiry",
+            utmContent: String(rootCategoryId || ""),
+          },
+        })
+      );
       setFormValues(
         supportedEnquiryFields.reduce((acc, field) => {
           acc[field.name] = "";
@@ -345,7 +360,21 @@ export default function ContactSection() {
             </div>
             <p className="contact-info">
               {phone ? (
-                <a href={`tel:${phone}`}>{phone}</a>
+                <a
+                  href={`tel:${phone}`}
+                  onClick={() =>
+                    trackVendorPreviewEvent(
+                      API_BASE_URL,
+                      buildVendorPreviewAnalyticsPayload({
+                        vendorId,
+                        eventType: "cta_click",
+                        meta: { sourceLabel: "contact_phone_primary" },
+                      })
+                    )
+                  }
+                >
+                  {phone}
+                </a>
               ) : (
                 "Phone not available"
               )}
@@ -357,6 +386,16 @@ export default function ContactSection() {
                     key={secondaryPhone}
                     className="contact-secondary-link"
                     href={`tel:${secondaryPhone}`}
+                    onClick={() =>
+                      trackVendorPreviewEvent(
+                        API_BASE_URL,
+                        buildVendorPreviewAnalyticsPayload({
+                          vendorId,
+                          eventType: "cta_click",
+                          meta: { sourceLabel: "contact_phone_secondary" },
+                        })
+                      )
+                    }
                   >
                     {secondaryPhone}
                   </a>

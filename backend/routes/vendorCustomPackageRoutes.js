@@ -7,6 +7,10 @@ const {
   createVendorCustomPackageNode,
   listVendorCustomPackageNodes,
 } = require('../services/vendorCustomPackageService');
+const {
+  requireVendorBodyWriteAccess,
+  requireVendorWriteAccess,
+} = require('../utils/vendorWriteAuth');
 
 const router = express.Router();
 
@@ -55,7 +59,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', requireVendorBodyWriteAccess(), async (req, res) => {
   try {
     const created = await createVendorCustomPackageNode(req.body || {});
     return res.status(201).json({
@@ -72,7 +76,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/reorder', async (req, res) => {
+router.put('/reorder', requireVendorBodyWriteAccess(), async (req, res) => {
   try {
     const { vendorId, rootCategoryId, parentNodeId = null, parentNodeType = 'root', items = [] } = req.body || {};
 
@@ -121,7 +125,7 @@ router.put('/reorder', async (req, res) => {
   }
 });
 
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', requireVendorBodyWriteAccess(), async (req, res) => {
   try {
     const { vendorId, rootCategoryId, pricingStatus } = req.body || {};
 
@@ -194,7 +198,7 @@ router.put('/:id/status', async (req, res) => {
   }
 });
 
-router.post('/:id/restore', async (req, res) => {
+router.post('/:id/restore', requireVendorBodyWriteAccess(), async (req, res) => {
   try {
     const { vendorId, rootCategoryId, pricingStatus = 'Active' } = req.body || {};
 
@@ -259,7 +263,7 @@ router.post('/:id/restore', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireVendorBodyWriteAccess(), async (req, res) => {
   try {
     const { vendorId, rootCategoryId, ...updates } = req.body || {};
     if (!vendorId || !rootCategoryId) {
@@ -397,7 +401,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireVendorWriteAccess((req) => req.query?.vendorId), async (req, res) => {
   try {
     const { vendorId, rootCategoryId } = req.query;
     if (!vendorId || !rootCategoryId) {

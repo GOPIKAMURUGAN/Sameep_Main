@@ -8,12 +8,16 @@ const {
   deleteVendorResource,
 } = require("../controllers/vendorResourceController");
 const VendorResource = require("../models/VendorResource");
+const {
+  requireVendorBodyWriteAccess,
+  requireOwnedDocumentVendorAccess,
+} = require("../utils/vendorWriteAuth");
 
 router.get("/", getVendorResources);
-router.post("/", createVendorResource);
-router.put("/:id", updateVendorResource);
-router.delete("/:id", deleteVendorResource);
-router.put("/:id/activate", async (req, res) => {
+router.post("/", requireVendorBodyWriteAccess(), createVendorResource);
+router.put("/:id", requireOwnedDocumentVendorAccess(VendorResource), updateVendorResource);
+router.delete("/:id", requireOwnedDocumentVendorAccess(VendorResource), deleteVendorResource);
+router.put("/:id/activate", requireOwnedDocumentVendorAccess(VendorResource), async (req, res) => {
   try {
     const resource = await VendorResource.findByIdAndUpdate(
       req.params.id,

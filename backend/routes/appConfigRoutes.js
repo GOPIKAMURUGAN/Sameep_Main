@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const AppConfig = require("../models/AppConfig");
+const { requireAdminAuth } = require("../utils/adminAuthMiddleware");
 const {
   getAllowedTemplateProfiles,
   getStoredWhatsAppBillingConfig,
@@ -145,7 +146,7 @@ router.get("/whatsapp-enquiry", async (req, res) => {
 
 // POST to update admin passcode
 // Body: { adminPasscode: string } (must be 4-digit string)
-router.post("/admin-passcode", async (req, res) => {
+router.post("/admin-passcode", requireAdminAuth, async (req, res) => {
   try {
     const { adminPasscode } = req.body || {};
     const code = typeof adminPasscode === "string" ? adminPasscode.trim() : "";
@@ -170,7 +171,7 @@ router.post("/admin-passcode", async (req, res) => {
 
 // POST to update public site contact details
 // Body: { addressLine1?: string, addressLine2?: string, phone?: string }
-router.post("/public-site-contact", async (req, res) => {
+router.post("/public-site-contact", requireAdminAuth, async (req, res) => {
   try {
     const value = normalizePublicSiteContact(req.body);
 
@@ -186,7 +187,7 @@ router.post("/public-site-contact", async (req, res) => {
   }
 });
 
-router.post("/whatsapp-billing", async (req, res) => {
+router.post("/whatsapp-billing", requireAdminAuth, async (req, res) => {
   try {
     const value = normalizeWhatsAppBillingInput(req.body);
 
@@ -214,7 +215,7 @@ router.post("/whatsapp-billing", async (req, res) => {
   }
 });
 
-router.post("/whatsapp-enquiry", async (req, res) => {
+router.post("/whatsapp-enquiry", requireAdminAuth, async (req, res) => {
   try {
     const value = normalizeWhatsAppEnquiryInput(req.body);
 
@@ -240,7 +241,7 @@ router.post("/whatsapp-enquiry", async (req, res) => {
 
 // POST to update session validity config
 // Body: { availableHours: number[], selectedHour: number | null }
-router.post("/session-validity", async (req, res) => {
+router.post("/session-validity", requireAdminAuth, async (req, res) => {
   try {
     let { availableHours, selectedHour } = req.body;
 

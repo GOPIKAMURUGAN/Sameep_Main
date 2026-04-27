@@ -4,6 +4,8 @@ const DummyVendor = require("../models/DummyVendor");
 const PreviewTemplate = require("../models/PreviewTemplate");
 const DummyCategory = require("../models/dummyCategory");
 const DummySubcategory = require("../models/dummySubcategory");
+const VendorSubscription = require("../models/VendorSubscription");
+const Plan = require("../models/Plan");
 const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
 const { uploadBufferToS3, uploadBufferToS3WithLabel, deleteS3ObjectByUrl } = require("../utils/s3Upload");
@@ -136,6 +138,47 @@ function getDummyVendorDisplayName(vendor) {
   return (
     vendor?.name || vendor?.contactName || vendor?.businessName || "Vendor"
   );
+}
+
+function deriveVendorCity(vendor) {
+  const explicitCity =
+    typeof vendor?.serviceAreas?.city === "string"
+      ? vendor.serviceAreas.city.trim()
+      : "";
+  if (explicitCity) return explicitCity;
+
+  const address =
+    typeof vendor?.location?.address === "string"
+      ? vendor.location.address.trim()
+      : "";
+  if (!address) return "";
+
+  const parts = address
+    .split(",")
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return parts[parts.length - 2];
+  }
+
+  return parts[0] || "";
+}
+
+function buildGoogleProfileUrl(vendor) {
+  const placeId =
+    typeof vendor?.googlePlace?.placeId === "string"
+      ? vendor.googlePlace.placeId.trim()
+      : "";
+  if (placeId) {
+    return `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+  }
+
+  const mapsUrl =
+    typeof vendor?.googlePlace?.mapsUrl === "string"
+      ? vendor.googlePlace.mapsUrl.trim()
+      : "";
+  return mapsUrl || "";
 }
 
 async function buildDummyVendorPrefixedSegments(vendor, kind) {
@@ -557,6 +600,69 @@ router.post("/", async (req, res) => {
   } catch (err) {
     console.error("POST /dummy-vendors error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/trusted-partners", async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(Number(req.query?.limit) || 8, 1), 24);
+    const now = new Date();
+
+    const subscriptions = await VendorSubscription.find({
+      active: true,
+      $or: [{ expiryDate: { $exists: false } }, { expiryDate: null }, { expiryDate: { $gte: now } }],
+    })
+      .populate({
+        path: "planId",
+        select: "name price active",
+        model: Plan,
+      })
+      .lean();
+
+    const paidVendorIds = subscriptions
+      .filter((subscription) => {
+        const plan = subscription?.planId;
+        return Boolean(plan && plan.active !== false && Number(plan.price || 0) > 0);
+      })
+      .map((subscription) => String(subscription.vendorId || "").trim())
+      .filter(Boolean);
+
+    if (!paidVendorIds.length) {
+      return res.json([]);
+    }
+
+    const vendors = await DummyVendor.find({
+      _id: { $in: paidVendorIds },
+      status: "Published",
+    })
+      .populate("categoryId", "name imageUrl")
+      .select("businessName contactName logoUrl profilePictures serviceAreas location googlePlace categoryId")
+      .sort({ businessName: 1, createdAt: -1 })
+      .lean();
+
+    const results = vendors
+      .map((vendor) => ({
+        vendorId: vendor._id,
+        businessName: vendor.businessName || vendor.contactName || "Trusted Partner",
+        city: deriveVendorCity(vendor),
+        categoryName: vendor?.categoryId?.name || "",
+        categoryImageUrl:
+          (typeof vendor?.categoryId?.imageUrl === "string" &&
+            vendor.categoryId.imageUrl.trim()) ||
+          "",
+        imageUrl:
+          (typeof vendor.logoUrl === "string" && vendor.logoUrl.trim()) ||
+          (Array.isArray(vendor.profilePictures) && vendor.profilePictures.find(Boolean)) ||
+          "",
+        googleProfileUrl: buildGoogleProfileUrl(vendor),
+      }))
+      .filter((vendor) => vendor.businessName)
+      .slice(0, limit);
+
+    return res.json(results);
+  } catch (err) {
+    console.error("GET /dummy-vendors/trusted-partners error:", err);
+    return res.status(500).json({ message: "Failed to load trusted partners" });
   }
 });
 

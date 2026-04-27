@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "../../../config";
 import GalleryUploader from "./GalleryUploader";
+import { getVendorAuthHeaders } from "../../utils/vendorAuth";
 import "./VendorGalleryModal.css";
 
 function extractGalleryUrls(payload) {
@@ -60,6 +61,7 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
     () => albums.find((album) => String(album._id) === String(selectedAlbumId)) || albums[0] || null,
     [albums, selectedAlbumId]
   );
+  const vendorAuthHeaders = useMemo(() => getVendorAuthHeaders(vendorId), [vendorId]);
 
   const uploadEndpoint = useMemo(() => {
     if (!vendorId || !selectedAlbum?._id || usingFallback) return "";
@@ -129,7 +131,7 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
       setGalleryError("");
       const res = await fetch(`${galleryEndpoint}/albums`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...vendorAuthHeaders },
         body: JSON.stringify({ title }),
       });
       const json = await res.json();
@@ -160,6 +162,7 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
       setGalleryError("");
       const res = await fetch(`${galleryEndpoint}/albums/${selectedAlbum._id}`, {
         method: "DELETE",
+        headers: vendorAuthHeaders,
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json?.success === false) {
@@ -183,7 +186,7 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
       setGalleryError("");
       const res = await fetch(`${galleryEndpoint}/albums/${selectedAlbum._id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...vendorAuthHeaders },
         body: JSON.stringify({ coverImageUrl: imageUrl }),
       });
       const json = await res.json().catch(() => ({}));
@@ -212,7 +215,7 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
 
         const res = await fetch(
           `${API_BASE_URL}/api/vendor-gallery/${vendorId}/albums/${selectedAlbum._id}/images/${image._id}`,
-          { method: "DELETE" }
+          { method: "DELETE", headers: vendorAuthHeaders }
         );
         const json = await res.json().catch(() => ({}));
         if (!res.ok || json?.success === false) {
@@ -227,7 +230,7 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
         setDeletingImage("");
       }
     },
-    [vendorId, selectedAlbum?._id, loadGallery]
+    [vendorId, selectedAlbum?._id, loadGallery, vendorAuthHeaders]
   );
 
   const handleFallbackDeleteImage = useCallback(
@@ -399,6 +402,7 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
                     disabled={!vendorId || !selectedAlbum?._id}
                     onUploaded={loadGallery}
                     maxImages={20}
+                    headers={vendorAuthHeaders}
                   />
                 )}
 
@@ -458,6 +462,7 @@ export default function VendorGalleryModal({ vendorId, rowId, onClose, readOnly 
                 disabled={!vendorId || !rowId}
                 onUploaded={loadFallbackGallery}
                 maxImages={5}
+                headers={vendorAuthHeaders}
               />
             )}
             <div className="gallery-divider" />

@@ -36,8 +36,9 @@ exports.createVendorResource = async (req, res) => {
 exports.updateVendorResource = async (req, res) => {
   try {
     const { id } = req.params;
+    const { vendorId, ...safeUpdates } = req.body || {};
 
-    const resource = await VendorResource.findByIdAndUpdate(id, req.body, {
+    const resource = await VendorResource.findByIdAndUpdate(id, safeUpdates, {
       new: true,
     });
 

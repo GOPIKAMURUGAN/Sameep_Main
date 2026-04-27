@@ -19,6 +19,7 @@ import {
   searchGooglePlaces,
   parseMenuFile,
   setVendorSubdomain,
+  scopeCustomerSession,
   syncVendorPriceNodes,
   updateVendorPricingSource,
   updateVendorStatus,
@@ -421,6 +422,10 @@ function OnboardingFlow() {
         phone: cleanPhone,
       });
 
+      if (bypassData?.token) {
+        localStorage.setItem("authToken", bypassData.token);
+      }
+
       const customerId =
         bypassData?.customer?._id || bypassData?.customer?.id || "";
 
@@ -471,10 +476,24 @@ function OnboardingFlow() {
       const resolvedVendorId = vendorData.vendor?._id || vendorData._id;
       const resolvedSubdomain =
         vendorData.vendor?.subdomain || vendorData.subdomain || null;
+      const resolvedCategoryId =
+        confirmedCategory?._id ||
+        confirmedCategory?.id ||
+        confirmedCategory?.categoryId ||
+        "";
 
       if (!resolvedVendorId) {
         alert("Vendor ID not received from backend");
         return;
+      }
+
+      const scopedSession = await scopeCustomerSession({
+        vendorId: resolvedVendorId,
+        categoryId: resolvedCategoryId,
+      });
+
+      if (scopedSession?.token) {
+        localStorage.setItem("authToken", scopedSession.token);
       }
 
       setVendorId(resolvedVendorId);

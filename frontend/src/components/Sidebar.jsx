@@ -62,6 +62,9 @@ function Sidebar() {
       <NavLink to="/app-configurations" style={linkStyle}>
         ⚙️ App Configurations
       </NavLink>
+      <NavLink to="/site-analytics" style={linkStyle}>
+        📈 Site Analytics
+      </NavLink>
       <NavLink to="/enquiries" style={linkStyle}>
         📩 Enquiries
       </NavLink>
