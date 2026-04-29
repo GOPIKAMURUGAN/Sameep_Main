@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { LuLogOut } from "react-icons/lu";
 import { API_BASE_URL } from "../../../config";
 import { SOCIAL_ICONS } from "../../Icons/SocialIcons";
+import {
+  buildVendorPreviewAnalyticsPayload,
+  trackVendorPreviewEvent,
+} from "../../utils/siteAnalytics";
 import "./ModernPreviewTemplate.css";
 
 const DEFAULT_NAV = [
@@ -1544,6 +1548,17 @@ export default function ModernPreviewTemplate({
       }
 
       setInquiryFeedback("Enquiry submitted successfully.");
+      trackVendorPreviewEvent(
+        API_BASE_URL,
+        buildVendorPreviewAnalyticsPayload({
+          vendorId,
+          eventType: "enquiry_submit",
+          meta: {
+            sourceLabel: String(enquiryConfig?.enquiryType || "service_enquiry") || "service_enquiry",
+            utmContent: String(rootCategoryId || ""),
+          },
+        })
+      );
       setDynamicInquiryValues(
         supportedEnquiryFields.reduce((acc, field) => {
           acc[field.name] = "";

@@ -269,6 +269,9 @@ export default function SiteAnalyticsPage() {
                     Views: {formatNumber(item.views)} · Unique:{" "}
                     {formatNumber(item.uniqueVisitors)}
                   </div>
+                  <div style={{ color: "#64748b", marginTop: "4px", fontSize: "14px" }}>
+                    Enquiries: {formatNumber(item.enquirySubmissions)}
+                  </div>
                 </div>
               ))
             ) : (

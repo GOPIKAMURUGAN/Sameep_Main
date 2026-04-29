@@ -162,6 +162,7 @@ router.get("/admin/summary", requireAdminAuth, async (req, res) => {
       topCampaigns,
       dailyTrendRaw,
       topVendorPagesRaw,
+      topVendorEnquiriesRaw,
       homeCtaClicks,
       vendorEnquirySubmissions,
       vendorCtaClicks,
@@ -234,6 +235,22 @@ router.get("/admin/summary", requireAdminAuth, async (req, res) => {
         { $sort: { views: -1 } },
         { $limit: 10 },
       ]),
+      SiteAnalyticsEvent.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: since },
+            pageType: "vendor_preview",
+            eventType: "enquiry_submit",
+            vendorId: { $ne: null },
+          },
+        },
+        {
+          $group: {
+            _id: "$vendorId",
+            enquiries: { $sum: 1 },
+          },
+        },
+      ]),
       SiteAnalyticsEvent.countDocuments({
         createdAt: { $gte: since },
         ...buildExtraMatch("ynot_home", "cta_click"),
@@ -265,6 +282,9 @@ router.get("/admin/summary", requireAdminAuth, async (req, res) => {
           vendor.homeLocation ||
           "Vendor",
       ])
+    );
+    const vendorEnquiryMap = new Map(
+      (topVendorEnquiriesRaw || []).map((item) => [String(item._id), item.enquiries || 0])
     );
 
     const trendByDate = new Map();
@@ -317,6 +337,7 @@ router.get("/admin/summary", requireAdminAuth, async (req, res) => {
         vendorName: vendorMap.get(String(item._id)) || "Vendor",
         views: item.views || 0,
         uniqueVisitors: (item.visitors || []).filter(Boolean).length,
+        enquirySubmissions: vendorEnquiryMap.get(String(item._id)) || 0,
       })),
     });
   } catch (error) {
