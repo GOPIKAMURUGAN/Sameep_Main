@@ -13,6 +13,7 @@ const PAGE_SECTIONS = {
   About: "about",
   Contact: "contact",
 };
+const FOOTER_GALLERY_OPEN_EVENT = "ynot-footer-open-gallery";
 
 function getPoweredByUrl() {
   return (
@@ -41,6 +42,18 @@ export default function Footer() {
 
   const normalize = (label) =>
     label.toLowerCase().replace(/\s+/g, "");
+
+  const handleQuickLinkClick = (event, item) => {
+    const normalized = String(item || "").trim().toLowerCase();
+    if (normalized !== "gallery") return;
+    event.preventDefault();
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent(FOOTER_GALLERY_OPEN_EVENT, {
+        detail: { source: "footer" },
+      })
+    );
+  };
 
   // ==============================
   // ✅ LOAD CATEGORY DATA (MENU + SOCIALS)
@@ -95,7 +108,10 @@ export default function Footer() {
           <ul className="footer-links">
             {webMenu.map((item) => (
               <li key={item}>
-                <a href={`#${PAGE_SECTIONS[item] || toAnchor(item)}`}>
+                <a
+                  href={`#${PAGE_SECTIONS[item] || toAnchor(item)}`}
+                  onClick={(event) => handleQuickLinkClick(event, item)}
+                >
                   {item}
                 </a>
               </li>

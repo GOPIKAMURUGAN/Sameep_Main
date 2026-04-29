@@ -28,6 +28,7 @@ import { useSessionGuard } from "../Login/useSessionGuard";
 import ModernPreviewTemplate from "./templates/ModernPreviewTemplate";
 import CatalogPreviewTemplate from "./templates/CatalogPreviewTemplate";
 import { CART_UPDATED_EVENT, ENQUIRY_OPEN_EVENT } from "../utils/enquiryFlow";
+const FOOTER_GALLERY_OPEN_EVENT = "ynot-footer-open-gallery";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -2769,6 +2770,21 @@ function ExploreContent({ onReady, onOpenServices }) {
       window.removeEventListener("focus", syncVendorSessionState);
     };
   }, [vendorId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleFooterGalleryOpen = () => {
+      setGalleryReadOnly(true);
+      setServiceType("gallery");
+      setOpenServices(true);
+    };
+
+    window.addEventListener(FOOTER_GALLERY_OPEN_EVENT, handleFooterGalleryOpen);
+    return () => {
+      window.removeEventListener(FOOTER_GALLERY_OPEN_EVENT, handleFooterGalleryOpen);
+    };
+  }, []);
 
   const handleClassicEnquiryAction = () => {
     if (typeof window === "undefined") return;
