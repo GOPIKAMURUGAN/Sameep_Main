@@ -4,8 +4,11 @@ const mongoose = require("mongoose");
 const SiteAnalyticsEvent = require("../models/SiteAnalyticsEvent");
 const DummyVendor = require("../models/DummyVendor");
 const { requireAdminAuth } = require("../utils/adminAuthMiddleware");
+const { validateVendorWriteRequest } = require("../utils/vendorWriteAuth");
 
 const router = express.Router();
+const IST_TIMEZONE = "Asia/Kolkata";
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -59,14 +62,20 @@ function detectDeviceType(userAgent, providedDeviceType) {
   return "desktop";
 }
 
-function startOfDay(date) {
-  const copy = new Date(date);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
+function startOfIstDay(date) {
+  const shifted = new Date(new Date(date).getTime() + IST_OFFSET_MS);
+  shifted.setUTCHours(0, 0, 0, 0);
+  return new Date(shifted.getTime() - IST_OFFSET_MS);
 }
 
 function formatDateKey(value) {
-  return new Date(value).toISOString().slice(0, 10);
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: IST_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(new Date(value));
 }
 
 function buildExtraMatch(pageType, eventType) {
@@ -136,7 +145,7 @@ router.post("/track", async (req, res) => {
 router.get("/admin/summary", requireAdminAuth, async (req, res) => {
   try {
     const days = Math.max(1, Math.min(365, Number(req.query.days) || 30));
-    const since = startOfDay(new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000));
+    const since = startOfIstDay(new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000));
     const baseMatch = {
       createdAt: { $gte: since },
       eventType: "page_view",
@@ -197,7 +206,7 @@ router.get("/admin/summary", requireAdminAuth, async (req, res) => {
           $group: {
             _id: {
               date: {
-                $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+                $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: IST_TIMEZONE },
               },
               pageType: "$pageType",
             },
@@ -313,6 +322,129 @@ router.get("/admin/summary", requireAdminAuth, async (req, res) => {
   } catch (error) {
     console.error("site analytics summary error", error);
     return res.status(500).json({ message: "Failed to load analytics summary" });
+  }
+});
+
+router.get("/vendor/summary", async (req, res) => {
+  try {
+    const vendorId = normalizeText(req.query.vendorId);
+    const authResult = await validateVendorWriteRequest(req, vendorId);
+    if (!authResult.ok) {
+      return res.status(authResult.status || 403).json({
+        message: authResult.message || "Vendor analytics access denied",
+        code: authResult.code || "forbidden",
+      });
+    }
+
+    const days = Math.max(1, Math.min(365, Number(req.query.days) || 30));
+    const since = startOfIstDay(new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000));
+    const baseMatch = {
+      createdAt: { $gte: since },
+      pageType: "vendor_preview",
+      vendorId: new mongoose.Types.ObjectId(vendorId),
+    };
+    const pageViewMatch = {
+      ...baseMatch,
+      eventType: "page_view",
+    };
+
+    const [
+      totalPageViews,
+      uniqueVisitorsDocs,
+      ctaClicks,
+      enquirySubmissions,
+      topSources,
+      topCampaigns,
+      dailyTrendRaw,
+    ] = await Promise.all([
+      SiteAnalyticsEvent.countDocuments(pageViewMatch),
+      SiteAnalyticsEvent.distinct("visitorId", {
+        ...pageViewMatch,
+        visitorId: { $ne: "" },
+      }),
+      SiteAnalyticsEvent.countDocuments({
+        ...baseMatch,
+        eventType: "cta_click",
+      }),
+      SiteAnalyticsEvent.countDocuments({
+        ...baseMatch,
+        eventType: "enquiry_submit",
+      }),
+      SiteAnalyticsEvent.aggregate([
+        { $match: pageViewMatch },
+        { $group: { _id: { $ifNull: ["$sourceLabel", "direct"] }, views: { $sum: 1 } } },
+        { $sort: { views: -1 } },
+        { $limit: 8 },
+      ]),
+      SiteAnalyticsEvent.aggregate([
+        {
+          $match: {
+            ...pageViewMatch,
+            utmCampaign: { $ne: "" },
+          },
+        },
+        { $group: { _id: "$utmCampaign", views: { $sum: 1 } } },
+        { $sort: { views: -1 } },
+        { $limit: 8 },
+      ]),
+      SiteAnalyticsEvent.aggregate([
+        { $match: pageViewMatch },
+        {
+          $group: {
+            _id: {
+              date: {
+                $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: IST_TIMEZONE },
+              },
+            },
+            views: { $sum: 1 },
+            visitors: { $addToSet: "$visitorId" },
+          },
+        },
+        { $sort: { "_id.date": 1 } },
+      ]),
+    ]);
+
+    const trendByDate = new Map();
+    for (let i = 0; i < days; i += 1) {
+      const date = new Date(since.getTime() + i * 24 * 60 * 60 * 1000);
+      trendByDate.set(formatDateKey(date), {
+        date: formatDateKey(date),
+        views: 0,
+        uniqueVisitors: 0,
+      });
+    }
+
+    dailyTrendRaw.forEach((item) => {
+      const key = item?._id?.date;
+      if (!trendByDate.has(key)) return;
+      trendByDate.set(key, {
+        date: key,
+        views: item?.views || 0,
+        uniqueVisitors: (item?.visitors || []).filter(Boolean).length,
+      });
+    });
+
+    return res.json({
+      periodDays: days,
+      overview: {
+        totalPageViews,
+        uniqueVisitors: uniqueVisitorsDocs.length,
+        ctaClicks,
+        enquirySubmissions,
+      },
+      topSources: topSources.map((item) => ({
+        source: item._id || "direct",
+        views: item.views || 0,
+      })),
+      topCampaigns: topCampaigns.map((item) => ({
+        campaign: item._id || "Unknown",
+        views: item.views || 0,
+      })),
+      dailyTrend: Array.from(trendByDate.values()),
+    });
+  } catch (error) {
+    console.error("vendor site analytics summary error", error);
+    return res.status(500).json({ message: "Failed to load vendor analytics summary" });
   }
 });
 

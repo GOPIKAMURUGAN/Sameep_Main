@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { API_BASE_URL } from "../../config";
+import { getVendorAuthHeaders } from "../utils/vendorAuth";
 import CustomerSummary from "./components/CustomerSummary";
 import StylistPerformance from "../../components/dashboard/StylistPerformance";
 
@@ -56,6 +57,10 @@ export default function VendorDashboardPage() {
   const [fyData, setFyData] = useState([]);
   const [topServices, setTopServices] = useState([]);
   const [dailyTrend, setDailyTrend] = useState([]);
+  const [siteAnalyticsRange, setSiteAnalyticsRange] = useState(30);
+  const [siteAnalytics, setSiteAnalytics] = useState(null);
+  const [siteAnalyticsLoading, setSiteAnalyticsLoading] = useState(false);
+  const [siteAnalyticsError, setSiteAnalyticsError] = useState("");
   const [customerStats, setCustomerStats] = useState(null);
   const [customerLoading, setCustomerLoading] = useState(false);
   const [showBills, setShowBills] = useState(false);
@@ -189,6 +194,52 @@ export default function VendorDashboardPage() {
     if (vendorId) fetchTrend();
   }, [vendorId]);
 
+  useEffect(() => {
+    if (!vendorId) return;
+
+    let cancelled = false;
+
+    async function fetchSiteAnalytics() {
+      try {
+        setSiteAnalyticsLoading(true);
+        setSiteAnalyticsError("");
+
+        const res = await fetch(
+          `${API_BASE_URL}/api/site-analytics/vendor/summary?vendorId=${vendorId}&days=${siteAnalyticsRange}`,
+          {
+            headers: {
+              ...getVendorAuthHeaders(vendorId),
+            },
+          }
+        );
+
+        const json = await res.json();
+        if (!res.ok) {
+          throw new Error(json?.message || "Failed to load website analytics");
+        }
+
+        if (!cancelled) {
+          setSiteAnalytics(json || null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Vendor site analytics error", err);
+          setSiteAnalyticsError(err?.message || "Failed to load website analytics");
+        }
+      } finally {
+        if (!cancelled) {
+          setSiteAnalyticsLoading(false);
+        }
+      }
+    }
+
+    fetchSiteAnalytics();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [vendorId, siteAnalyticsRange]);
+
   if (!vendorId) {
     return (
       <div
@@ -215,6 +266,10 @@ export default function VendorDashboardPage() {
     summary?.thisMonthRevenue ?? summary?.monthRevenue ?? summary?.monthlyRevenue ?? 0;
   const monthOrders = summary?.monthOrders ?? 0;
   const monthAvgBill = summary?.monthAvgBill ?? 0;
+  const siteAnalyticsOverview = siteAnalytics?.overview || {};
+  const siteAnalyticsTrend = siteAnalytics?.dailyTrend || [];
+  const siteTopSources = siteAnalytics?.topSources || [];
+  const siteTopCampaigns = siteAnalytics?.topCampaigns || [];
 
   const formatTime = (date) =>
     new Date(date).toLocaleTimeString("en-IN", {
@@ -424,6 +479,238 @@ export default function VendorDashboardPage() {
         </div>
 
         <StylistPerformance vendorId={vendorId} />
+
+        <div
+          style={{
+            marginTop: 24,
+            background: "#111",
+            border: "1px solid #333",
+            borderRadius: 20,
+            padding: 20,
+            textAlign: "left",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 12,
+              flexWrap: "wrap",
+              marginBottom: 16,
+            }}
+          >
+            <div>
+              <div style={{ color: "#e6c37a", fontSize: 24, fontWeight: 800 }}>
+                Website Analytics
+              </div>
+              <div style={{ color: "#9aa0a6", fontSize: 13, marginTop: 4 }}>
+                Track vendor page visitors, CTA clicks, and enquiry interest.
+              </div>
+            </div>
+
+            <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ color: "#9aa0a6", fontWeight: 600, fontSize: 13 }}>Range</span>
+              <select
+                value={siteAnalyticsRange}
+                onChange={(event) => setSiteAnalyticsRange(Number(event.target.value))}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid #3a3a3a",
+                  background: "#0b0b0d",
+                  color: "#fff",
+                }}
+              >
+                <option value={7}>Last 7 days</option>
+                <option value={14}>Last 14 days</option>
+                <option value={30}>Last 30 days</option>
+                <option value={90}>Last 90 days</option>
+              </select>
+            </label>
+          </div>
+
+          {siteAnalyticsError ? (
+            <div
+              style={{
+                border: "1px solid #7f1d1d",
+                background: "rgba(127, 29, 29, 0.12)",
+                color: "#fca5a5",
+                borderRadius: 14,
+                padding: 14,
+                marginBottom: 16,
+              }}
+            >
+              {siteAnalyticsError}
+            </div>
+          ) : null}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 14,
+              marginBottom: 18,
+            }}
+          >
+            {[
+              {
+                title: "Page Views",
+                value: numberFmt.format(siteAnalyticsOverview.totalPageViews || 0),
+              },
+              {
+                title: "Unique Visitors",
+                value: numberFmt.format(siteAnalyticsOverview.uniqueVisitors || 0),
+              },
+              {
+                title: "CTA Clicks",
+                value: numberFmt.format(siteAnalyticsOverview.ctaClicks || 0),
+              },
+              {
+                title: "Enquiries",
+                value: numberFmt.format(siteAnalyticsOverview.enquirySubmissions || 0),
+              },
+            ].map((card) => (
+              <div
+                key={card.title}
+                style={{
+                  background: "#0b0b0d",
+                  border: "1px solid #2a2a2a",
+                  borderRadius: 16,
+                  padding: 18,
+                }}
+              >
+                <div style={{ color: "#9aa0a6", fontSize: 12 }}>{card.title}</div>
+                <div
+                  style={{
+                    fontSize: 28,
+                    fontWeight: 800,
+                    color: "#e6c37a",
+                    marginTop: 8,
+                  }}
+                >
+                  {siteAnalyticsLoading ? "..." : card.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.4fr 1fr 1fr",
+              gap: 16,
+              alignItems: "start",
+            }}
+          >
+            <div
+              style={{
+                background: "#0b0b0d",
+                border: "1px solid #2a2a2a",
+                borderRadius: 16,
+                padding: 16,
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 10, color: "#fff" }}>Daily Trend</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {siteAnalyticsLoading ? (
+                  <div style={{ color: "#9aa0a6" }}>Loading trend...</div>
+                ) : siteAnalyticsTrend.length ? (
+                  siteAnalyticsTrend.map((row) => (
+                    <div
+                      key={row.date}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "110px 1fr 1fr",
+                        gap: 10,
+                        padding: "8px 0",
+                        borderTop: "1px solid #1f1f1f",
+                        fontSize: 13,
+                        color: "#d4d4d8",
+                      }}
+                    >
+                      <strong>{row.date}</strong>
+                      <span>Views: {numberFmt.format(row.views || 0)}</span>
+                      <span>Unique: {numberFmt.format(row.uniqueVisitors || 0)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ color: "#9aa0a6" }}>No visitor data yet.</div>
+                )}
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "#0b0b0d",
+                border: "1px solid #2a2a2a",
+                borderRadius: 16,
+                padding: 16,
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 10, color: "#fff" }}>Top Sources</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {siteAnalyticsLoading ? (
+                  <div style={{ color: "#9aa0a6" }}>Loading...</div>
+                ) : siteTopSources.length ? (
+                  siteTopSources.map((item) => (
+                    <div
+                      key={item.source}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        padding: "8px 0",
+                        borderTop: "1px solid #1f1f1f",
+                        color: "#d4d4d8",
+                      }}
+                    >
+                      <span>{item.source}</span>
+                      <strong>{numberFmt.format(item.views || 0)}</strong>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ color: "#9aa0a6" }}>No source data yet.</div>
+                )}
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "#0b0b0d",
+                border: "1px solid #2a2a2a",
+                borderRadius: 16,
+                padding: 16,
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 10, color: "#fff" }}>Top Campaigns</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {siteAnalyticsLoading ? (
+                  <div style={{ color: "#9aa0a6" }}>Loading...</div>
+                ) : siteTopCampaigns.length ? (
+                  siteTopCampaigns.map((item) => (
+                    <div
+                      key={item.campaign}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        padding: "8px 0",
+                        borderTop: "1px solid #1f1f1f",
+                        color: "#d4d4d8",
+                      }}
+                    >
+                      <span>{item.campaign}</span>
+                      <strong>{numberFmt.format(item.views || 0)}</strong>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ color: "#9aa0a6" }}>No campaign data yet.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {customerData && (
           <div className="mt-10 w-full max-w-4xl text-left">

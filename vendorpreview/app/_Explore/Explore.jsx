@@ -23,6 +23,7 @@ import CustomerSearch from "../components/dashboard/CustomerSearch";
 import LoyaltySettings from "../components/dashboard/LoyaltySettings";
 import SubscriptionDashboard from "../components/dashboard/SubscriptionDashboard";
 import EnquiriesDashboard from "../components/dashboard/EnquiriesDashboard";
+import WebsiteAnalyticsDashboard from "../components/dashboard/WebsiteAnalyticsDashboard";
 import { useSearchParams } from "next/navigation";
 import { useSessionGuard } from "../Login/useSessionGuard";
 import ModernPreviewTemplate from "./templates/ModernPreviewTemplate";
@@ -4707,6 +4708,13 @@ function ExploreContent({ onReady, onOpenServices }) {
                   },
                 },
                 {
+                  title: "Website Analytics",
+                  description: "Check visitors, CTA clicks, enquiries, and traffic sources.",
+                  onClick: () => {
+                    setViewMode("website-analytics-dashboard");
+                  },
+                },
+                {
                   title: "Subscription",
                   description: "Manage your subscription plan and billing.",
                   onClick: () => {
@@ -4952,6 +4960,33 @@ function ExploreContent({ onReady, onOpenServices }) {
               resourceLabelPlural={hrPluralLabel}
               resourceLabelSingular={hrSingularLabel}
             />
+          </div>
+        </div>
+      )}
+      {viewMode === "website-analytics-dashboard" && (
+        <div className="new-dashboard-overlay">
+          <div className="new-dashboard-shell">
+            <div className="new-dashboard-header">
+              <button
+                className="new-dashboard-nav-btn"
+                type="button"
+                onClick={() => setViewMode("new-dashboard")}
+              >
+                Back
+              </button>
+              <div className="new-dashboard-title">
+                Website Analytics
+              </div>
+              <button
+                className="new-dashboard-close-btn"
+                type="button"
+                onClick={() => setViewMode("preview")}
+              >
+                Close
+              </button>
+            </div>
+
+            <WebsiteAnalyticsDashboard vendorId={vendorId} />
           </div>
         </div>
       )}
