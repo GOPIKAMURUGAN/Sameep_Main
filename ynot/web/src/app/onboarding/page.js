@@ -727,21 +727,26 @@ function OnboardingFlow() {
     }
   }
 
+  async function markVendorReadyForPreview() {
+    if (!vendorId || !selectedSubdomain) {
+      throw new Error("Missing vendor or subdomain");
+    }
+
+    const previewUrl = buildVendorPreviewUrl(selectedSubdomain);
+    await updateVendorStatus(vendorId, "Preview");
+    return previewUrl;
+  }
+
   async function handlePreview() {
     if (!vendorId || !selectedSubdomain) {
       alert("Missing vendor or subdomain");
       return;
     }
 
-    const previewUrl = PREVIEW_BASE_URL.replace(
-      "://",
-      `://${selectedSubdomain}.`
-    );
-
     const win = window.open("about:blank", "_blank");
 
     try {
-      await updateVendorStatus(vendorId, "Preview");
+      const previewUrl = await markVendorReadyForPreview();
       if (win) {
         win.location.href = previewUrl;
       }
@@ -749,6 +754,38 @@ function OnboardingFlow() {
       if (win) win.close();
       console.error(error);
       alert("Failed to open preview");
+    }
+  }
+
+  async function handleShareOnWhatsApp() {
+    if (!vendorId || !selectedSubdomain) {
+      alert("Missing vendor or subdomain");
+      return;
+    }
+
+    const shareWindow = window.open("about:blank", "_blank");
+
+    try {
+      const previewUrl = await markVendorReadyForPreview();
+
+      try {
+        if (navigator?.clipboard?.writeText) {
+          await navigator.clipboard.writeText(previewUrl);
+        }
+      } catch (clipboardError) {
+        console.warn("Failed to copy preview URL to clipboard", clipboardError);
+      }
+
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(previewUrl)}`;
+      if (shareWindow) {
+        shareWindow.location.href = whatsappUrl;
+      } else {
+        window.open(whatsappUrl, "_blank");
+      }
+    } catch (error) {
+      if (shareWindow) shareWindow.close();
+      console.error(error);
+      alert("Failed to prepare WhatsApp share");
     }
   }
 
@@ -1870,6 +1907,13 @@ function OnboardingFlow() {
             <div className="flow-actions">
               <button type="button" className="secondaryButton" onClick={handleClose}>
                 No
+              </button>
+              <button
+                type="button"
+                className="secondaryButton"
+                onClick={handleShareOnWhatsApp}
+              >
+                Share on WhatsApp
               </button>
               <button type="button" className="ctaButton" onClick={handlePreview}>
                 Yes, Preview
