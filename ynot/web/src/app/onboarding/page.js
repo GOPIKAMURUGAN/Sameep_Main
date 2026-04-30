@@ -255,6 +255,7 @@ function OnboardingFlow() {
 
   const phoneNumber =
     selectedBusiness?.internationalPhoneNumber || selectedBusiness?.phone || "";
+  const progressPercent = STEP_PROGRESS[step] || 0;
 
   const minutes = Math.floor(elapsed / 60)
     .toString()
@@ -895,10 +896,14 @@ function OnboardingFlow() {
         </header>
 
         <div className="progress-shell">
+          <div className="progress-meta">
+            <span className="progress-label">Progress</span>
+            <span className="progress-percent">{progressPercent}% completed</span>
+          </div>
           <div className="progress-line">
             <div
               className="progress-line-fill"
-              style={{ width: `${STEP_PROGRESS[step] || 0}%` }}
+              style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
