@@ -690,6 +690,63 @@ router.post("/scope-session", requireCustomerSession, async (req, res) => {
   }
 });
 
+router.get("/session-context", requireCustomerSession, async (req, res) => {
+  logApi(req, res, "session-context");
+  try {
+    const customerId = String(req.auth?.customerId || "").trim();
+    const scopedVendorId = String(req.auth?.vendorId || "").trim();
+    const scopedCategoryId = String(req.auth?.categoryId || "").trim();
+
+    if (!customerId) {
+      return res.status(400).json({ message: "Invalid customer session" });
+    }
+
+    const customer = await Customer.findById(customerId)
+      .select("_id countryCode phone fullNumber")
+      .lean();
+
+    if (!customer) {
+      return res.status(404).json({ message: "Customer not found" });
+    }
+
+    let vendor = null;
+    if (scopedVendorId) {
+      vendor = await DummyVendor.findOne({ _id: scopedVendorId, customerId })
+        .select("_id businessName categoryId status subdomain customDomain")
+        .lean();
+    }
+
+    if (!vendor) {
+      vendor = await DummyVendor.findOne({ customerId })
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .select("_id businessName categoryId status subdomain customDomain")
+        .lean();
+    }
+
+    const role = vendor ? "vendor" : "guest";
+    const displayName = vendor?.businessName || "Guest";
+
+    return res.json({
+      customer,
+      role,
+      displayName,
+      vendor: vendor
+        ? {
+            _id: String(vendor._id),
+            businessName: vendor.businessName || "",
+            categoryId: vendor.categoryId ? String(vendor.categoryId) : scopedCategoryId,
+            status: vendor.status || "",
+            subdomain: vendor.subdomain || "",
+            customDomain: vendor.customDomain || "",
+          }
+        : null,
+    });
+  } catch (err) {
+    console.error("session-context error:", err?.message || err);
+    return res.status(500).json({ message: "Failed to load session context" });
+  }
+});
+
 /* ---------------- 3) List customers ---------------- */
 router.get("/", async (req, res) => {
   logApi(req, res, "list-customers");

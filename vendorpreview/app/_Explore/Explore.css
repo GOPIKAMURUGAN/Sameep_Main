@@ -162,6 +162,63 @@
   margin-left: auto;
 }
 
+.explore-mobile-cart-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.explore-mobile-cart-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: min(100%, 170px);
+  flex: 1 1 140px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(245, 217, 122, 0.22);
+}
+
+.explore-mobile-cart-pill-name {
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.explore-mobile-cart-pill-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.explore-mobile-cart-pill-controls button {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 217, 122, 0.45);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5d97a;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.explore-mobile-cart-pill-controls span {
+  min-width: 12px;
+  text-align: center;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .explore-mobile-cart-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -265,6 +322,11 @@ html, body {
     right: 10px;
     bottom: 14px;
     padding: 11px 13px;
+  }
+
+  .explore-mobile-cart-pill {
+    min-width: 100%;
+    flex-basis: 100%;
   }
 
   .explore-mobile-cart-actions {

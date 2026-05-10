@@ -22,8 +22,9 @@ export const getSiteContact = async () => {
   return res.json();
 };
 
-export const getTrustedPartners = async (limit = 8) => {
-  const res = await fetch(`/api/trusted-partners?limit=${encodeURIComponent(limit)}`, {
+export const getTrustedPartners = async (limit) => {
+  const query = limit ? `?limit=${encodeURIComponent(limit)}` : "";
+  const res = await fetch(`/api/trusted-partners${query}`, {
     cache: "no-store",
   });
 

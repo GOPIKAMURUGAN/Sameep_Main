@@ -605,7 +605,12 @@ router.post("/", async (req, res) => {
 
 router.get("/trusted-partners", async (req, res) => {
   try {
-    const limit = Math.min(Math.max(Number(req.query?.limit) || 8, 1), 24);
+    const rawLimit = String(req.query?.limit || "").trim();
+    const numericLimit = Number(rawLimit);
+    const limit =
+      rawLimit && Number.isFinite(numericLimit) && numericLimit > 0
+        ? Math.floor(numericLimit)
+        : null;
     const now = new Date();
 
     const subscriptions = await VendorSubscription.find({
@@ -656,10 +661,9 @@ router.get("/trusted-partners", async (req, res) => {
           "",
         googleProfileUrl: buildGoogleProfileUrl(vendor),
       }))
-      .filter((vendor) => vendor.businessName)
-      .slice(0, limit);
+      .filter((vendor) => vendor.businessName);
 
-    return res.json(results);
+    return res.json(limit ? results.slice(0, limit) : results);
   } catch (err) {
     console.error("GET /dummy-vendors/trusted-partners error:", err);
     return res.status(500).json({ message: "Failed to load trusted partners" });

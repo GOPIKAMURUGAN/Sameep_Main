@@ -7,10 +7,14 @@ const BACKEND_BASE_URL =
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = searchParams.get("limit") || "8";
+    const limit = searchParams.get("limit");
+    const backendUrl = new URL(`${BACKEND_BASE_URL}/api/dummy-vendors/trusted-partners`);
+    if (limit) {
+      backendUrl.searchParams.set("limit", limit);
+    }
 
     const res = await fetch(
-      `${BACKEND_BASE_URL}/api/dummy-vendors/trusted-partners?limit=${encodeURIComponent(limit)}`,
+      backendUrl.toString(),
       {
         cache: "no-store",
       }

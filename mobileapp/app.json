@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "YNOT Vendor",
+    "slug": "ynot-vendor",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ynot.vendor"
+    },
+    "android": {
+      "package": "com.ynot.vendor"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "apiBaseUrl": "http://localhost:5001",
+      "previewBaseUrl": "https://sameep.app"
+    }
+  }
+}

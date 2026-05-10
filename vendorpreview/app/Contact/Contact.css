@@ -409,6 +409,10 @@ textarea {
     gap: 30px;
   }
 
+  .contact-right {
+    order: -1;
+  }
+
   .contact-form-card {
     max-width: 500px;
     margin: auto;
@@ -423,6 +427,10 @@ textarea {
   .contact-card,
   .contact-form-card {
     padding: 18px;
+  }
+
+  .contact-subtitle {
+    padding: 0 16px;
   }
 
   .map-box {

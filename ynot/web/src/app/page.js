@@ -61,7 +61,7 @@ export default function Home() {
   useEffect(() => {
     async function fetchTrustedPartners() {
       try {
-        const data = await getTrustedPartners(8);
+        const data = await getTrustedPartners();
         setTrustedPartners(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);

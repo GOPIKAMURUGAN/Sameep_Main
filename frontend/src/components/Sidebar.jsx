@@ -30,7 +30,26 @@ function Sidebar() {
         borderRight: "1px solid #ddd", // ✅ subtle border
       }}
     >
-      <h2 style={{ color: "#00AEEF", marginBottom: "30px" }}>Sameep</h2>
+      <div
+        style={{
+          background: "#0b0b0d",
+          borderRadius: "24px",
+          padding: "14px 18px",
+          marginBottom: "30px",
+          boxShadow: "0 10px 24px rgba(0,0,0,0.18)",
+        }}
+      >
+        <img
+          src="/ynot-logo.svg"
+          alt="YNOT"
+          style={{
+            width: "124px",
+            maxWidth: "100%",
+            height: "auto",
+            display: "block",
+          }}
+        />
+      </div>
 
       <NavLink to="/dashboard" style={linkStyle}>
         📊 Dashboard

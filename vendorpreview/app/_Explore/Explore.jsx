@@ -3549,6 +3549,33 @@ function ExploreContent({ onReady, onOpenServices }) {
                 <span className="explore-mobile-cart-label">Cart</span>
                 <span className="explore-mobile-cart-total">₹ {cartTotal}</span>
               </div>
+              <div className="explore-mobile-cart-items">
+                {cartItems.map((item, index) => (
+                  <div
+                    key={`${item.cartKey || item.itemId || item.name}-${index}`}
+                    className="explore-mobile-cart-pill"
+                  >
+                    <span className="explore-mobile-cart-pill-name">{item.name}</span>
+                    <div className="explore-mobile-cart-pill-controls">
+                      <button
+                        type="button"
+                        onClick={() => decreaseQty(item.cartKey || item.itemId)}
+                        aria-label={`Decrease ${item.name}`}
+                      >
+                        -
+                      </button>
+                      <span>{item.qty}</span>
+                      <button
+                        type="button"
+                        onClick={() => increaseQty(item.cartKey || item.itemId)}
+                        aria-label={`Increase ${item.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
               {hasActiveVendorSession ? (
                 <button
                   type="button"

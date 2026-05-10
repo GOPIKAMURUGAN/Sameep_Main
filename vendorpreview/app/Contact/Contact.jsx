@@ -207,7 +207,7 @@ export default function ContactSection() {
     }
 
     if (requiresCartSelection && normalizedCartItems.length === 0) {
-      setFeedback("Please add at least one service before submitting the enquiry.");
+      setFeedback("Add items to cart to send enquiry.");
       return;
     }
 
@@ -593,7 +593,7 @@ export default function ContactSection() {
             <button
               className="send-btn"
               type="submit"
-              disabled={isSubmitting || (requiresCartSelection && normalizedCartItems.length === 0)}
+              disabled={isSubmitting}
             >
               {isSubmitting ? "Submitting..." : enquiryTypeLabel}
             </button>
