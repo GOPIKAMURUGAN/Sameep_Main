@@ -463,9 +463,25 @@ function OnboardingFlow() {
             0,
           mapsUrl:
             selectedBusiness?.placeId
-              ? `https://www.google.com/maps/place/?q=place_id:${selectedBusiness.placeId}`
+              ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                  [
+                    selectedBusiness?.name || manualBusinessName || "",
+                    selectedBusiness?.address || "",
+                  ]
+                    .map((part) => String(part || "").trim())
+                    .filter(Boolean)
+                    .join(" ")
+                )}&query_place_id=${encodeURIComponent(selectedBusiness.placeId)}`
               : selectedSearchBusiness?.placeId
-                ? `https://www.google.com/maps/place/?q=place_id:${selectedSearchBusiness.placeId}`
+                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                    [
+                      selectedSearchBusiness?.name || manualBusinessName || "",
+                      selectedSearchBusiness?.address || "",
+                    ]
+                      .map((part) => String(part || "").trim())
+                      .filter(Boolean)
+                      .join(" ")
+                  )}&query_place_id=${encodeURIComponent(selectedSearchBusiness.placeId)}`
                 : "",
           types: Array.isArray(selectedBusiness?.types)
             ? selectedBusiness.types

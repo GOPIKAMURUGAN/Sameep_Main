@@ -171,7 +171,17 @@ function buildGoogleProfileUrl(vendor) {
       ? vendor.googlePlace.placeId.trim()
       : "";
   if (placeId) {
-    return `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+    const query = encodeURIComponent(
+      [
+        vendor?.businessName || vendor?.contactName || "",
+        vendor?.location?.address || "",
+      ]
+        .map((part) => String(part || "").trim())
+        .filter(Boolean)
+        .join(" ")
+    );
+
+    return `https://www.google.com/maps/search/?api=1&query=${query || encodeURIComponent(placeId)}&query_place_id=${encodeURIComponent(placeId)}`;
   }
 
   const mapsUrl =
