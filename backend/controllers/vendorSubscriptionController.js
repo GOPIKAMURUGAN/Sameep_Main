@@ -74,7 +74,7 @@ exports.getVendorSubscription = async (req, res) => {
 exports.updateVendorSubscription = async (req, res) => {
   try {
     const { vendorId } = req.params;
-    const { planId, expiryDate, active, startDate } = req.body;
+    const { planId, expiryDate, active, startDate, whatsappBalance, otpBalance } = req.body;
 
     const updated = await VendorSubscription.findOneAndUpdate(
       { vendorId },
@@ -86,6 +86,29 @@ exports.updateVendorSubscription = async (req, res) => {
       },
       { new: true }
     );
+
+    if (whatsappBalance !== undefined || otpBalance !== undefined) {
+      const walletUpdate = {};
+
+      if (whatsappBalance !== undefined) {
+        walletUpdate.whatsappBalance = Math.max(0, Number(whatsappBalance) || 0);
+      }
+
+      if (otpBalance !== undefined) {
+        walletUpdate.otpBalance = Math.max(0, Number(otpBalance) || 0);
+      }
+
+      walletUpdate.updatedAt = new Date();
+
+      await VendorWallet.findOneAndUpdate(
+        { vendorId },
+        {
+          $set: walletUpdate,
+          $setOnInsert: { vendorId, createdAt: new Date() },
+        },
+        { new: true, upsert: true }
+      );
+    }
 
     return res.json({ success: true, data: updated });
   } catch (err) {

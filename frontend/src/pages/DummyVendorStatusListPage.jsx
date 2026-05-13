@@ -37,6 +37,10 @@ export default function DummyVendorStatusListPage() {
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [plans, setPlans] = useState([]);
   const [vendorSubscription, setVendorSubscription] = useState(null);
+  const [subscriptionExpiryDate, setSubscriptionExpiryDate] = useState("");
+  const [whatsappBalanceInput, setWhatsappBalanceInput] = useState("");
+  const [otpBalanceInput, setOtpBalanceInput] = useState("");
+  const [subscriptionSaving, setSubscriptionSaving] = useState(false);
   const [uploads, setUploads] = useState({}); // { [vendorId]: File[] }
   const [statusCounts, setStatusCounts] = useState({}); // { status: count }
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -423,8 +427,18 @@ export default function DummyVendorStatusListPage() {
       );
       const data = res.data?.data || null;
       setVendorSubscription(data);
+      setSubscriptionExpiryDate(
+        data?.subscription?.expiryDate
+          ? new Date(data.subscription.expiryDate).toISOString().slice(0, 10)
+          : ""
+      );
+      setWhatsappBalanceInput(String(data?.wallet?.whatsappBalance ?? 0));
+      setOtpBalanceInput(String(data?.wallet?.otpBalance ?? 0));
     } catch {
       setVendorSubscription(null);
+      setSubscriptionExpiryDate("");
+      setWhatsappBalanceInput("");
+      setOtpBalanceInput("");
     }
   };
 
@@ -441,6 +455,52 @@ export default function DummyVendorStatusListPage() {
       loadVendorSubscription(selectedVendorId);
     } catch (err) {
       alert(err?.response?.data?.message || "Failed to assign plan");
+    }
+  };
+
+  const updateSubscriptionExpiryDate = async () => {
+    if (!selectedVendorId) {
+      alert("Please select a vendor first");
+      return;
+    }
+
+    if (!subscriptionExpiryDate) {
+      alert("Please choose an expiry date");
+      return;
+    }
+
+    try {
+      setSubscriptionSaving(true);
+      await axios.put(`${API_PREFIX}/api/admin/vendor-subscriptions/${selectedVendorId}`, {
+        expiryDate: subscriptionExpiryDate,
+      });
+      await loadVendorSubscription(selectedVendorId);
+      alert("Expiry date updated successfully");
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to update expiry date");
+    } finally {
+      setSubscriptionSaving(false);
+    }
+  };
+
+  const updateSubscriptionBalances = async () => {
+    if (!selectedVendorId) {
+      alert("Please select a vendor first");
+      return;
+    }
+
+    try {
+      setSubscriptionSaving(true);
+      await axios.put(`${API_PREFIX}/api/admin/vendor-subscriptions/${selectedVendorId}`, {
+        whatsappBalance: whatsappBalanceInput,
+        otpBalance: otpBalanceInput,
+      });
+      await loadVendorSubscription(selectedVendorId);
+      alert("Balances updated successfully");
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to update balances");
+    } finally {
+      setSubscriptionSaving(false);
     }
   };
 
@@ -993,7 +1053,10 @@ export default function DummyVendorStatusListPage() {
             background: '#fff',
             padding: 20,
             borderRadius: 10,
-            minWidth: 350
+            minWidth: 350,
+            maxWidth: 'min(92vw, 420px)',
+            maxHeight: '85vh',
+            overflowY: 'auto'
           }}>
             <h3>Vendor Subscription</h3>
 
@@ -1027,6 +1090,103 @@ export default function DummyVendorStatusListPage() {
                         ? new Date(vendorSubscription.subscription.expiryDate).toLocaleDateString()
                         : "N/A"}
                     </p>
+                    <div
+                      style={{
+                        marginTop: 12,
+                        padding: 12,
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 8,
+                        background: '#f8fafc'
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Extend / Update Expiry Date</div>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <input
+                          type="date"
+                          value={subscriptionExpiryDate}
+                          onChange={(event) => setSubscriptionExpiryDate(event.target.value)}
+                          style={{
+                            padding: '8px 10px',
+                            borderRadius: 6,
+                            border: '1px solid #cbd5e1',
+                            minWidth: 180
+                          }}
+                        />
+                        <button
+                          onClick={updateSubscriptionExpiryDate}
+                          disabled={subscriptionSaving}
+                          style={{
+                            padding: '8px 14px',
+                            background: '#2563eb',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 6,
+                            cursor: subscriptionSaving ? 'not-allowed' : 'pointer',
+                            opacity: subscriptionSaving ? 0.7 : 1
+                          }}
+                        >
+                          {subscriptionSaving ? 'Saving...' : 'Update Expiry'}
+                        </button>
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 12,
+                        padding: 12,
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 8,
+                        background: '#f8fafc'
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>Update Wallet Balances</div>
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          <label style={{ fontSize: 13, fontWeight: 600 }}>WhatsApp Balance</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={whatsappBalanceInput}
+                            onChange={(event) => setWhatsappBalanceInput(event.target.value)}
+                            style={{
+                              padding: '8px 10px',
+                              borderRadius: 6,
+                              border: '1px solid #cbd5e1'
+                            }}
+                          />
+                        </div>
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          <label style={{ fontSize: 13, fontWeight: 600 }}>OTP Balance</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={otpBalanceInput}
+                            onChange={(event) => setOtpBalanceInput(event.target.value)}
+                            style={{
+                              padding: '8px 10px',
+                              borderRadius: 6,
+                              border: '1px solid #cbd5e1'
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <button
+                            onClick={updateSubscriptionBalances}
+                            disabled={subscriptionSaving}
+                            style={{
+                              padding: '8px 14px',
+                              background: '#0f766e',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: 6,
+                              cursor: subscriptionSaving ? 'not-allowed' : 'pointer',
+                              opacity: subscriptionSaving ? 0.7 : 1
+                            }}
+                          >
+                            {subscriptionSaving ? 'Saving...' : 'Update Balances'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                     {vendorSubscription.subscription?.expiryDate &&
                       new Date(vendorSubscription.subscription.expiryDate) < new Date() && (
                         <p style={{ color: 'red', fontWeight: 'bold' }}>
@@ -1057,6 +1217,9 @@ export default function DummyVendorStatusListPage() {
                 <button
                   onClick={() => {
                     setVendorSubscription(null);
+                    setSubscriptionExpiryDate("");
+                    setWhatsappBalanceInput("");
+                    setOtpBalanceInput("");
                   }}
                   style={{
                     marginTop: 10,
@@ -1106,6 +1269,9 @@ export default function DummyVendorStatusListPage() {
               onClick={() => {
                 setShowPlanModal(false);
                 setVendorSubscription(null);
+                setSubscriptionExpiryDate("");
+                setWhatsappBalanceInput("");
+                setOtpBalanceInput("");
               }}
               style={{
                 marginTop: 10,
