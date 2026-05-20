@@ -224,6 +224,7 @@ const cardHandlers = {
           businessName={currentVendorInfo?.businessName || ""}
           initialLogoUrl={currentVendorInfo?.logoUrl || ""}
           initialSecondaryPhones={currentVendorInfo?.secondaryPhones || []}
+          initialLanguagePreference={currentVendorInfo?.languagePreference || "en"}
           onClose={() => setShowBrandingContact(false)}
         />
       )}

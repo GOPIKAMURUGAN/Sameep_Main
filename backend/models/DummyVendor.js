@@ -80,6 +80,12 @@ const dummyVendorSchema = new mongoose.Schema({
     default: [],
   },
 
+  languagePreference: {
+    type: String,
+    enum: ["en", "te"],
+    default: "en",
+  },
+
   // Link to top-level DummyCategory
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,

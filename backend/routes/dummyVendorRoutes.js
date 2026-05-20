@@ -867,6 +867,13 @@ router.put("/:vendorId", async (req, res) => {
       update.secondaryPhones = normalizeSecondaryPhones(update.secondaryPhones);
     }
 
+    if (update.languagePreference !== undefined) {
+      update.languagePreference =
+        String(update.languagePreference || "").trim().toLowerCase() === "te"
+          ? "te"
+          : "en";
+    }
+
     if (update.pricingSource !== undefined || update.menuSourceType !== undefined) {
       const normalizedPricing = normalizeVendorPricingSource(
         update.pricingSource,
@@ -885,7 +892,7 @@ router.put("/:vendorId", async (req, res) => {
       const beforeSelections = JSON.parse(JSON.stringify(existing));
       vdoc.inventorySelections = { ...existing, ...update.inventorySelections };
       // Allow updating a few other simple fields too
-      ["businessName","contactName","phone","status","location","businessHours","profilePictures","rowImages","socialLinks","logoUrl","secondaryPhones"].forEach((k) => {
+      ["businessName","contactName","phone","status","location","businessHours","profilePictures","rowImages","socialLinks","logoUrl","secondaryPhones","languagePreference"].forEach((k) => {
         if (update[k] !== undefined) vdoc[k] = update[k];
       });
       // If profilePictures provided, delete removed S3 objects

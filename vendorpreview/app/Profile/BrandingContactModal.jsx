@@ -17,6 +17,7 @@ export default function BrandingContactModal({
   businessName,
   initialLogoUrl = "",
   initialSecondaryPhones = [],
+  initialLanguagePreference = "en",
   onClose,
 }) {
   const { setVendorInfo } = useVendor();
@@ -28,6 +29,11 @@ export default function BrandingContactModal({
     while (base.length < 3) base.push("");
     return base.map(normalizePhoneInput);
   });
+  const [languagePreference, setLanguagePreference] = useState(() =>
+    String(initialLanguagePreference || "").trim().toLowerCase() === "te"
+      ? "te"
+      : "en"
+  );
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
@@ -102,6 +108,7 @@ export default function BrandingContactModal({
       secondaryPhones: secondaryPhones
         .map(normalizePhoneInput)
         .filter(Boolean),
+      languagePreference,
     };
 
     try {
@@ -130,6 +137,8 @@ export default function BrandingContactModal({
               logoUrl: data?.logoUrl || payload.logoUrl,
               secondaryPhones:
                 data?.secondaryPhones || payload.secondaryPhones,
+              languagePreference:
+                data?.languagePreference || payload.languagePreference,
             }
           : prev
       );
@@ -149,53 +158,70 @@ export default function BrandingContactModal({
         <h2 className="popup-title">Branding & Contact</h2>
         <p className="popup-subtitle">{businessName}</p>
 
-        <div className="branding-contact-grid">
-          <div className="branding-contact-section">
-            <label className="branding-label">Vendor Logo</label>
-            <div className="branding-logo-row">
-              <div className="branding-logo-preview">
-                {previewLogoUrl ? (
-                  <img src={previewLogoUrl} alt={`${businessName} logo`} />
-                ) : (
-                  <span>No logo</span>
-                )}
-              </div>
+        <div className="branding-contact-body">
+          <div className="branding-contact-grid">
+            <div className="branding-contact-section">
+              <label className="branding-label">Vendor Logo</label>
+              <div className="branding-logo-row">
+                <div className="branding-logo-preview">
+                  {previewLogoUrl ? (
+                    <img src={previewLogoUrl} alt={`${businessName} logo`} />
+                  ) : (
+                    <span>No logo</span>
+                  )}
+                </div>
 
-              <div className="branding-logo-actions">
-                <input
-                  className="branding-text-input"
-                  type="text"
-                  placeholder="Paste public logo URL"
-                  value={logoUrl}
-                  onChange={(event) => setLogoUrl(event.target.value)}
-                />
-                <label className="branding-upload-btn">
-                  {uploadingLogo ? "Uploading..." : "Upload Logo"}
+                <div className="branding-logo-actions">
                   <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoUpload}
-                    hidden
+                    className="branding-text-input"
+                    type="text"
+                    placeholder="Paste public logo URL"
+                    value={logoUrl}
+                    onChange={(event) => setLogoUrl(event.target.value)}
                   />
-                </label>
+                  <label className="branding-upload-btn">
+                    {uploadingLogo ? "Uploading..." : "Upload Logo"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      hidden
+                    />
+                  </label>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="branding-contact-section">
-            <label className="branding-label">Secondary Numbers</label>
-            <div className="branding-phone-list">
-              {secondaryPhones.map((phone, index) => (
-                <input
-                  key={index}
-                  className="branding-text-input"
-                  type="text"
-                  inputMode="numeric"
-                  placeholder={`Secondary number ${index + 1}`}
-                  value={phone}
-                  onChange={(event) => updatePhone(index, event.target.value)}
-                />
-              ))}
+            <div className="branding-contact-section">
+              <label className="branding-label">Secondary Numbers</label>
+              <div className="branding-phone-list">
+                {secondaryPhones.map((phone, index) => (
+                  <input
+                    key={index}
+                    className="branding-text-input"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder={`Secondary number ${index + 1}`}
+                    value={phone}
+                    onChange={(event) => updatePhone(index, event.target.value)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="branding-contact-section">
+              <label className="branding-label" htmlFor="vendor-language-preference">
+                Language Preference
+              </label>
+              <select
+                id="vendor-language-preference"
+                className="branding-text-input"
+                value={languagePreference}
+                onChange={(event) => setLanguagePreference(event.target.value)}
+              >
+                <option value="en">English</option>
+                <option value="te">Telugu</option>
+              </select>
             </div>
           </div>
         </div>

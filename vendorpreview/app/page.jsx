@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useVendor } from "./context/VendorContext";
 import { API_BASE_URL } from "../config";
@@ -17,6 +17,7 @@ import {
   shouldTrackVendorPageViewOnce,
   trackVendorPreviewPageView,
 } from "./utils/siteAnalytics";
+import { useRuntimeTeluguPreviewTranslation } from "./utils/runtimeTranslation";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -27,6 +28,7 @@ export default function Home() {
   const searchParams = useSearchParams();
   const activeTemplate = String(searchParams.get("template") || "").trim().toLowerCase();
   const { vendorInfo } = useVendor();
+  const previewRootRef = useRef(null);
   const [defaultTemplateKey, setDefaultTemplateKey] = useState("classic");
   const effectiveTemplateKey =
     normalizePreviewTemplateKey(activeTemplate) ||
@@ -135,6 +137,12 @@ useEffect(() => {
   };
 }, []);
 
+useRuntimeTeluguPreviewTranslation({
+  enabled: String(vendorInfo?.languagePreference || "").trim().toLowerCase() === "te",
+  rootRef: previewRootRef,
+  ready: !loading,
+});
+
 useEffect(() => {
   const vendorId =
     vendorInfo?.vendorId ||
@@ -163,7 +171,11 @@ if (!sessionAllowed) {
       {/* IMPORTANT:
           visibility:hidden keeps DOM in place
           so anchor scrolling still works */}
-      <div style={{ visibility: loading ? "hidden" : "visible" }}>
+      <div
+        ref={previewRootRef}
+        lang={String(vendorInfo?.languagePreference || "").trim().toLowerCase() === "te" ? "te" : "en"}
+        style={{ visibility: loading ? "hidden" : "visible" }}
+      >
 
         {/* HEADER */}
       {!isImmersiveTemplate ? <Header /> : null}
