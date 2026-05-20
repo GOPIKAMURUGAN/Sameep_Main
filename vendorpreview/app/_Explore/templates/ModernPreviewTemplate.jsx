@@ -16,6 +16,11 @@ const DEFAULT_NAV = [
   { label: "Contact", href: "#contact" },
 ];
 
+const GOOGLE_TRANSLATE_ENDPOINT =
+  "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=te&dt=t&q=";
+
+const heroTranslationCache = new Map();
+
 function getPoweredByUrl() {
   return (
     process.env.NEXT_PUBLIC_VENDOR_PREVIEW_ROOT_URL ||
@@ -24,6 +29,50 @@ function getPoweredByUrl() {
   )
     .trim()
     .replace(/\/$/, "");
+}
+
+async function translateTeluguText(text) {
+  const normalized = String(text || "").trim();
+  if (!normalized) return normalized;
+  if (/[\u0C00-\u0C7F]/.test(normalized)) return normalized;
+  if (heroTranslationCache.has(normalized)) return heroTranslationCache.get(normalized);
+
+  try {
+    const translateChunk = async (value) => {
+      const response = await fetch(
+        `${GOOGLE_TRANSLATE_ENDPOINT}${encodeURIComponent(value)}`
+      );
+      const data = await response.json();
+      return Array.isArray(data?.[0])
+        ? data[0].map((part) => part?.[0] || "").join("").trim()
+        : "";
+    };
+
+    let translated = await translateChunk(normalized);
+
+    if (!translated || translated === normalized) {
+      const chunks = normalized
+        .split(/(?<=[,.!?])\s+/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+      if (chunks.length > 1) {
+        const translatedChunks = [];
+        for (const chunk of chunks) {
+          const translatedChunk = await translateChunk(chunk);
+          translatedChunks.push(translatedChunk || chunk);
+        }
+        translated = translatedChunks.join(" ");
+      }
+    }
+
+    const finalValue = translated || normalized;
+    heroTranslationCache.set(normalized, finalValue);
+    return finalValue;
+  } catch {
+    heroTranslationCache.set(normalized, normalized);
+    return normalized;
+  }
 }
 
 function getEnquiryFieldLabel(field) {
@@ -626,7 +675,7 @@ function renderPriceText(value, { startsFrom = false } = {}) {
   return startsFrom ? `Starts from ${formatted}` : formatted;
 }
 
-function prettifyLabel(key) {
+function prettifyLabel(key, { isTelugu = false } = {}) {
   const normalized = String(key || "")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/_/g, " ")
@@ -634,7 +683,16 @@ function prettifyLabel(key) {
     .trim();
 
   if (normalized.toLowerCase() === "experience years") {
+    if (isTelugu) return "అనుభవ సంవత్సరాలు";
     return "Years Experience";
+  }
+
+  if (isTelugu) {
+    const lower = normalized.toLowerCase();
+    if (lower === "customers served") return "సేవలందించిన కస్టమర్లు";
+    if (lower === "google rating") return "గూగుల్ రేటింగ్";
+    if (lower === "service points") return "సేవ పాయింట్లు";
+    if (lower === "branches") return "శాఖలు";
   }
 
   return normalized;
@@ -675,7 +733,7 @@ function splitHeroDescription(text) {
   };
 }
 
-function buildFallbackHeroSummary({ categoryName, address }) {
+function buildFallbackHeroSummary({ categoryName, address, isTelugu = false }) {
   const place = String(address || "")
     .split(",")
     .map((part) => part.trim())
@@ -684,10 +742,16 @@ function buildFallbackHeroSummary({ categoryName, address }) {
     .join(", ");
 
   if (categoryName && place) {
+    if (isTelugu) {
+      return `${place}లో ప్రీమియం ${String(categoryName).toLowerCase()} సేవలు.`;
+    }
     return `Premium ${String(categoryName).toLowerCase()} services in ${place}.`;
   }
 
   if (categoryName) {
+    if (isTelugu) {
+      return `రోజువారీ సంరక్షణ కోసం ప్రత్యేకంగా రూపొందించిన ప్రీమియం ${String(categoryName).toLowerCase()} సేవలు.`;
+    }
     return `Premium ${String(categoryName).toLowerCase()} services tailored for everyday care.`;
   }
 
@@ -715,14 +779,20 @@ function stripDuplicateTrustPhrases(text) {
   return cleaned || normalized;
 }
 
-function getRefinedHeroCopy({ heroDescription, categoryName, address }) {
+function getRefinedHeroCopy({ heroDescription, categoryName, address, isTelugu = false }) {
   const stripped = stripDuplicateTrustPhrases(heroDescription);
-  const fallback = buildFallbackHeroSummary({ categoryName, address });
+  const fallback = buildFallbackHeroSummary({ categoryName, address, isTelugu });
   const source = stripped || fallback;
   return splitHeroDescription(source);
 }
 
-function getHeroHighlights({ vendorInfo, serviceModes, categoryName, serviceModeLabel }) {
+function getHeroHighlights({
+  vendorInfo,
+  serviceModes,
+  categoryName,
+  serviceModeLabel,
+  isTelugu = false,
+}) {
   const highlights = [];
   const address = String(vendorInfo?.location?.address || "").trim();
   const addressParts = address
@@ -731,12 +801,18 @@ function getHeroHighlights({ vendorInfo, serviceModes, categoryName, serviceMode
     .filter(Boolean);
 
   if (categoryName) {
+    if (isTelugu) {
+      highlights.push(`మీ అవసరాలకు అనుగుణంగా ${categoryName} అనుభవాలు`);
+    } else {
     highlights.push(`${categoryName} experiences tailored to your needs`);
+    }
   }
 
   if (serviceModes?.length) {
     const modeValue = serviceModes.join(" + ");
-    const modeLabel = String(serviceModeLabel || "Service Type").trim();
+    const modeLabel = String(
+      serviceModeLabel || (isTelugu ? "సేవ రకం" : "Service Type")
+    ).trim();
     highlights.push(`${modeLabel}: ${modeValue}`);
   }
 
@@ -745,7 +821,11 @@ function getHeroHighlights({ vendorInfo, serviceModes, categoryName, serviceMode
   }
 
   if (typeof vendorInfo?.googlePlace?.rating === "number") {
-    highlights.push(`Rated ${vendorInfo.googlePlace.rating}* on Google`);
+    if (isTelugu) {
+      highlights.push(`గూగుల్‌లో ${vendorInfo.googlePlace.rating}* రేటింగ్`);
+    } else {
+      highlights.push(`Rated ${vendorInfo.googlePlace.rating}* on Google`);
+    }
   }
 
   return highlights.slice(0, 3);
@@ -1037,6 +1117,7 @@ export default function ModernPreviewTemplate({
   onIncreaseQty,
   onDecreaseQty,
 }) {
+  const isTelugu = String(vendorInfo?.languagePreference || "").trim().toLowerCase() === "te";
   const [serviceModeLabel, setServiceModeLabel] = useState("Service Modes");
   const [activeSectionName, setActiveSectionName] = useState("");
   const [activeCardId, setActiveCardId] = useState("");
@@ -1047,6 +1128,7 @@ export default function ModernPreviewTemplate({
   const [dynamicInquiryValues, setDynamicInquiryValues] = useState({});
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
   const [inquiryFeedback, setInquiryFeedback] = useState("");
+  const [translatedHeroCopy, setTranslatedHeroCopy] = useState(null);
 
   const navItems = useMemo(() => {
     const webMenu = Array.isArray(category?.webMenu) ? category.webMenu : [];
@@ -1082,9 +1164,38 @@ export default function ModernPreviewTemplate({
         heroDescription,
         categoryName: category?.name,
         address: vendorInfo?.location?.address,
+        isTelugu,
       }),
-    [category?.name, heroDescription, vendorInfo?.location?.address]
+    [category?.name, heroDescription, vendorInfo?.location?.address, isTelugu]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!isTelugu) {
+      setTranslatedHeroCopy(null);
+      return undefined;
+    }
+
+    const translateHeroCopy = async () => {
+      const lead = await translateTeluguText(heroCopy?.lead || "");
+      const supporting = await translateTeluguText(heroCopy?.supporting || "");
+      if (!cancelled) {
+        setTranslatedHeroCopy({
+          lead,
+          supporting,
+        });
+      }
+    };
+
+    translateHeroCopy();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [heroCopy?.lead, heroCopy?.supporting, isTelugu]);
+
+  const displayHeroCopy = isTelugu && translatedHeroCopy ? translatedHeroCopy : heroCopy;
   const trustSummary = vendorInfo?.trustSummary || vendorInfo?.trust || {};
   const trustEntries = Object.entries(trustSummary || {}).filter(
     ([, value]) => value !== null && value !== undefined && value !== ""
@@ -1319,6 +1430,7 @@ export default function ModernPreviewTemplate({
     serviceModes,
     categoryName: category?.name,
     serviceModeLabel,
+    isTelugu,
   });
   const activeSection =
     serviceSections.find((section) => section.sectionName === activeSectionName) ||
@@ -1740,15 +1852,15 @@ export default function ModernPreviewTemplate({
           </div>
           <h1>{heroTagline}</h1>
           <div className="modern-hero-description">
-            {heroCopy.lead ? <p className="modern-hero-lead">{heroCopy.lead}</p> : null}
-            {heroCopy.supporting ? (
-              <p className="modern-hero-supporting">{heroCopy.supporting}</p>
+            {displayHeroCopy?.lead ? <p className="modern-hero-lead">{displayHeroCopy.lead}</p> : null}
+            {displayHeroCopy?.supporting ? (
+              <p className="modern-hero-supporting">{displayHeroCopy.supporting}</p>
             ) : null}
           </div>
 
           <div className="modern-stats">
             {statEntries.slice(0, 3).map(([key, value]) => {
-              const label = prettifyLabel(key);
+              const label = prettifyLabel(key, { isTelugu });
 
               return (
                 <div key={key} className="modern-stat-card">
@@ -1768,7 +1880,7 @@ export default function ModernPreviewTemplate({
                 <span className="modern-stat-accent is-star" aria-hidden="true" />
                 <strong>{vendorInfo.googlePlace.rating}*</strong>
                 <span className="modern-stat-label">
-                  Google Rating
+                  {isTelugu ? "గూగుల్ రేటింగ్" : "Google Rating"}
                   {vendorInfo?.googlePlace?.userRatingsTotal
                     ? ` (${vendorInfo.googlePlace.userRatingsTotal})`
                     : ""}
