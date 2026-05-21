@@ -1216,18 +1216,16 @@ async function updateService(service, status) {
       return;
     }
 
-    if (addNodeType === "service" && !String(addNodePrice || "").trim()) {
-      window.alert("Price is required for a service");
-      return;
-    }
-
     try {
       setAddingNode(true);
       await createSelfManagedNode({
         parentNodeId: showingRoot ? null : currentNode?._id || null,
         nodeType: addNodeType,
         name: trimmedName,
-        price: addNodeType === "service" ? Number(addNodePrice) : null,
+        price:
+          addNodeType === "service"
+            ? (String(addNodePrice || "").trim() === "" ? null : Number(addNodePrice))
+            : null,
         terms: addNodeTerms.trim(),
         imageUrl: addNodeImageUrl,
       });
@@ -1345,20 +1343,14 @@ async function updateService(service, status) {
       return;
     }
 
-    if (customForm.packageType === "single" && !customForm.price) {
-      window.alert("Price is required for a single package");
-      return;
-    }
-
     if (customForm.packageType === "nested") {
       const validVariants = customForm.variants.filter(
         variant =>
           variant.pricingStatus === "Active" &&
-          variant.name.trim() &&
-          variant.price !== ""
+          variant.name.trim()
       );
       if (validVariants.length === 0) {
-        window.alert("Add at least one variant with name and price");
+        window.alert("Add at least one active variant with a name");
         return;
       }
     }
@@ -1374,7 +1366,7 @@ async function updateService(service, status) {
             imageUrl: customForm.imageUrl,
             packagesIncludes: customForm.packagesIncludes,
             terms: customForm.terms,
-            price: Number(customForm.price),
+            price: customForm.price === "" ? null : Number(customForm.price),
             pricingStatus: "Active",
             visibleToUser: true,
             visibleToVendor: true,
@@ -1391,7 +1383,7 @@ async function updateService(service, status) {
             isLeaf: true,
             packagesIncludes: customForm.packagesIncludes,
             terms: customForm.terms,
-            price: Number(customForm.price),
+            price: customForm.price === "" ? null : Number(customForm.price),
             pricingStatus: "Active",
             visibleToUser: true,
             visibleToVendor: true,
@@ -1439,8 +1431,7 @@ async function updateService(service, status) {
           const variant = customForm.variants[index];
           const shouldBeActive =
             variant.pricingStatus === "Active" &&
-            variant.name.trim() &&
-            variant.price !== "";
+            variant.name.trim();
 
           if (variant.id) {
             const variantPayload = {
@@ -1450,7 +1441,10 @@ async function updateService(service, status) {
               imageUrl: variant.imageUrl,
               packagesIncludes: variant.packagesIncludes,
               terms: variant.terms,
-              price: shouldBeActive ? Number(variant.price) : Number(variant.price || 0),
+              price:
+                shouldBeActive && variant.price !== ""
+                  ? Number(variant.price)
+                  : null,
               pricingStatus: shouldBeActive ? "Active" : "Inactive",
               visibleToUser: true,
               visibleToVendor: true,
@@ -1475,7 +1469,7 @@ async function updateService(service, status) {
               isLeaf: true,
               packagesIncludes: variant.packagesIncludes,
               terms: variant.terms,
-              price: Number(variant.price),
+              price: variant.price === "" ? null : Number(variant.price),
               pricingStatus: "Active",
               visibleToUser: true,
               visibleToVendor: true,

@@ -33,7 +33,7 @@ const FOOTER_GALLERY_OPEN_EVENT = "ynot-footer-open-gallery";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return ["classic", "modern", "catalog"].includes(normalized) ? normalized : "";
+  return ["classic", "modern", "catalog", "astrology"].includes(normalized) ? normalized : "";
 }
 // import { useLoginPopup } from "./LoginPopupContext";
 
@@ -3292,7 +3292,7 @@ function ExploreContent({ onReady, onOpenServices }) {
           </div>
         </div>
       )}
-      {activeTemplateKey === "modern" ? (
+      {activeTemplateKey === "modern" || activeTemplateKey === "astrology" ? (
         <ModernPreviewTemplate
           vendorInfo={vendorInfo}
           category={previewCategory}
@@ -3318,6 +3318,7 @@ function ExploreContent({ onReady, onOpenServices }) {
           onAddToCart={addToCart}
           onIncreaseQty={increaseQty}
           onDecreaseQty={decreaseQty}
+          templateVariant={activeTemplateKey === "astrology" ? "astrology" : "modern"}
         />
       ) : activeTemplateKey === "catalog" ? (
         <CatalogPreviewTemplate

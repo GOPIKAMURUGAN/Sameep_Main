@@ -410,10 +410,36 @@ function OnboardingFlow() {
   }
 
   async function registerVendorAfterOtp() {
-    if (!selectedBusiness?.name || !confirmedCategory) {
+    const fallbackManualName = manualBusinessName.trim();
+    const fallbackManualPhone = normalizePhone(manualPhone || mobile || "");
+    const effectiveBusiness =
+      selectedBusiness?.name
+        ? selectedBusiness
+        : {
+            ...(selectedBusiness || {}),
+            name: fallbackManualName,
+            internationalPhoneNumber: fallbackManualPhone,
+            phone: fallbackManualPhone,
+            placeId: selectedBusiness?.placeId || "",
+            address: selectedBusiness?.address || "",
+            location: {
+              lat: selectedBusiness?.location?.lat ?? null,
+              lng: selectedBusiness?.location?.lng ?? null,
+            },
+            rating: selectedBusiness?.rating ?? null,
+            userRatingsTotal: selectedBusiness?.userRatingsTotal ?? 0,
+            types: Array.isArray(selectedBusiness?.types) ? selectedBusiness.types : [],
+            openingHoursText: Array.isArray(selectedBusiness?.openingHoursText)
+              ? selectedBusiness.openingHoursText
+              : [],
+          };
+
+    if (!effectiveBusiness?.name || !confirmedCategory) {
       alert("Missing required vendor information");
       return;
     }
+
+    setSelectedBusiness(effectiveBusiness);
 
     const cleanPhone = normalizePhone(phoneNumber || manualPhone || "9999999999");
 
@@ -438,40 +464,40 @@ function OnboardingFlow() {
       const vendorPayload = {
         customerId,
         phone: cleanPhone,
-        businessName: selectedBusiness?.name || manualBusinessName || "",
-        contactName: selectedBusiness?.name || manualBusinessName || "",
+        businessName: effectiveBusiness?.name || manualBusinessName || "",
+        contactName: effectiveBusiness?.name || manualBusinessName || "",
         categoryId:
           confirmedCategory?._id ||
           confirmedCategory?.id ||
           confirmedCategory?.categoryId,
         status: "Registered",
         location: {
-          lat: selectedBusiness?.location?.lat ?? null,
-          lng: selectedBusiness?.location?.lng ?? null,
-          address: selectedBusiness?.address || "",
+          lat: effectiveBusiness?.location?.lat ?? null,
+          lng: effectiveBusiness?.location?.lng ?? null,
+          address: effectiveBusiness?.address || "",
         },
-        openingHoursText: Array.isArray(selectedBusiness?.openingHoursText)
-          ? selectedBusiness.openingHoursText
+        openingHoursText: Array.isArray(effectiveBusiness?.openingHoursText)
+          ? effectiveBusiness.openingHoursText
           : [],
         googlePlaceDetails: {
-          placeId: selectedBusiness?.placeId || selectedSearchBusiness?.placeId || "",
+          placeId: effectiveBusiness?.placeId || selectedSearchBusiness?.placeId || "",
           rating:
-            selectedBusiness?.rating ?? selectedSearchBusiness?.rating ?? null,
+            effectiveBusiness?.rating ?? selectedSearchBusiness?.rating ?? null,
           userRatingsTotal:
-            selectedBusiness?.userRatingsTotal ??
+            effectiveBusiness?.userRatingsTotal ??
             selectedSearchBusiness?.userRatingsTotal ??
             0,
           mapsUrl:
-            selectedBusiness?.placeId
+            effectiveBusiness?.placeId
               ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
                   [
-                    selectedBusiness?.name || manualBusinessName || "",
-                    selectedBusiness?.address || "",
+                    effectiveBusiness?.name || manualBusinessName || "",
+                    effectiveBusiness?.address || "",
                   ]
                     .map((part) => String(part || "").trim())
                     .filter(Boolean)
                     .join(" ")
-                )}&query_place_id=${encodeURIComponent(selectedBusiness.placeId)}`
+                )}&query_place_id=${encodeURIComponent(effectiveBusiness.placeId)}`
               : selectedSearchBusiness?.placeId
                 ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
                     [
@@ -483,8 +509,8 @@ function OnboardingFlow() {
                       .join(" ")
                   )}&query_place_id=${encodeURIComponent(selectedSearchBusiness.placeId)}`
                 : "",
-          types: Array.isArray(selectedBusiness?.types)
-            ? selectedBusiness.types
+          types: Array.isArray(effectiveBusiness?.types)
+            ? effectiveBusiness.types
             : selectedSearchBusiness?.types || [],
         },
       };
@@ -1089,6 +1115,60 @@ function OnboardingFlow() {
                 {loadingOtp ? "Please wait..." : "Send OTP"}
               </button>
             </div>
+
+            <label className="bypass-otp-checkbox">
+              <input
+                type="checkbox"
+                checked={bypassOtpEnabled}
+                onChange={(event) => {
+                  if (event.target.checked) {
+                    setShowAdminPopup(true);
+                  } else {
+                    setBypassOtpEnabled(false);
+                  }
+                }}
+              />
+              <span>Bypass OTP</span>
+            </label>
+
+            {showAdminPopup ? (
+              <div className="admin-popup-overlay">
+                <div className="admin-popup-card">
+                  <h3>Admin Authorization</h3>
+                  <p className="muted-copy">Enter admin passcode to bypass OTP</p>
+
+                  <input
+                    type="password"
+                    className="flow-input"
+                    placeholder="Enter passcode"
+                    value={adminPasscode}
+                    onChange={(event) => setAdminPasscode(event.target.value)}
+                  />
+
+                  <div className="flow-actions">
+                    <button
+                      type="button"
+                      className="secondaryButton"
+                      onClick={() => {
+                        setShowAdminPopup(false);
+                        setAdminPasscode("");
+                        setBypassOtpEnabled(false);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="ctaButton"
+                      disabled={verifyingPasscode}
+                      onClick={handleVerifyAdminPasscode}
+                    >
+                      {verifyingPasscode ? "Verifying..." : "Continue"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </section>
         ) : null}
 

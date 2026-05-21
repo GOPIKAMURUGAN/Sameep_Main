@@ -13,6 +13,217 @@
   padding: 24px 32px 72px;
 }
 
+.modern-template-shell--astrology {
+  --modern-bg: #120d1f;
+  --modern-surface: rgba(24, 17, 42, 0.9);
+  --modern-text: #f7edcf;
+  --modern-muted: #cabd9a;
+  --modern-accent: #d7ab57;
+  --modern-accent-strong: #f0cb78;
+  --modern-border: rgba(240, 203, 120, 0.18);
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, rgba(6, 5, 16, 0.46), rgba(10, 8, 23, 0.78) 46%, rgba(11, 9, 25, 0.9) 100%),
+    radial-gradient(circle at 70% 28%, rgba(243, 194, 102, 0.2), transparent 18%),
+    radial-gradient(circle at 22% 16%, rgba(122, 98, 217, 0.16), transparent 26%),
+    url("/astrology-background.jpeg");
+  background-size: cover, auto, auto, cover;
+  background-position: center, right 12% top 10%, left top, center top;
+  background-attachment: fixed, scroll, scroll, fixed;
+}
+
+.modern-template-shell--astrology .modern-header,
+.modern-template-shell--astrology .modern-hero,
+.modern-template-shell--astrology .modern-offers,
+.modern-template-shell--astrology .modern-services,
+.modern-template-shell--astrology .modern-story,
+.modern-template-shell--astrology .modern-contact,
+.modern-template-shell--astrology .modern-footer {
+  position: relative;
+}
+
+.modern-template-shell--astrology .modern-brand-logo,
+.modern-template-shell--astrology .modern-hero-visual img,
+.modern-template-shell--astrology .modern-offer-media img,
+.modern-template-shell--astrology .modern-service-media img {
+  box-shadow: 0 18px 38px rgba(7, 4, 17, 0.48);
+  filter: saturate(0.92) contrast(1.02) brightness(0.96);
+}
+
+.modern-template-shell--astrology .modern-brand-mark,
+.modern-template-shell--astrology .modern-stat-card,
+.modern-template-shell--astrology .modern-hero-note,
+.modern-template-shell--astrology .modern-offer-card,
+.modern-template-shell--astrology .modern-service-card,
+.modern-template-shell--astrology .modern-story-card,
+.modern-template-shell--astrology .modern-hours-card,
+.modern-template-shell--astrology .modern-contact-card,
+.modern-template-shell--astrology .modern-footer,
+.modern-template-shell--astrology .modern-mobile-menu {
+  background: linear-gradient(180deg, rgba(28, 19, 48, 0.92), rgba(17, 12, 31, 0.96));
+  border-color: rgba(240, 203, 120, 0.14);
+}
+
+.modern-template-shell--astrology .modern-book-btn,
+.modern-template-shell--astrology .modern-primary-btn,
+.modern-template-shell--astrology .modern-request-btn,
+.modern-template-shell--astrology .modern-offer-btn,
+.modern-template-shell--astrology .modern-mobile-menu-book {
+  background: linear-gradient(135deg, #d7ab57, #f0cb78);
+  color: #140f22;
+  box-shadow: 0 18px 36px rgba(11, 8, 23, 0.44);
+}
+
+.modern-template-shell--astrology .modern-logout-btn,
+.modern-template-shell--astrology .modern-secondary-btn,
+.modern-template-shell--astrology .modern-mobile-menu-logout {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--modern-text);
+  border-color: rgba(240, 203, 120, 0.18);
+}
+
+.modern-template-shell--astrology .modern-nav a,
+.modern-template-shell--astrology .modern-footer-links a,
+.modern-template-shell--astrology .modern-hero p,
+.modern-template-shell--astrology .modern-story p,
+.modern-template-shell--astrology .modern-contact p,
+.modern-template-shell--astrology .modern-stat-label,
+.modern-template-shell--astrology .modern-footer-copy,
+.modern-template-shell--astrology .modern-footer-powered {
+  color: var(--modern-muted);
+}
+
+.modern-template-shell--astrology .modern-contact-list a,
+.modern-template-shell--astrology .modern-hours-card h3,
+.modern-template-shell--astrology .modern-contact-card h3,
+.modern-template-shell--astrology .modern-inquiry-label,
+.modern-template-shell--astrology .modern-hours-card li strong,
+.modern-template-shell--astrology .modern-hours-card li span,
+.modern-template-shell--astrology .modern-map-frame {
+  color: var(--modern-text);
+}
+
+.modern-template-shell--astrology .modern-hours-card li {
+  color: var(--modern-muted);
+}
+
+.modern-template-shell--astrology .modern-map-frame {
+  border-color: rgba(240, 203, 120, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.modern-template-shell--astrology .modern-contact-card input,
+.modern-template-shell--astrology .modern-contact-card textarea,
+.modern-template-shell--astrology .modern-contact-card select,
+.modern-template-shell--astrology .modern-phone-prefix {
+  border-color: rgba(240, 203, 120, 0.18);
+  background: rgba(255, 255, 255, 0.96);
+  color: #22183d;
+}
+
+.modern-template-shell--astrology .modern-contact-card input::placeholder,
+.modern-template-shell--astrology .modern-contact-card textarea::placeholder {
+  color: rgba(70, 55, 108, 0.48);
+}
+
+.modern-template-shell--astrology .modern-datetime-date::-webkit-calendar-picker-indicator {
+  opacity: 0.92;
+}
+
+.modern-template-shell--astrology .modern-service-tab,
+.modern-template-shell--astrology .modern-card-switcher-btn,
+.modern-template-shell--astrology .modern-service-list,
+.modern-template-shell--astrology .modern-service-row {
+  background: linear-gradient(180deg, rgba(24, 18, 41, 0.94), rgba(16, 12, 29, 0.97));
+  color: var(--modern-text);
+}
+
+.modern-template-shell--astrology .modern-service-tab {
+  border: 1px solid rgba(240, 203, 120, 0.16);
+}
+
+.modern-template-shell--astrology .modern-service-tab.is-active {
+  background: linear-gradient(135deg, #d7ab57, #f0cb78);
+  color: #140f22;
+}
+
+.modern-template-shell--astrology .modern-service-tab-count {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--modern-text);
+}
+
+.modern-template-shell--astrology .modern-service-tab.is-active .modern-service-tab-count {
+  background: rgba(20, 15, 34, 0.14);
+  color: #140f22;
+}
+
+.modern-template-shell--astrology .modern-card-switcher-btn {
+  border-color: rgba(240, 203, 120, 0.12);
+  box-shadow: 0 14px 34px rgba(7, 4, 17, 0.2);
+}
+
+.modern-template-shell--astrology .modern-card-switcher-btn.is-active {
+  border-color: rgba(240, 203, 120, 0.5);
+  background: linear-gradient(180deg, rgba(40, 29, 68, 0.98), rgba(23, 17, 42, 0.98));
+  box-shadow: 0 18px 38px rgba(7, 4, 17, 0.3);
+}
+
+.modern-template-shell--astrology .modern-card-switcher-meta,
+.modern-template-shell--astrology .modern-service-copy p,
+.modern-template-shell--astrology .modern-inline-package-copy,
+.modern-template-shell--astrology .modern-menu-terms,
+.modern-template-shell--astrology .modern-menu-price.is-starting {
+  color: var(--modern-muted);
+}
+
+.modern-template-shell--astrology .modern-service-list,
+.modern-template-shell--astrology .modern-menu-tree {
+  border-top-color: rgba(240, 203, 120, 0.14);
+}
+
+.modern-template-shell--astrology .modern-service-row,
+.modern-template-shell--astrology .modern-menu-group + .modern-menu-group {
+  border-bottom-color: rgba(240, 203, 120, 0.12);
+  border-top-color: rgba(240, 203, 120, 0.12);
+}
+
+.modern-template-shell--astrology .modern-service-media {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.modern-template-shell--astrology .modern-package-box,
+.modern-template-shell--astrology .modern-menu-subgroup + .modern-menu-subgroup,
+.modern-template-shell--astrology .modern-menu-row-child + .modern-menu-row-child {
+  border-top-color: rgba(240, 203, 120, 0.14);
+}
+
+.modern-template-shell--astrology .modern-package-item {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 203, 120, 0.16);
+  color: var(--modern-text);
+}
+
+.modern-template-shell--astrology .modern-menu-package-line {
+  color: rgba(247, 237, 207, 0.7);
+}
+
+.modern-template-shell--astrology .modern-menu-dots {
+  border-bottom-color: rgba(240, 203, 120, 0.2);
+}
+
+.modern-template-shell--astrology .modern-menu-row-main.is-active,
+.modern-template-shell--astrology .modern-menu-row-child.is-active,
+.modern-template-shell--astrology .modern-menu-row-leaf.is-active,
+.modern-template-shell--astrology .modern-menu-subgroup-title,
+.modern-template-shell--astrology .modern-package-box strong {
+  color: var(--modern-accent-strong);
+}
+
+.modern-template-shell--astrology .modern-menu-subgroup-title.is-active {
+  color: var(--modern-text);
+}
+
 .modern-header,
 .modern-hero,
 .modern-offers,

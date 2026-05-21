@@ -617,10 +617,6 @@ router.post("/:vendorId/nodes", requireVendorParamWriteAccess(), async (req, res
     const isLeaf = nodeType === "service";
     const price = isLeaf ? sanitizeNumber(req.body?.price) : null;
 
-    if (isLeaf && price === null) {
-      return res.status(400).json({ message: "Price is required for a service" });
-    }
-
     const newNode = await VendorMenuNode.create({
       vendorId: req.params.vendorId,
       parentNodeId: parentNode ? parentNode._id : null,
@@ -631,7 +627,7 @@ router.post("/:vendorId/nodes", requireVendorParamWriteAccess(), async (req, res
       pricingStatus: isLeaf ? "Active" : "Inactive",
       visibleToUser: true,
       visibleToVendor: true,
-      terms: "",
+      terms: typeof req.body?.terms === "string" ? req.body.terms : "",
       packagesIncludes: "",
       offerText: "",
       inventoryLabelName: "",

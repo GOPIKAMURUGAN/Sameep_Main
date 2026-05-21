@@ -1116,8 +1116,10 @@ export default function ModernPreviewTemplate({
   onAddToCart,
   onIncreaseQty,
   onDecreaseQty,
+  templateVariant = "modern",
 }) {
   const isTelugu = String(vendorInfo?.languagePreference || "").trim().toLowerCase() === "te";
+  const isAstrologyTheme = templateVariant === "astrology";
   const [serviceModeLabel, setServiceModeLabel] = useState("Service Modes");
   const [activeSectionName, setActiveSectionName] = useState("");
   const [activeCardId, setActiveCardId] = useState("");
@@ -1750,7 +1752,11 @@ export default function ModernPreviewTemplate({
     typeof vendorInfo?.logoUrl === "string" ? vendorInfo.logoUrl.trim() : "";
 
   return (
-    <div className="modern-template-shell">
+    <div
+      className={`modern-template-shell ${
+        isAstrologyTheme ? "modern-template-shell--astrology" : ""
+      }`}
+    >
       <header className="modern-header" id="home">
         <a className="modern-brand" href="#home">
           {logoUrl ? (

@@ -31,6 +31,15 @@ const SUPPORTED_PREVIEW_TEMPLATES = [
     isDefault: false,
     sortOrder: 3,
   },
+  {
+    key: "astrology",
+    name: "Astrology Services",
+    description: "Modern Light structure with darker mystical colours and astrology-inspired backgrounds.",
+    previewHint: "Best for astrology, jyotish, vastu and spiritual guidance businesses.",
+    status: "Active",
+    isDefault: false,
+    sortOrder: 4,
+  },
 ];
 
 async function syncSupportedTemplates() {
