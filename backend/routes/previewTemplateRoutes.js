@@ -40,6 +40,15 @@ const SUPPORTED_PREVIEW_TEMPLATES = [
     isDefault: false,
     sortOrder: 4,
   },
+  {
+    key: "nurseries",
+    name: "Nurseries",
+    description: "Collection-led nursery template with green hero, auto-scrolling category cards and larger product tiles.",
+    previewHint: "Best for nurseries, plant stores, garden centres and landscaping businesses.",
+    status: "Active",
+    isDefault: false,
+    sortOrder: 5,
+  },
 ];
 
 async function syncSupportedTemplates() {

@@ -28,12 +28,13 @@ import { useSearchParams } from "next/navigation";
 import { useSessionGuard } from "../Login/useSessionGuard";
 import ModernPreviewTemplate from "./templates/ModernPreviewTemplate";
 import CatalogPreviewTemplate from "./templates/CatalogPreviewTemplate";
+import NurseriesPreviewTemplate from "./templates/NurseriesPreviewTemplate";
 import { CART_UPDATED_EVENT, ENQUIRY_OPEN_EVENT } from "../utils/enquiryFlow";
 const FOOTER_GALLERY_OPEN_EVENT = "ynot-footer-open-gallery";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return ["classic", "modern", "catalog", "astrology"].includes(normalized) ? normalized : "";
+  return ["classic", "modern", "catalog", "astrology", "nurseries"].includes(normalized) ? normalized : "";
 }
 // import { useLoginPopup } from "./LoginPopupContext";
 
@@ -3341,6 +3342,23 @@ function ExploreContent({ onReady, onOpenServices }) {
           onAddToCart={addToCart}
           onIncreaseQty={increaseQty}
           onDecreaseQty={decreaseQty}
+        />
+      ) : activeTemplateKey === "nurseries" ? (
+        <NurseriesPreviewTemplate
+          vendorInfo={vendorInfo}
+          category={previewCategory}
+          orderedCategories={orderedCategories}
+          sectionsWithHeading={sectionsWithHeading}
+          cardsWithoutHeading={cardsWithoutHeading}
+          mergedHeroImages={mergedHeroImages}
+          heroTagline={heroTagline}
+          heroDescription={heroDescription}
+          cartItems={cartItems}
+          cartTotal={cartTotal}
+          onAddToCart={addToCart}
+          onIncreaseQty={increaseQty}
+          onDecreaseQty={decreaseQty}
+          onOpenMenu={() => setViewMode("menu")}
         />
       ) : (
         <>

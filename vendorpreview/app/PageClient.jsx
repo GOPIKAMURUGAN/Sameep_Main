@@ -15,7 +15,7 @@ import { API_BASE_URL } from "../config";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return ["classic", "modern", "catalog", "astrology"].includes(normalized) ? normalized : "";
+  return ["classic", "modern", "catalog", "astrology", "nurseries"].includes(normalized) ? normalized : "";
 }
 
 function PageContent() {
