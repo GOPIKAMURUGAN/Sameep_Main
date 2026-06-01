@@ -1570,6 +1570,12 @@
   background: #d4af37;
   color: #000;
 }
+
+.category-nav-btn.is-active {
+  background: #d4af37;
+  box-shadow: 0 0 16px rgba(212, 175, 55, 0.35);
+  color: #000;
+}
 /* cashback card */
 
 .explore-cart-cashback-card,

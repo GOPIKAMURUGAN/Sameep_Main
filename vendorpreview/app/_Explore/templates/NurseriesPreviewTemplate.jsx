@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import "./NurseriesPreviewTemplate.css";
+import ContactSection from "../../Contact/Contact";
+import { ENQUIRY_OPEN_EVENT } from "../../utils/enquiryFlow";
 
 const DEFAULT_NAV = [
   { label: "Shop", href: "#services" },
@@ -232,6 +234,23 @@ function buildNurseryRows(card, sectionName) {
 }
 
 function NurseryProductCard({ row, cartItem, onAddToCart, onIncreaseQty, onDecreaseQty, viewMode }) {
+  const categoryRoot = row?.categoryPath?.[0] || "";
+  const mostSpecificPathLabel =
+    [...(row?.categoryPath || [])]
+      .reverse()
+      .find((label) => String(label || "").trim() && label !== categoryRoot) || "";
+  const displayTitle =
+    (row?.title && row.title !== categoryRoot ? row.title : "") ||
+    mostSpecificPathLabel ||
+    row?.title ||
+    categoryRoot ||
+    "Item";
+  const displayCategory = categoryRoot && categoryRoot !== displayTitle ? categoryRoot : "";
+  const displaySubtitle =
+    row?.subtitle && row.subtitle !== displayTitle && row.subtitle !== displayCategory
+      ? row.subtitle
+      : "";
+
   const handleAdd = () => {
     if (typeof onAddToCart !== "function") return;
     onAddToCart(
@@ -259,10 +278,19 @@ function NurseryProductCard({ row, cartItem, onAddToCart, onIncreaseQty, onDecre
       </div>
       <div className="nursery-product-body">
         <span className="nursery-product-stock">In stock</span>
-        <h3>{row.title}</h3>
-        {row.subtitle ? <p className="nursery-product-subtitle">{row.subtitle}</p> : null}
+        <h3>{displayTitle}</h3>
+        {displayCategory ? <p className="nursery-product-category">{displayCategory}</p> : null}
+        {displaySubtitle ? <p className="nursery-product-subtitle">{displaySubtitle}</p> : null}
         {row.summary ? <p className="nursery-product-summary">{row.summary}</p> : null}
+        <div className="nursery-mobile-product-copy">
+          <strong>{displayTitle}</strong>
+          {displayCategory ? <span>{displayCategory}</span> : null}
+        </div>
         <div className="nursery-product-footer">
+          <div className="nursery-mobile-footer-copy">
+            <strong>{displayTitle}</strong>
+            {displayCategory ? <span>{displayCategory}</span> : null}
+          </div>
           <span
             className={`nursery-product-price ${
               hasDisplayPrice(row.price) ? "" : "is-contact"
@@ -472,10 +500,8 @@ export default function NurseriesPreviewTemplate({
   ].filter(Boolean);
 
   const businessHours = Array.isArray(vendorInfo?.businessHours) ? vendorInfo.businessHours : [];
-  const locationAddress = vendorInfo?.location?.address || "Location not available";
   const locationLat = vendorInfo?.location?.lat;
   const locationLng = vendorInfo?.location?.lng;
-  const hasEmbeddedMap = Number.isFinite(Number(locationLat)) && Number.isFinite(Number(locationLng));
   const logoUrl = typeof vendorInfo?.logoUrl === "string" ? vendorInfo.logoUrl.trim() : "";
 
   const stats = [
@@ -484,6 +510,13 @@ export default function NurseriesPreviewTemplate({
     { label: "Delivery", value: "PAN India" },
     { label: "Support", value: phoneNumbers[0] ? "WhatsApp" : "Available" },
   ];
+
+  const handleOpenEnquiry = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(ENQUIRY_OPEN_EVENT));
+    }
+    scrollToElementById("contact");
+  };
 
   return (
     <div className="nursery-template-shell">
@@ -646,7 +679,8 @@ export default function NurseriesPreviewTemplate({
       <section className="nursery-products" id="services">
         <div className="nursery-mobile-toolbar">
           <button type="button" onClick={() => setMobileFiltersOpen((current) => !current)}>
-            Filters
+            <span>Filters</span>
+            <strong>{activeSection?.sectionName || "All categories"}</strong>
           </button>
           <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
             <option value="featured">Sort by</option>
@@ -654,14 +688,6 @@ export default function NurseriesPreviewTemplate({
             <option value="price_low">Price: Low to High</option>
             <option value="price_high">Price: High to Low</option>
           </select>
-          <div className="nursery-view-toggle">
-            <button type="button" className={viewMode === "grid" ? "is-active" : ""} onClick={() => setViewMode("grid")}>
-              Grid
-            </button>
-            <button type="button" className={viewMode === "list" ? "is-active" : ""} onClick={() => setViewMode("list")}>
-              List
-            </button>
-          </div>
         </div>
 
         <div className="nursery-products-layout">
@@ -699,6 +725,15 @@ export default function NurseriesPreviewTemplate({
           </aside>
 
           <div className="nursery-products-main">
+            <div className="nursery-mobile-summary">
+              <h2>{activeSection?.sectionName || category?.name || "Nursery Collection"}</h2>
+              <p>
+                {activeRows.length > 0
+                  ? `Showing ${activeRows.length} curated items in this collection.`
+                  : "No products found for this collection yet."}
+              </p>
+            </div>
+
             <div className="nursery-products-topbar">
               <div>
                 <h2>{activeSection?.sectionName || category?.name || "Nursery Collection"}</h2>
@@ -751,51 +786,7 @@ export default function NurseriesPreviewTemplate({
         </div>
       </section>
 
-      <section className="nursery-contact" id="contact">
-        <div className="nursery-contact-copy">
-          <span className="nursery-kicker">Visit Our Nursery</span>
-          <h2>{vendorInfo?.businessName || "Visit Our Nursery"}</h2>
-          <p>{introSummary}</p>
-
-          <div className="nursery-contact-block">
-            <strong>Address</strong>
-            <span>{locationAddress}</span>
-          </div>
-
-          <div className="nursery-contact-block">
-            <strong>Hours</strong>
-            <span>
-              {businessHours.length > 0
-                ? businessHours.map((item) => `${item.day}: ${item.hours}`).join(" • ")
-                : "Business hours not available"}
-            </span>
-          </div>
-
-          {phoneNumbers.length > 0 ? (
-            <div className="nursery-contact-phones">
-              {phoneNumbers.map((phone, index) => (
-                <a key={`${phone}-${index}`} href={`tel:${phone}`}>
-                  {phone}
-                </a>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="nursery-contact-map">
-          {hasEmbeddedMap ? (
-            <iframe
-              title="Business location map"
-              width="100%"
-              height="100%"
-              loading="lazy"
-              src={`https://www.google.com/maps?q=${locationLat},${locationLng}&z=15&output=embed`}
-            />
-          ) : (
-            <div className="nursery-map-placeholder">Map preview unavailable</div>
-          )}
-        </div>
-      </section>
+      <ContactSection />
 
       {cartItems.length > 0 ? (
         <div className="nursery-cart-bar">
@@ -803,9 +794,14 @@ export default function NurseriesPreviewTemplate({
             <strong>{cartItems.length} item(s) selected</strong>
             <span>{formatCurrency(cartTotal)}</span>
           </div>
-          <button type="button" onClick={onOpenMenu}>
-            Open Cart
-          </button>
+          <div className="nursery-cart-bar-actions">
+            <button type="button" className="nursery-cart-secondary-btn" onClick={handleOpenEnquiry}>
+              Service Enquiry
+            </button>
+            <button type="button" onClick={onOpenMenu}>
+              Open Cart
+            </button>
+          </div>
         </div>
       ) : null}
     </div>

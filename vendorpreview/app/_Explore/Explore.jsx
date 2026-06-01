@@ -1269,6 +1269,7 @@ function ExploreContent({ onReady, onOpenServices }) {
   const [selectedAttributes, setSelectedAttributes] = useState({});
   const [selectedCategoryPath, setSelectedCategoryPath] = useState([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
+  const [activeClassicCategory, setActiveClassicCategory] = useState("");
   const [menuSearch, setMenuSearch] = useState("");
   const [pricingRefreshNonce, setPricingRefreshNonce] = useState(0);
   // ================= MOBILE DETECTION =================
@@ -2802,6 +2803,17 @@ function ExploreContent({ onReady, onOpenServices }) {
     contactSection?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  useEffect(() => {
+    if (!Array.isArray(orderedCategories) || orderedCategories.length === 0) return;
+    if (
+      activeClassicCategory &&
+      orderedCategories.some((section) => section?.sectionName === activeClassicCategory)
+    ) {
+      return;
+    }
+    setActiveClassicCategory(orderedCategories[0]?.sectionName || "");
+  }, [activeClassicCategory, orderedCategories]);
+
   const menuClassForDepth = (depth, isLeaf = false) => {
     if (isLeaf) return "menu-leaf";
     if (depth === 0) return "menu-root";
@@ -3392,8 +3404,11 @@ function ExploreContent({ onReady, onOpenServices }) {
               {orderedCategories.map((section) => (
                 <button
                   key={section.sectionName}
-                  className="category-nav-btn"
+                  className={`category-nav-btn ${
+                    activeClassicCategory === section.sectionName ? "is-active" : ""
+                  }`}
                   onClick={() => {
+                    setActiveClassicCategory(section.sectionName);
                     const el = document.getElementById(
                       `cat-${toAnchor(section.sectionName)}`
                     );
