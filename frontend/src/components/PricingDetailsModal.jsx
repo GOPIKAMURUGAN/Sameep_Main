@@ -132,6 +132,7 @@ export default function PricingDetailsModal({
   const [copyPreviewError, setCopyPreviewError] = useState("");
   const [copyPreviewData, setCopyPreviewData] = useState(null);
   const [copySelectionMap, setCopySelectionMap] = useState({});
+  const [copyDestinationNodeId, setCopyDestinationNodeId] = useState("");
   const [copyExecuting, setCopyExecuting] = useState(false);
 
   const standardRows = useMemo(
@@ -148,6 +149,14 @@ export default function PricingDetailsModal({
     const totalServices = myMenuRows.filter((node) => node.isLeaf).length;
     return { topLevelCount, totalNodes, totalServices };
   }, [myMenuRows, myMenuTree]);
+  const destinationNodeOptions = useMemo(
+    () => flattenNodes(myMenuTree).filter((node) => !node.isLeaf),
+    [myMenuTree]
+  );
+  const selectedDestinationNode = useMemo(
+    () => destinationNodeOptions.find((node) => getNodeId(node) === copyDestinationNodeId) || null,
+    [copyDestinationNodeId, destinationNodeOptions]
+  );
   const previewTree = copyPreviewData?.tree || [];
   const previewTotalSelectable = useMemo(() => collectTreeNodeIds(previewTree).length, [previewTree]);
   const previewSelectedCount = useMemo(
@@ -456,6 +465,7 @@ export default function PricingDetailsModal({
       setCopyPreviewData(null);
       setCopyPreviewError("");
       setCopySelectionMap({});
+      setCopyDestinationNodeId("");
 
       const response = await axios.get(
         `${apiBaseUrl}/api/admin/vendor-menu-copy/${
@@ -598,7 +608,11 @@ export default function PricingDetailsModal({
           : copySelectedSourceItem.businessName ||
             copySelectedSourceItem.contactName ||
             "source vendor"
-      } into ${targetVendorLabel}? ${
+      } into ${targetVendorLabel}${
+        copyMode === "append_keep" && selectedDestinationNode
+          ? ` under ${selectedDestinationNode.pathLabel || selectedDestinationNode.name}`
+          : ""
+      }? ${
         copyMode === "replace_archive"
           ? "Existing target My Menu will be archived first."
           : "Selected menu branches will be added to the existing target My Menu."
@@ -619,6 +633,7 @@ export default function PricingDetailsModal({
           targetSystem: "localhost",
           targetVendorId: vendorId,
           mode: copyMode,
+          destinationNodeId: copyMode === "append_keep" ? copyDestinationNodeId || undefined : undefined,
           selectedNodeIds,
         },
         adminRequestConfig()
@@ -867,6 +882,49 @@ export default function PricingDetailsModal({
                   />
                   <span>Add selected menu to existing target menu</span>
                 </label>
+                {copyMode === "append_keep" ? (
+                  <div style={styles.copyDestinationPanel}>
+                    <div style={styles.copyDestinationTitle}>Destination Node</div>
+                    <div style={styles.copyDestinationHint}>
+                      Choose where the copied menu should be created inside the target My Menu.
+                    </div>
+                    <label style={styles.radioRow}>
+                      <input
+                        type="radio"
+                        name="copyDestinationNode"
+                        value=""
+                        checked={!copyDestinationNodeId}
+                        onChange={() => setCopyDestinationNodeId("")}
+                      />
+                      <span>Add at root level</span>
+                    </label>
+                    {destinationNodeOptions.length ? (
+                      <div style={styles.copyDestinationList}>
+                        {destinationNodeOptions.map((node) => {
+                          const nodeId = getNodeId(node);
+                          return (
+                            <label key={nodeId} style={styles.copyDestinationRow}>
+                              <input
+                                type="radio"
+                                name="copyDestinationNode"
+                                value={nodeId}
+                                checked={copyDestinationNodeId === nodeId}
+                                onChange={() => setCopyDestinationNodeId(nodeId)}
+                              />
+                              <span style={styles.copyDestinationText}>
+                                {node.pathLabel || node.name}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={styles.copyPlaceholderBox}>
+                        No destination groups found yet. Add a subcategory in My Menu first or keep root level.
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
 
               <div style={styles.copyCard}>
@@ -1205,6 +1263,21 @@ const styles = {
   copySummaryList: { display: "grid", gap: 8, color: "#334155", lineHeight: 1.45 },
   copyPlaceholderBox: { padding: 14, borderRadius: 10, background: "#f8fafc", color: "#64748b", border: "1px dashed #cbd5e1", lineHeight: 1.5 },
   radioRow: { display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 12, color: "#334155", fontWeight: 500 },
+  copyDestinationPanel: { marginTop: 10, paddingTop: 10, borderTop: "1px solid #e2e8f0" },
+  copyDestinationTitle: { fontWeight: 800, color: "#0f172a", marginBottom: 6 },
+  copyDestinationHint: { color: "#64748b", fontSize: 13, lineHeight: 1.5, marginBottom: 10 },
+  copyDestinationList: { display: "grid", gap: 8, maxHeight: 220, overflowY: "auto", paddingRight: 4 },
+  copyDestinationRow: {
+    display: "grid",
+    gridTemplateColumns: "auto minmax(0, 1fr)",
+    gap: 10,
+    alignItems: "center",
+    padding: "8px 10px",
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    background: "#f8fafc",
+  },
+  copyDestinationText: { color: "#334155", fontSize: 14, overflowWrap: "anywhere" },
   copyApiList: { display: "grid", gap: 8, color: "#0f172a" },
   copySearchActions: { display: "flex", justifyContent: "flex-start", marginBottom: 10 },
   copyVendorList: { display: "grid", gap: 8, maxHeight: 260, overflowY: "auto" },

@@ -6,6 +6,8 @@ const {
   buildVendorCustomPackageTree,
   createVendorCustomPackageNode,
   listVendorCustomPackageNodes,
+  normalizeCustomType,
+  normalizeVariantMode,
 } = require('../services/vendorCustomPackageService');
 const {
   requireVendorBodyWriteAccess,
@@ -364,6 +366,8 @@ router.put('/:id', requireVendorBodyWriteAccess(), async (req, res) => {
       'nodeType',
       'isLeaf',
       'price',
+      'customType',
+      'variantMode',
     ];
 
     allowedFields.forEach((field) => {
@@ -372,7 +376,25 @@ router.put('/:id', requireVendorBodyWriteAccess(), async (req, res) => {
       }
     });
 
-    if (node.isLeaf && (node.price == null || Number.isNaN(Number(node.price)))) {
+    const effectiveCustomType = normalizeCustomType(node.customType);
+    node.customType = node.customType == null ? '' : String(node.customType || '').trim().toLowerCase();
+    node.variantMode = normalizeVariantMode(node.variantMode, effectiveCustomType, node.isLeaf);
+
+    if (effectiveCustomType === 'offer') {
+      node.isLeaf = true;
+      node.nodeType = 'package_item';
+      node.price = null;
+      node.variantMode = 'single';
+      if (!String(node.offerText || '').trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'offerText is required for custom offers',
+        });
+      }
+      if (!String(node.name || '').trim()) {
+        node.name = String(node.offerText || 'Offer').trim();
+      }
+    } else if (node.isLeaf && (node.price == null || Number.isNaN(Number(node.price)))) {
       return res.status(400).json({
         success: false,
         message: 'price is required for leaf custom package nodes',

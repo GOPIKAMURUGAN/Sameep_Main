@@ -5,6 +5,20 @@ const DummySubcategory = require('../models/dummySubcategory');
 const DummyVendor = require('../models/DummyVendor');
 const VendorCustomPackage = require('../models/VendorCustomPackage');
 
+function normalizeCustomType(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return 'package';
+  if (['package', 'service_item', 'offer'].includes(normalized)) return normalized;
+  throw new Error('Unsupported customType');
+}
+
+function normalizeVariantMode(value, customType, isLeaf) {
+  if (customType === 'offer') return 'single';
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'single' || normalized === 'nested') return normalized;
+  return isLeaf ? 'single' : 'nested';
+}
+
 function ensureObjectId(value, fieldName) {
   if (!mongoose.Types.ObjectId.isValid(value)) {
     throw new Error(`Invalid ${fieldName}`);
@@ -197,9 +211,16 @@ async function prepareVendorCustomPackageCreatePayload(input) {
   });
 
   const isLeaf = input.isLeaf !== false;
+  const customType = normalizeCustomType(input.customType);
+  const variantMode = normalizeVariantMode(input.variantMode, customType, isLeaf);
   const nodeType = input.nodeType || (isLeaf ? 'package_item' : 'package_group');
 
-  if (!input.name || !String(input.name).trim()) {
+  const resolvedName =
+    customType === 'offer'
+      ? String(input.name || input.offerText || 'Offer').trim()
+      : String(input.name || '').trim();
+
+  if (!resolvedName) {
     throw new Error('name is required');
   }
 
@@ -211,7 +232,7 @@ async function prepareVendorCustomPackageCreatePayload(input) {
     level: input.level || parentContext.level,
     nodeType,
     isLeaf,
-    name: String(input.name).trim(),
+    name: resolvedName,
     imageUrl: input.imageUrl || '',
     iconUrl: input.iconUrl || '',
     description: input.description || '',
@@ -227,12 +248,21 @@ async function prepareVendorCustomPackageCreatePayload(input) {
     visibleToUser: input.visibleToUser !== false,
     visibleToVendor: input.visibleToVendor !== false,
     sequence: Number.isFinite(Number(input.sequence)) ? Number(input.sequence) : 0,
+    customType,
+    variantMode,
     ancestorNodeIds: parentContext.ancestorNodeIds,
     ancestorNodeTypes: parentContext.ancestorNodeTypes,
     pathLabels: parentContext.pathLabels,
   };
 
-  if (isLeaf && (payload.price == null || Number.isNaN(payload.price))) {
+  if (customType === 'offer') {
+    payload.price = null;
+    payload.isLeaf = true;
+    payload.nodeType = 'package_item';
+    if (!String(payload.offerText || '').trim()) {
+      throw new Error('offerText is required for custom offers');
+    }
+  } else if (isLeaf && (payload.price == null || Number.isNaN(payload.price))) {
     throw new Error('price is required for leaf custom package nodes');
   }
 
@@ -250,6 +280,8 @@ module.exports = {
   buildVendorCustomPackageTree,
   createVendorCustomPackageNode,
   listVendorCustomPackageNodes,
+  normalizeCustomType,
+  normalizeVariantMode,
   prepareVendorCustomPackageCreatePayload,
   resolveParentContext,
 };

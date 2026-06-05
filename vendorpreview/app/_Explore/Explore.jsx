@@ -45,6 +45,39 @@ const toAnchor = (label) =>
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-");
 
+function safeClone(value) {
+  if (typeof globalThis !== "undefined" && typeof globalThis.structuredClone === "function") {
+    return globalThis.structuredClone(value);
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    if (Array.isArray(value)) {
+      return value.map((item) => safeClone(item));
+    }
+
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, entryValue]) => [key, safeClone(entryValue)])
+      );
+    }
+
+    return value;
+  }
+}
+
+function getSafeDeviceId() {
+  if (typeof globalThis !== "undefined") {
+    const randomUuid = globalThis.crypto?.randomUUID;
+    if (typeof randomUuid === "function") {
+      return randomUuid.call(globalThis.crypto);
+    }
+  }
+
+  return `dev-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function buildFreeTextMapFromTree(nodes) {
   const map = {};
 
@@ -155,13 +188,51 @@ function cloneCustomPackageNode(node) {
 
 function mergeCustomPackagesIntoPricingTree(pricingTree, customTree, nameMap, rootCategoryId) {
   const clonedTree = Array.isArray(pricingTree)
-    ? structuredClone(pricingTree)
+    ? safeClone(pricingTree)
     : [];
 
   const packagesTargets = new Map();
+  const standardTargets = new Map();
+
+  const getEffectiveCustomType = (value) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "service_item" || normalized === "offer") return normalized;
+    return "package";
+  };
+
+  const ensureCustomMergeContainer = (targetNode) => {
+    if (!targetNode || targetNode.isLeaf !== true) {
+      return targetNode;
+    }
+
+    const existingChildren = Array.isArray(targetNode.children)
+      ? targetNode.children
+      : [];
+    const originalLeafId = String(
+      targetNode._id || targetNode.id || targetNode.categoryId || `leaf-${Date.now()}`
+    );
+    const originalLeafNode = {
+      ...safeClone(targetNode),
+      _id: `${originalLeafId}-base`,
+      id: `${originalLeafId}-base`,
+      children: [],
+    };
+
+    targetNode.isLeaf = false;
+    targetNode.price = null;
+    targetNode.children = [originalLeafNode, ...existingChildren];
+    return targetNode;
+  };
 
   function walkStandard(nodes, parentNode = null) {
     (nodes || []).forEach((node) => {
+      const standardKey = node?.categoryId || node?._id
+        ? `standard:${String(node.categoryId || node._id)}`
+        : null;
+      if (standardKey) {
+        standardTargets.set(standardKey, node);
+      }
+
       const resolvedName = nameMap?.[node?.categoryId] || node?.name || "";
       if (resolvedName.trim().toLowerCase() === "packages") {
         const key = parentNode?.categoryId || parentNode?._id
@@ -182,6 +253,7 @@ function mergeCustomPackagesIntoPricingTree(pricingTree, customTree, nameMap, ro
     if (!customNode || customNode.parentNodeType === "custom_package") return;
 
     let targetKey = null;
+    const effectiveCustomType = getEffectiveCustomType(customNode.customType);
 
     if (customNode.parentNodeType === "root") {
       targetKey = `root:${String(rootCategoryId)}`;
@@ -195,8 +267,15 @@ function mergeCustomPackagesIntoPricingTree(pricingTree, customTree, nameMap, ro
 
     if (!targetKey) return;
 
-    const targetNode = packagesTargets.get(targetKey);
+    let targetNode =
+      effectiveCustomType === "package"
+        ? packagesTargets.get(targetKey)
+        : standardTargets.get(targetKey);
     if (!targetNode) return;
+
+    if (effectiveCustomType !== "package") {
+      targetNode = ensureCustomMergeContainer(targetNode);
+    }
 
     if (!Array.isArray(targetNode.children)) {
       targetNode.children = [];
@@ -1171,7 +1250,7 @@ function ExploreContent({ onReady, onOpenServices }) {
   const verifyVendorOtp = async () => {
     try {
       const deviceId =
-        localStorage.getItem("deviceId") || crypto.randomUUID();
+        localStorage.getItem("deviceId") || getSafeDeviceId();
 
       localStorage.setItem("deviceId", deviceId);
 
@@ -1917,7 +1996,7 @@ function ExploreContent({ onReady, onOpenServices }) {
     try {
       setVerifyingPasscode(true);
       const deviceId =
-        localStorage.getItem("deviceId") || crypto.randomUUID();
+        localStorage.getItem("deviceId") || getSafeDeviceId();
 
       localStorage.setItem("deviceId", deviceId);
 
@@ -3371,6 +3450,12 @@ function ExploreContent({ onReady, onOpenServices }) {
           onIncreaseQty={increaseQty}
           onDecreaseQty={decreaseQty}
           onOpenMenu={() => setViewMode("menu")}
+          onOpenGallery={() => {
+            setGalleryReadOnly(true);
+            setServiceType("gallery");
+            setOpenServices(true);
+          }}
+          colorScheme={vendorInfo?.nurseryColorScheme || "forest"}
         />
       ) : (
         <>

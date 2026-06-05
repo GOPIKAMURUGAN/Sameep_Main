@@ -349,6 +349,13 @@
   flex-shrink: 0;
 }
 
+.subcategory-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 .services-section {
   width: 100%;
   min-height: 0;

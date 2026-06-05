@@ -697,6 +697,7 @@ router.get("/:vendorId/template", async (req, res) => {
     return res.json({
       success: true,
       selectedTemplateKey,
+      nurseryColorScheme: String(vendor.nurseryColorScheme || "").trim().toLowerCase(),
       template,
     });
   } catch (err) {
@@ -710,16 +711,21 @@ router.put("/:vendorId/template", async (req, res) => {
     const vendor = await DummyVendor.findById(req.params.vendorId);
     if (!vendor) return res.status(404).json({ success: false, message: "Vendor not found" });
 
+    const nurseryColorScheme = String(req.body?.nurseryColorScheme || "")
+      .trim()
+      .toLowerCase();
     const selectedTemplateKey = String(req.body?.selectedTemplateKey || "")
       .trim()
       .toLowerCase();
 
     if (!selectedTemplateKey) {
       vendor.selectedTemplateKey = "";
+      vendor.nurseryColorScheme = nurseryColorScheme;
       await vendor.save();
       return res.json({
         success: true,
         selectedTemplateKey: "",
+        nurseryColorScheme: vendor.nurseryColorScheme || "",
         vendor: vendor.toObject(),
       });
     }
@@ -737,11 +743,13 @@ router.put("/:vendorId/template", async (req, res) => {
     }
 
     vendor.selectedTemplateKey = selectedTemplateKey;
+    vendor.nurseryColorScheme = nurseryColorScheme;
     await vendor.save();
 
     return res.json({
       success: true,
       selectedTemplateKey,
+      nurseryColorScheme: vendor.nurseryColorScheme || "",
       template,
       vendor: vendor.toObject(),
     });

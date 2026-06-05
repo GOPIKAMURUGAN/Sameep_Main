@@ -202,18 +202,6 @@ const HeroSection = ({
           </div>
         )}
 
-        <div className="hero-buttons">
-          {button1Label && (
-            <button className="btn" onClick={onButton1Click}>
-              {button1Label}
-            </button>
-          )}
-          {button2Label && (
-            <button className="btn" onClick={onButton2Click}>
-              {button2Label}
-            </button>
-          )}
-        </div>
       </div>
 
       {/* RIGHT IMAGE SLIDER */}

@@ -194,34 +194,113 @@ function normalizeSelfManagedTree(node) {
     children: (node.children || []).map(normalizeSelfManagedTree),
   };
 }
+
+function getEffectiveCustomType(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return "package";
+  if (["package", "service_item", "offer"].includes(normalized)) return normalized;
+  return "package";
+}
+
+function getCustomTypeConfig(customType) {
+  const effectiveType = getEffectiveCustomType(customType);
+  if (effectiveType === "offer") {
+    return {
+      customType: "offer",
+      entryLabel: "Custom Offers",
+      screenLabel: "Custom Offers",
+      createLabel: "Create Custom Offer",
+      editLabel: "Edit Custom Offer",
+      emptyLabel: "No custom offers yet for this section.",
+      nameLabel: "Offer Title",
+      descriptionLabel: "Offer Text",
+      supportsVariants: false,
+      supportsPrice: false,
+      supportsPackagesIncludes: false,
+      supportsTerms: false,
+    };
+  }
+
+  if (effectiveType === "service_item") {
+    return {
+      customType: "service_item",
+      entryLabel: "Custom Items",
+      screenLabel: "Custom Items",
+      createLabel: "Create Custom Item",
+      editLabel: "Edit Custom Item",
+      emptyLabel: "No custom items yet for this section.",
+      nameLabel: "Item Name",
+      descriptionLabel: "Offer Text",
+      supportsVariants: true,
+      supportsPrice: true,
+      supportsPackagesIncludes: false,
+      supportsTerms: true,
+    };
+  }
+
+  return {
+    customType: "package",
+    entryLabel: "Custom Packages",
+    screenLabel: "Custom Packages",
+    createLabel: "Create Custom Package",
+    editLabel: "Edit Custom Package",
+    emptyLabel: "No custom packages yet for this package section.",
+    nameLabel: "Package Name",
+    descriptionLabel: "Offer Text",
+    supportsVariants: true,
+    supportsPrice: true,
+    supportsPackagesIncludes: true,
+    supportsTerms: true,
+  };
+}
+
 function getCustomPackageContext(path) {
   if (!Array.isArray(path) || path.length === 0) return null;
 
   const currentNode = path[path.length - 1];
-  const packageNode = currentNode?._isCustomRoot
-    ? path[path.length - 2]
-    : currentNode;
+  const resolvedNode = currentNode?._isCustomRoot ? path[path.length - 2] : currentNode;
+  if (!resolvedNode) return null;
 
-  if (packageNode?.name !== "Packages") return null;
+  const anchorNode =
+    resolvedNode?._isVirtualParent && Array.isArray(resolvedNode.children) && resolvedNode.children[0]
+      ? resolvedNode.children[0]
+      : resolvedNode;
+  if (!anchorNode) return null;
 
-  const packageNodeIndex = currentNode?._isCustomRoot
-    ? path.length - 2
-    : path.length - 1;
+  const normalizedName = String(anchorNode?.name || "").trim().toLowerCase();
+  const customType =
+    normalizedName === "packages"
+      ? "package"
+      : normalizedName === "offers"
+        ? "offer"
+        : "service_item";
+  const typeConfig = getCustomTypeConfig(customType);
 
-  if (packageNodeIndex <= 0) {
+  if (normalizedName === "packages") {
+    const packageNodeIndex = currentNode?._isCustomRoot ? path.length - 2 : path.length - 1;
+    if (packageNodeIndex <= 0) {
+      return {
+        parentNodeId: null,
+        parentNodeType: "root",
+        sectionLabel: "This category",
+        ...typeConfig,
+      };
+    }
+
+    const immediateParent = path[packageNodeIndex - 1];
     return {
-      parentNodeId: null,
-      parentNodeType: "root",
-      sectionLabel: "This category",
+      parentNodeId: immediateParent?.categoryId || immediateParent?._id || null,
+      parentNodeType: "standard_subcategory",
+      sectionLabel: immediateParent?.name || "This section",
+      ...typeConfig,
     };
   }
 
-  const immediateParent = path[packageNodeIndex - 1];
-
   return {
-    parentNodeId: immediateParent?.categoryId || immediateParent?._id || null,
+    parentNodeId: anchorNode?.categoryId || anchorNode?._id || null,
     parentNodeType: "standard_subcategory",
-    sectionLabel: immediateParent?.name || "This section",
+    sectionLabel: anchorNode?.name || "This section",
+    ...typeConfig,
   };
 }
 
@@ -229,6 +308,8 @@ function getCurrentCustomPackages(nodes, context) {
   if (!context) return [];
 
   return (nodes || []).filter(node => {
+    const sameType = getEffectiveCustomType(node.customType) === getEffectiveCustomType(context.customType);
+    if (!sameType) return false;
     if (context.parentNodeType === "root") {
       return node.parentNodeType === "root" && !node.parentNodeId;
     }
@@ -250,6 +331,21 @@ function defaultVariantForm() {
     terms: "",
     pricingStatus: "Active",
     isDeleted: false,
+  };
+}
+
+function defaultCustomForm(customType = "package") {
+  return {
+    id: null,
+    customType: getEffectiveCustomType(customType),
+    packageType: "single",
+    name: "",
+    imageUrl: "",
+    packagesIncludes: "",
+    terms: "",
+    offerText: "",
+    price: "",
+    variants: [defaultVariantForm()],
   };
 }
 
@@ -319,17 +415,7 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
   const [verifyingMenuImportAdmin, setVerifyingMenuImportAdmin] = useState(false);
   const [importingMenuFile, setImportingMenuFile] = useState(false);
   const [menuImportMessage, setMenuImportMessage] = useState("");
-  const [customForm, setCustomForm] = useState({
-    id: null,
-    packageType: "single",
-    name: "",
-    packagesIncludes: "",
-    terms: "",
-    price: "",
-    variants: [
-      defaultVariantForm(),
-    ],
-  });
+  const [customForm, setCustomForm] = useState(defaultCustomForm());
 
   function toggleTerm(term) {
     setSelectedTerms(prev => {
@@ -353,20 +439,6 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
     }
 
     return walk(pricingNodes);
-  }
-function defaultCustomForm() {
-  return {
-    id: null,
-    packageType: "single",
-    name: "",
-    imageUrl: "",
-    packagesIncludes: "",
-    terms: "",
-    price: "",
-    variants: [
-      defaultVariantForm(),
-    ],
-  };
   }
   async function loadCustomPackages() {
     if (!vendorId || !rootCategoryId) {
@@ -753,6 +825,42 @@ if (missingLeafIds.length) {
 
     return data?.node || null;
   }
+
+  async function deleteSelfManagedNode(nodeId, datasetStatus = "active") {
+    const response = await fetchWithAuth(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-menu/${vendorId}/nodes/${nodeId}?datasetStatus=${datasetStatus}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.success === false) {
+      throw new Error(data?.message || "Failed to delete menu item");
+    }
+
+    return data;
+  }
+
+  async function handleDeleteSelfManagedNode(node) {
+    if (!node?._id) return;
+
+    const confirmed = window.confirm(
+      `Delete "${node.name || "this menu item"}"${
+        node.isLeaf ? "" : " and all items under it"
+      }?`
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteSelfManagedNode(node._id, node.datasetStatus || "active");
+      await reloadSelfManagedTree(path);
+      await onPricingUpdated?.();
+    } catch (error) {
+      window.alert(error.message || "Failed to delete menu item");
+    }
+  }
+
   const toggleStatus = async (service) => {
     const isActive = service.pricingStatus === "Active";
 
@@ -863,18 +971,14 @@ async function updateService(service, status) {
     categoryChildren.length > 0 && serviceChildren.length > 0;
 
   const isCustomPackagesScreen = currentNode?._isCustomRoot === true;
+  const customPackageContext = !isSelfManagedVendor ? getCustomPackageContext(path) : null;
+  const customTypeConfig = getCustomTypeConfig(customPackageContext?.customType);
   const showCustomEntry =
+    !isSelfManagedVendor &&
     !isCustomPackagesScreen &&
-    currentNode?.name === "Packages";
+    !!customPackageContext;
 
-  const displayCategories = [
-    ...(showCustomEntry
-      ? [{
-          _id: "custom-packages-entry",
-          name: "Custom Packages",
-          _isCustomEntry: true,
-        }]
-      : []),
+  const structuralCategories = [
     ...categoryChildren,
     ...(
       shouldUseVirtualParents && !currentNode?._isVirtualParent
@@ -885,7 +989,19 @@ async function updateService(service, status) {
         : []
     )
   ];
-  const customPackageContext = getCustomPackageContext(path);
+  const showCustomEntryInList = showCustomEntry && structuralCategories.length > 0;
+  const showCustomEntryAsStandaloneAction = showCustomEntry && structuralCategories.length === 0;
+
+  const displayCategories = [
+    ...(showCustomEntryInList
+      ? [{
+          _id: "custom-packages-entry",
+          name: customTypeConfig.entryLabel,
+          _isCustomEntry: true,
+        }]
+      : []),
+    ...structuralCategories
+  ];
   const customPackageRoots = getCurrentCustomPackages(customTree, customPackageContext);
   const activeCustomPackageRoots = customPackageRoots.filter(
     node => !node.isDeleted && node.pricingStatus === "Active"
@@ -906,11 +1022,12 @@ async function updateService(service, status) {
 
   function openCreateCustomModal() {
     setCustomModalMode("create");
-    setCustomForm(defaultCustomForm());
+    setCustomForm(defaultCustomForm(customPackageContext?.customType));
     setShowCustomModal(true);
   }
 
   function openEditCustomModal(node) {
+    const effectiveType = getEffectiveCustomType(node.customType);
     const childVariants = (node.children || []).map(child => ({
       id: child._id,
       name: child.name || "",
@@ -925,15 +1042,17 @@ async function updateService(service, status) {
     setCustomModalMode("edit");
     setCustomForm({
       id: node._id,
+      customType: effectiveType,
       packageType: hasChildren ? "nested" : "single",
       name: node.name || "",
       imageUrl: node.imageUrl || "",
       packagesIncludes: node.packagesIncludes || "",
       terms: node.terms || "",
+      offerText: node.offerText || "",
       price: hasChildren ? "" : String(node.price ?? ""),
       variants: hasChildren
         ? childVariants
-        : defaultCustomForm().variants,
+        : defaultCustomForm(effectiveType).variants,
     });
     setShowCustomModal(true);
   }
@@ -1334,16 +1453,41 @@ async function updateService(service, status) {
     }
   }
 
+  async function handleDeleteCustomPackage(node) {
+    if (!node?._id) return;
+
+    const confirmed = window.confirm(
+      `Delete "${node.name || "this custom item"}"?`
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteCustomNode(node._id);
+      await loadCustomPackages();
+      await onPricingUpdated?.();
+    } catch (error) {
+      window.alert(error.message || "Failed to delete custom item");
+    }
+  }
+
   async function handleSaveCustomPackage() {
     if (!customPackageContext) return;
 
+    const effectiveType = getEffectiveCustomType(customForm.customType || customPackageContext.customType);
+    const typeConfig = getCustomTypeConfig(effectiveType);
     const trimmedName = customForm.name.trim();
-    if (!trimmedName) {
-      window.alert("Package name is required");
+    const trimmedOfferText = customForm.offerText.trim();
+    const resolvedName =
+      effectiveType === "offer"
+        ? trimmedName || trimmedOfferText || "Offer"
+        : trimmedName;
+
+    if (!resolvedName) {
+      window.alert(`${typeConfig.nameLabel} is required`);
       return;
     }
 
-    if (customForm.packageType === "nested") {
+    if (typeConfig.supportsVariants && customForm.packageType === "nested") {
       const validVariants = customForm.variants.filter(
         variant =>
           variant.pricingStatus === "Active" &&
@@ -1357,16 +1501,22 @@ async function updateService(service, status) {
 
     setSavingCustomPackage(true);
     try {
-      if (customForm.packageType === "single") {
+      if (!typeConfig.supportsVariants || customForm.packageType === "single") {
         if (customModalMode === "edit" && customForm.id) {
           await updateCustomNode(customForm.id, {
             vendorId,
             rootCategoryId,
-            name: trimmedName,
+            customType: effectiveType,
+            variantMode: "single",
+            name: resolvedName,
             imageUrl: customForm.imageUrl,
-            packagesIncludes: customForm.packagesIncludes,
-            terms: customForm.terms,
-            price: customForm.price === "" ? null : Number(customForm.price),
+            packagesIncludes: typeConfig.supportsPackagesIncludes ? customForm.packagesIncludes : "",
+            terms: typeConfig.supportsTerms ? customForm.terms : "",
+            offerText: effectiveType === "offer" ? trimmedOfferText : "",
+            price:
+              typeConfig.supportsPrice && customForm.price !== ""
+                ? Number(customForm.price)
+                : null,
             pricingStatus: "Active",
             visibleToUser: true,
             visibleToVendor: true,
@@ -1377,13 +1527,19 @@ async function updateService(service, status) {
             rootCategoryId,
             parentNodeType: customPackageContext.parentNodeType,
             parentNodeId: customPackageContext.parentNodeId,
-            name: trimmedName,
+            customType: effectiveType,
+            variantMode: "single",
+            name: resolvedName,
             imageUrl: customForm.imageUrl,
             nodeType: "package_item",
             isLeaf: true,
-            packagesIncludes: customForm.packagesIncludes,
-            terms: customForm.terms,
-            price: customForm.price === "" ? null : Number(customForm.price),
+            packagesIncludes: typeConfig.supportsPackagesIncludes ? customForm.packagesIncludes : "",
+            terms: typeConfig.supportsTerms ? customForm.terms : "",
+            offerText: effectiveType === "offer" ? trimmedOfferText : "",
+            price:
+              typeConfig.supportsPrice && customForm.price !== ""
+                ? Number(customForm.price)
+                : null,
             pricingStatus: "Active",
             visibleToUser: true,
             visibleToVendor: true,
@@ -1397,10 +1553,13 @@ async function updateService(service, status) {
           await updateCustomNode(customForm.id, {
             vendorId,
             rootCategoryId,
-            name: trimmedName,
+            customType: effectiveType,
+            variantMode: "nested",
+            name: resolvedName,
             imageUrl: customForm.imageUrl,
-            packagesIncludes: customForm.packagesIncludes,
-            terms: customForm.terms,
+            packagesIncludes: typeConfig.supportsPackagesIncludes ? customForm.packagesIncludes : "",
+            terms: typeConfig.supportsTerms ? customForm.terms : "",
+            offerText: "",
             pricingStatus: "Active",
             visibleToUser: true,
             visibleToVendor: true,
@@ -1411,12 +1570,15 @@ async function updateService(service, status) {
             rootCategoryId,
             parentNodeType: customPackageContext.parentNodeType,
             parentNodeId: customPackageContext.parentNodeId,
-            name: trimmedName,
+            customType: effectiveType,
+            variantMode: "nested",
+            name: resolvedName,
             imageUrl: customForm.imageUrl,
             nodeType: "package_group",
             isLeaf: false,
-            packagesIncludes: customForm.packagesIncludes,
-            terms: customForm.terms,
+            packagesIncludes: typeConfig.supportsPackagesIncludes ? customForm.packagesIncludes : "",
+            terms: typeConfig.supportsTerms ? customForm.terms : "",
+            offerText: "",
             pricingStatus: "Active",
             visibleToUser: true,
             visibleToVendor: true,
@@ -1437,10 +1599,12 @@ async function updateService(service, status) {
             const variantPayload = {
               vendorId,
               rootCategoryId,
+              customType: effectiveType,
+              variantMode: "single",
               name: variant.name.trim(),
               imageUrl: variant.imageUrl,
-              packagesIncludes: variant.packagesIncludes,
-              terms: variant.terms,
+              packagesIncludes: typeConfig.supportsPackagesIncludes ? variant.packagesIncludes : "",
+              terms: typeConfig.supportsTerms ? variant.terms : "",
               price:
                 shouldBeActive && variant.price !== ""
                   ? Number(variant.price)
@@ -1463,12 +1627,14 @@ async function updateService(service, status) {
               rootCategoryId,
               parentNodeType: "custom_package",
               parentNodeId,
+              customType: effectiveType,
+              variantMode: "single",
               name: variant.name.trim(),
               imageUrl: variant.imageUrl,
               nodeType: "package_item",
               isLeaf: true,
-              packagesIncludes: variant.packagesIncludes,
-              terms: variant.terms,
+              packagesIncludes: typeConfig.supportsPackagesIncludes ? variant.packagesIncludes : "",
+              terms: typeConfig.supportsTerms ? variant.terms : "",
               price: variant.price === "" ? null : Number(variant.price),
               pricingStatus: "Active",
               visibleToUser: true,
@@ -1482,7 +1648,7 @@ async function updateService(service, status) {
       await loadCustomPackages();
       await onPricingUpdated?.();
       setShowCustomModal(false);
-      setCustomForm(defaultCustomForm());
+      setCustomForm(defaultCustomForm(customPackageContext?.customType));
     } catch (error) {
       window.alert(error.message || "Failed to save custom package");
     } finally {
@@ -1637,7 +1803,15 @@ async function updateService(service, status) {
             className="subcategory-title"
             onClick={() => {
               if (node._isCustomEntry) {
-                setPath([...path, { _id: "custom-packages-root", name: "Custom Packages", _isCustomRoot: true }]);
+                setPath([
+                  ...path,
+                  {
+                    _id: "custom-packages-root",
+                    name: customTypeConfig.screenLabel,
+                    _isCustomRoot: true,
+                    _customType: customPackageContext?.customType || "package",
+                  },
+                ]);
                 return;
               }
               if (node._isVirtualParent) {
@@ -1649,20 +1823,32 @@ async function updateService(service, status) {
           >
             <span className="subcategory-title-text">{node.name}</span>
             {isSelfManagedVendor && !node._isCustomEntry ? (
-              <button
-                type="button"
-                className="subcategory-edit-btn"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  openEditCategoryModal(node);
-                }}
-              >
-                Edit
-              </button>
+              <div className="subcategory-actions">
+                <button
+                  type="button"
+                  className="subcategory-edit-btn"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    openEditCategoryModal(node);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="subcategory-edit-btn"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleDeleteSelfManagedNode(node);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
             ) : null}
           </div>
         ))}
-        {!isCustomPackagesScreen && displayCategories.length === 0 && serviceChildren.length > 0 && (() => {
+        {!isCustomPackagesScreen && structuralCategories.length === 0 && serviceChildren.length > 0 && (() => {
           const activeServices = sortedChildren.filter(
             s => s.pricingStatus === "Active"
           );
@@ -1674,6 +1860,24 @@ async function updateService(service, status) {
           return (
 
             <section className="services-section">
+              {showCustomEntryAsStandaloneAction ? (
+                <div
+                  className="subcategory-title standalone-custom-entry"
+                  onClick={() => {
+                    setPath([
+                      ...path,
+                      {
+                        _id: "custom-packages-root",
+                        name: customTypeConfig.screenLabel,
+                        _isCustomRoot: true,
+                        _customType: customPackageContext?.customType || "package",
+                      },
+                    ]);
+                  }}
+                >
+                  <span className="subcategory-title-text">{customTypeConfig.entryLabel}</span>
+                </div>
+              ) : null}
 
               {/* ACTIVE SERVICES */}
               {activeServices.length > 0 && (
@@ -1708,6 +1912,7 @@ async function updateService(service, status) {
 
                           setShowEditModal(true);
                         }}
+                        onDelete={isSelfManagedVendor ? () => handleDeleteSelfManagedNode(service) : undefined}
                       />
                     ))}
                   </div>
@@ -1739,6 +1944,7 @@ async function updateService(service, status) {
                           setSelectedTerms([]);
                           setShowEditModal(true);
                         }}
+                        onDelete={isSelfManagedVendor ? () => handleDeleteSelfManagedNode(service) : undefined}
                       />
                     ))}
                   </div>
@@ -1751,28 +1957,28 @@ async function updateService(service, status) {
           <section className="services-section custom-packages-section custom-packages-top-section">
             <div className="custom-packages-header">
               <div>
-                <div className="section-title">Custom Packages</div>
+                <div className="section-title">{customTypeConfig.screenLabel}</div>
                 <div className="custom-packages-subtitle">
-                  Add vendor-specific packages for {customPackageContext?.sectionLabel || "this section"}.
+                  Add vendor-specific {customTypeConfig.screenLabel.toLowerCase()} for {customPackageContext?.sectionLabel || "this section"}.
                 </div>
               </div>
               <button
                 className="custom-package-create"
                 onClick={openCreateCustomModal}
               >
-                + Create Custom Package
+                + {customTypeConfig.createLabel}
               </button>
             </div>
 
             {customPackageRoots.length === 0 ? (
               <div className="custom-packages-empty">
-                No custom packages yet for this package section.
+                {customTypeConfig.emptyLabel}
               </div>
             ) : (
               <>
                 {activeCustomPackageRoots.length > 0 && (
                   <>
-                    <div className="section-title">Active Custom Packages</div>
+                    <div className="section-title">Active {customTypeConfig.screenLabel}</div>
                     <div className="services-list custom-packages-list">
                       {activeCustomPackageRoots.map(customPackage => (
                         <CustomPackageCard
@@ -1781,6 +1987,7 @@ async function updateService(service, status) {
                           isActive
                           onEdit={() => openEditCustomModal(customPackage)}
                           onToggle={() => handleToggleCustomPackage(customPackage)}
+                          onDelete={() => handleDeleteCustomPackage(customPackage)}
                         />
                       ))}
                     </div>
@@ -1789,7 +1996,7 @@ async function updateService(service, status) {
 
                 {inactiveCustomPackageRoots.length > 0 && (
                   <>
-                    <div className="section-title inactive">Inactive Custom Packages</div>
+                    <div className="section-title inactive">Inactive {customTypeConfig.screenLabel}</div>
                     <div className="services-list custom-packages-list inactive-list">
                       {inactiveCustomPackageRoots.map(customPackage => (
                         <CustomPackageCard
@@ -1802,6 +2009,11 @@ async function updateService(service, status) {
                               : () => openEditCustomModal(customPackage)
                           }
                           onToggle={() => handleToggleCustomPackage(customPackage)}
+                          onDelete={
+                            customPackage.isDeleted
+                              ? null
+                              : () => handleDeleteCustomPackage(customPackage)
+                          }
                         />
                       ))}
                     </div>
@@ -2245,49 +2457,72 @@ async function updateService(service, status) {
       )}
       {showCustomModal && (
         <Modal
-          title={customModalMode === "edit" ? "Edit Custom Package" : "Create Custom Package"}
+          title={customModalMode === "edit" ? customTypeConfig.editLabel : customTypeConfig.createLabel}
           onClose={() => setShowCustomModal(false)}
         >
           <div className="modal-scroll">
-            <label className="modal-label">Package Type</label>
-            <div className="custom-package-type-toggle">
-              <button
-                className={`type-pill ${customForm.packageType === "single" ? "active" : ""}`}
-                onClick={() => updateCustomForm("packageType", "single")}
-                type="button"
-              >
-                Single Package
-              </button>
-              <button
-                className={`type-pill ${customForm.packageType === "nested" ? "active" : ""}`}
-                onClick={() => updateCustomForm("packageType", "nested")}
-                type="button"
-              >
-                Package With Variants
-              </button>
-            </div>
+            {customTypeConfig.supportsVariants ? (
+              <>
+                <label className="modal-label">Type</label>
+                <div className="custom-package-type-toggle">
+                  <button
+                    className={`type-pill ${customForm.packageType === "single" ? "active" : ""}`}
+                    onClick={() => updateCustomForm("packageType", "single")}
+                    type="button"
+                  >
+                    Single {customTypeConfig.customType === "package" ? "Package" : "Item"}
+                  </button>
+                  <button
+                    className={`type-pill ${customForm.packageType === "nested" ? "active" : ""}`}
+                    onClick={() => updateCustomForm("packageType", "nested")}
+                    type="button"
+                  >
+                    {customTypeConfig.customType === "package" ? "Package" : "Item"} With Variants
+                  </button>
+                </div>
+              </>
+            ) : null}
 
-            <label className="modal-label">Package Name</label>
+            <label className="modal-label">{customTypeConfig.nameLabel}</label>
             <input
               className="price-input"
               value={customForm.name}
               onChange={e => updateCustomForm("name", e.target.value)}
             />
 
-            <label className="modal-label">Package Includes</label>
-            <textarea
-              className="price-input custom-textarea"
-              value={customForm.packagesIncludes}
-              onChange={e => updateCustomForm("packagesIncludes", e.target.value)}
-              placeholder="Hair Spa, Hair Cut, Hair Wash"
-            />
+            {customTypeConfig.supportsPackagesIncludes ? (
+              <>
+                <label className="modal-label">Package Includes</label>
+                <textarea
+                  className="price-input custom-textarea"
+                  value={customForm.packagesIncludes}
+                  onChange={e => updateCustomForm("packagesIncludes", e.target.value)}
+                  placeholder="Hair Spa, Hair Cut, Hair Wash"
+                />
+              </>
+            ) : null}
 
-            <label className="modal-label">Terms</label>
-            <textarea
-              className="price-input custom-textarea"
-              value={customForm.terms}
-              onChange={e => updateCustomForm("terms", e.target.value)}
-            />
+            {customTypeConfig.supportsTerms ? (
+              <>
+                <label className="modal-label">Terms</label>
+                <textarea
+                  className="price-input custom-textarea"
+                  value={customForm.terms}
+                  onChange={e => updateCustomForm("terms", e.target.value)}
+                />
+              </>
+            ) : null}
+
+            {customTypeConfig.customType === "offer" ? (
+              <>
+                <label className="modal-label">{customTypeConfig.descriptionLabel}</label>
+                <textarea
+                  className="price-input custom-textarea"
+                  value={customForm.offerText}
+                  onChange={e => updateCustomForm("offerText", e.target.value)}
+                />
+              </>
+            ) : null}
 
             <label className="modal-label">Image URL</label>
             <div className="image-row">
@@ -2308,14 +2543,18 @@ async function updateService(service, status) {
               </div>
             )}
 
-            {customForm.packageType === "single" ? (
+            {!customTypeConfig.supportsVariants || customForm.packageType === "single" ? (
               <>
-                <label className="modal-label">Price</label>
-                <input
-                  className="price-input"
-                  value={customForm.price}
-                  onChange={e => updateCustomForm("price", e.target.value)}
-                />
+                {customTypeConfig.supportsPrice ? (
+                  <>
+                    <label className="modal-label">Price</label>
+                    <input
+                      className="price-input"
+                      value={customForm.price}
+                      onChange={e => updateCustomForm("price", e.target.value)}
+                    />
+                  </>
+                ) : null}
               </>
             ) : (
               <div className="variants-editor">
@@ -2387,19 +2626,27 @@ async function updateService(service, status) {
                       onChange={e => updateVariant(index, "price", e.target.value)}
                     />
 
-                    <label className="modal-label">Package Includes</label>
-                    <textarea
-                      className="price-input custom-textarea"
-                      value={variant.packagesIncludes}
-                      onChange={e => updateVariant(index, "packagesIncludes", e.target.value)}
-                    />
+                    {customTypeConfig.supportsPackagesIncludes ? (
+                      <>
+                        <label className="modal-label">Package Includes</label>
+                        <textarea
+                          className="price-input custom-textarea"
+                          value={variant.packagesIncludes}
+                          onChange={e => updateVariant(index, "packagesIncludes", e.target.value)}
+                        />
+                      </>
+                    ) : null}
 
-                    <label className="modal-label">Terms</label>
-                    <textarea
-                      className="price-input custom-textarea"
-                      value={variant.terms}
-                      onChange={e => updateVariant(index, "terms", e.target.value)}
-                    />
+                    {customTypeConfig.supportsTerms ? (
+                      <>
+                        <label className="modal-label">Terms</label>
+                        <textarea
+                          className="price-input custom-textarea"
+                          value={variant.terms}
+                          onChange={e => updateVariant(index, "terms", e.target.value)}
+                        />
+                      </>
+                    ) : null}
                   </div>
                     );
                   })}
@@ -2440,7 +2687,11 @@ async function updateService(service, status) {
             onClick={handleSaveCustomPackage}
             disabled={savingCustomPackage}
           >
-            {savingCustomPackage ? "Saving..." : "Save Custom Package"}
+            {savingCustomPackage
+              ? "Saving..."
+              : customModalMode === "edit"
+                ? customTypeConfig.editLabel
+                : customTypeConfig.createLabel}
           </button>
         </Modal>
       )}
@@ -2448,7 +2699,7 @@ async function updateService(service, status) {
   );
 }
 /* ================= SERVICE CARD ================= */
-function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }) {
+function ServiceCard({ service, isActive, toggleStatus, onEdit, onDelete, isOffer }) {
   const terms = parseTerms(service.terms);
   const packagesIncludes = parseTerms(service.packagesIncludes);
 
@@ -2496,6 +2747,11 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit, isOffer }) {
             Edit
           </span>
         )}
+        {typeof onDelete === "function" && (
+          <span className="edit" onClick={onDelete}>
+            Delete
+          </span>
+        )}
 
         <label className="switch">
           <input
@@ -2532,10 +2788,13 @@ function Modal({ title, children, onClose }) {
   );
 }
 
-function CustomPackageCard({ customPackage, isActive, onEdit, onToggle }) {
+function CustomPackageCard({ customPackage, isActive, onEdit, onToggle, onDelete }) {
+  const customType = getEffectiveCustomType(customPackage.customType);
+  const typeConfig = getCustomTypeConfig(customType);
   const includes = parseTerms(customPackage.packagesIncludes);
   const visibleVariants = (customPackage.children || []).filter(variant => !variant.isDeleted);
   const hasVariants = visibleVariants.length > 0;
+  const terms = parseTerms(customPackage.terms);
 
   return (
     <div className={`service-card custom-package-card ${isActive ? "active-card" : "inactive-card"}`}>
@@ -2548,20 +2807,34 @@ function CustomPackageCard({ customPackage, isActive, onEdit, onToggle }) {
         <div className="service-info">
           <h4>{customPackage.name}</h4>
 
+          {customType === "offer" && customPackage.offerText ? (
+            <div className="service-includes">
+              <div className="includes-title">Offer Text</div>
+              <ul className="service-packages">
+                <li>{customPackage.offerText}</li>
+              </ul>
+            </div>
+          ) : null}
+
           {hasVariants ? (
             <div className="custom-package-variants">
               <div className="includes-title">Variants</div>
               <ul className="service-packages">
                 {visibleVariants.map(variant => (
                   <li key={variant._id}>
-                    ✓ {variant.name} - Rs {variant.price}
+                    ✓ {variant.name}
+                    {typeConfig.supportsPrice
+                      ? variant.price != null
+                        ? ` - Rs ${variant.price}`
+                        : " - Contact for price"
+                      : ""}
                   </li>
                 ))}
               </ul>
             </div>
           ) : null}
 
-          {includes.length > 0 && (
+          {typeConfig.supportsPackagesIncludes && includes.length > 0 && (
             <div className="service-includes">
               <div className="includes-title">Includes</div>
               <ul className="service-packages">
@@ -2571,13 +2844,31 @@ function CustomPackageCard({ customPackage, isActive, onEdit, onToggle }) {
               </ul>
             </div>
           )}
+
+          {typeConfig.supportsTerms && terms.length > 0 ? (
+            <div className="service-includes">
+              <div className="includes-title">Terms</div>
+              <ul className="service-packages">
+                {terms.map((item, index) => (
+                  <li key={`${customPackage._id}-term-${index}`}>✓ {item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       </div>
 
       <div className="service-right custom-package-actions">
-        {!hasVariants && <span className="price">Rs {customPackage.price}</span>}
+        {!hasVariants && typeConfig.supportsPrice ? (
+          <span className="price">
+            {customPackage.price != null ? `Rs ${customPackage.price}` : "Contact"}
+          </span>
+        ) : null}
         {typeof onEdit === "function" && (
           <span className="edit" onClick={onEdit}>Edit</span>
+        )}
+        {typeof onDelete === "function" && (
+          <span className="edit" onClick={onDelete}>Delete</span>
         )}
         <label className="switch">
           <input

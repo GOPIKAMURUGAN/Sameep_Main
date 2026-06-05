@@ -803,4 +803,61 @@ router.patch("/:vendorId/nodes/:nodeId", requireVendorParamWriteAccess(), async 
   }
 });
 
+router.delete("/:vendorId/nodes/:nodeId", requireVendorParamWriteAccess(), async (req, res) => {
+  try {
+    await ensureVendor(req.params.vendorId);
+
+    if (!mongoose.Types.ObjectId.isValid(req.params.nodeId)) {
+      return res.status(400).json({ message: "Invalid nodeId" });
+    }
+
+    const datasetStatus =
+      req.query?.datasetStatus === "archived" ? "archived" : "active";
+
+    const node = await VendorMenuNode.findOne({
+      _id: req.params.nodeId,
+      vendorId: req.params.vendorId,
+      datasetStatus,
+    }).lean();
+
+    if (!node) {
+      return res.status(404).json({ message: "Vendor menu node not found" });
+    }
+
+    const nodePath = Array.isArray(node.pathNames) ? node.pathNames : [];
+    const allNodes = await VendorMenuNode.find({
+      vendorId: req.params.vendorId,
+      datasetStatus,
+    }).lean();
+
+    const idsToDelete = allNodes
+      .filter((candidate) => {
+        if (String(candidate._id) === String(node._id)) return true;
+        if (!nodePath.length || !Array.isArray(candidate.pathNames)) return false;
+        if (candidate.pathNames.length <= nodePath.length) return false;
+        return nodePath.every(
+          (segment, index) => candidate.pathNames[index] === segment
+        );
+      })
+      .map((candidate) => candidate._id);
+
+    await VendorMenuNode.deleteMany({
+      _id: { $in: idsToDelete },
+      vendorId: req.params.vendorId,
+      datasetStatus,
+    });
+
+    return res.json({
+      success: true,
+      deletedCount: idsToDelete.length,
+      deletedNodeId: req.params.nodeId,
+    });
+  } catch (error) {
+    console.error("DELETE /vendor-menu/:vendorId/nodes/:nodeId error:", error);
+    return res.status(error.statusCode || 500).json({
+      message: error.message || "Failed to delete vendor menu node",
+    });
+  }
+});
+
 module.exports = router;

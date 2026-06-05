@@ -1,16 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { API_BASE_URL } from "../../../config";
 import "./NurseriesPreviewTemplate.css";
 import ContactSection from "../../Contact/Contact";
 import { ENQUIRY_OPEN_EVENT } from "../../utils/enquiryFlow";
-
-const DEFAULT_NAV = [
-  { label: "Shop", href: "#services" },
-  { label: "Collections", href: "#collections" },
-  { label: "Visit Nursery", href: "#contact" },
-  { label: "Contact", href: "#contact" },
-];
 
 function formatCurrency(value) {
   const amount = Number(value || 0);
@@ -234,22 +228,26 @@ function buildNurseryRows(card, sectionName) {
 }
 
 function NurseryProductCard({ row, cartItem, onAddToCart, onIncreaseQty, onDecreaseQty, viewMode }) {
-  const categoryRoot = row?.categoryPath?.[0] || "";
+  const normalizedPath = [...new Set((row?.categoryPath || []).map((label) => String(label || "").trim()).filter(Boolean))];
+  const categoryRoot = normalizedPath[0] || "";
   const mostSpecificPathLabel =
-    [...(row?.categoryPath || [])]
+    [...normalizedPath]
       .reverse()
-      .find((label) => String(label || "").trim() && label !== categoryRoot) || "";
+      .find((label) => label && label !== categoryRoot) || "";
   const displayTitle =
     (row?.title && row.title !== categoryRoot ? row.title : "") ||
     mostSpecificPathLabel ||
     row?.title ||
     categoryRoot ||
     "Item";
-  const displayCategory = categoryRoot && categoryRoot !== displayTitle ? categoryRoot : "";
-  const displaySubtitle =
-    row?.subtitle && row.subtitle !== displayTitle && row.subtitle !== displayCategory
-      ? row.subtitle
-      : "";
+  const breadcrumbSegments = normalizedPath.filter(
+    (label, index) =>
+      label &&
+      !(index === normalizedPath.length - 1 && label.toLowerCase() === String(displayTitle || "").trim().toLowerCase())
+  );
+  const breadcrumbText = breadcrumbSegments.join(" / ");
+  const displaySummary =
+    row?.summary && row.summary !== breadcrumbText ? row.summary : "";
 
   const handleAdd = () => {
     if (typeof onAddToCart !== "function") return;
@@ -277,19 +275,17 @@ function NurseryProductCard({ row, cartItem, onAddToCart, onIncreaseQty, onDecre
         )}
       </div>
       <div className="nursery-product-body">
-        <span className="nursery-product-stock">In stock</span>
+        {breadcrumbText ? <p className="nursery-product-breadcrumb">{breadcrumbText}</p> : null}
         <h3>{displayTitle}</h3>
-        {displayCategory ? <p className="nursery-product-category">{displayCategory}</p> : null}
-        {displaySubtitle ? <p className="nursery-product-subtitle">{displaySubtitle}</p> : null}
-        {row.summary ? <p className="nursery-product-summary">{row.summary}</p> : null}
+        {displaySummary ? <p className="nursery-product-summary">{displaySummary}</p> : null}
         <div className="nursery-mobile-product-copy">
           <strong>{displayTitle}</strong>
-          {displayCategory ? <span>{displayCategory}</span> : null}
+          {breadcrumbText ? <span>{breadcrumbText}</span> : null}
         </div>
         <div className="nursery-product-footer">
           <div className="nursery-mobile-footer-copy">
             <strong>{displayTitle}</strong>
-            {displayCategory ? <span>{displayCategory}</span> : null}
+            {breadcrumbText ? <span>{breadcrumbText}</span> : null}
           </div>
           <span
             className={`nursery-product-price ${
@@ -370,13 +366,16 @@ export default function NurseriesPreviewTemplate({
   onIncreaseQty,
   onDecreaseQty,
   onOpenMenu,
+  onOpenGallery,
+  colorScheme = "forest",
 }) {
   const [activeSectionName, setActiveSectionName] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState("");
   const [sortBy, setSortBy] = useState("featured");
   const [viewMode, setViewMode] = useState("grid");
+  const [serviceModeLabel, setServiceModeLabel] = useState("Service Type");
+  const [heroImageIndex, setHeroImageIndex] = useState(0);
 
   const navItems = useMemo(() => {
     const webMenu = Array.isArray(category?.webMenu) ? category.webMenu : [];
@@ -385,13 +384,21 @@ export default function NurseriesPreviewTemplate({
         const normalized = String(item || "").trim().toLowerCase();
         if (!normalized) return null;
         if (normalized === "categories" || normalized === "services") return { label: item, href: "#services" };
-        if (normalized === "gallery") return { label: item, href: "#collections" };
+        if (normalized === "gallery") return { label: item, href: "#gallery", action: "gallery" };
         if (normalized === "contact") return { label: item, href: "#contact" };
         return { label: item, href: `#${toAnchor(item)}` };
       })
       .filter(Boolean);
-    return mapped.length > 0 ? mapped : DEFAULT_NAV;
+    return mapped;
   }, [category]);
+
+  const handleNavClick = (event, item) => {
+    if (item?.action === "gallery") {
+      event.preventDefault();
+      onOpenGallery?.();
+      setMobileMenuOpen(false);
+    }
+  };
 
   const serviceSections = useMemo(() => {
     const flatSections = [];
@@ -426,6 +433,97 @@ export default function NurseriesPreviewTemplate({
     serviceSections.find((section) => section.sectionName === activeSectionName) ||
     serviceSections[0] ||
     null;
+  const trustSummary = vendorInfo?.trustSummary || vendorInfo?.trust || {};
+  const trustEntries = useMemo(
+    () =>
+      Object.entries(trustSummary || {}).filter(
+        ([, value]) => value !== null && value !== undefined && value !== ""
+      ),
+    [trustSummary]
+  );
+  const trustCategoryId = vendorInfo?.categoryId || category?._id || category?.id;
+  const [trustQuestionLabels, setTrustQuestionLabels] = useState({});
+  const trustDisplayEntries = useMemo(
+    () =>
+      trustEntries
+        .map(([key, value]) => {
+          const items = Array.isArray(value)
+            ? value.map((item) => String(item || "").trim()).filter(Boolean)
+            : [];
+          return {
+            key,
+            label:
+              trustQuestionLabels[key] ||
+              String(key).replace(/[_-]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+            value: Array.isArray(value) ? items.join(" + ") : String(value),
+            isList: Array.isArray(value),
+          };
+        })
+        .filter((entry) => String(entry.value || "").trim()),
+    [trustEntries, trustQuestionLabels]
+  );
+  const serviceModeEntry = useMemo(
+    () =>
+      trustEntries.find(
+        ([key, value]) =>
+          Array.isArray(value) && /(service|mode|delivery|format|type)/i.test(String(key))
+      ) || null,
+    [trustEntries]
+  );
+  const trustKeysKey = useMemo(
+    () => trustEntries.map(([key]) => String(key || "").trim()).filter(Boolean).join("|"),
+    [trustEntries]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTrustQuestionMeta() {
+      const trustKeys = trustKeysKey ? trustKeysKey.split("|").filter(Boolean) : [];
+
+      if (!trustCategoryId || trustKeys.length === 0) {
+        if (!cancelled) {
+          setServiceModeLabel("Service Type");
+          setTrustQuestionLabels({});
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/trust/questions?categoryId=${encodeURIComponent(String(trustCategoryId))}`
+        );
+        const data = await response.json();
+        const questions = Array.isArray(data?.questions) ? data.questions : [];
+        if (!cancelled) {
+          const labelMap = {};
+          questions.forEach((question) => {
+            const id = String(question?.id || "").trim();
+            if (!id) return;
+            labelMap[id] = String(question?.label || id);
+          });
+          setTrustQuestionLabels(labelMap);
+          setServiceModeLabel(
+            String(
+              (serviceModeEntry && labelMap[serviceModeEntry[0]]) ||
+              serviceModeEntry?.[0] ||
+              "Service Type"
+            )
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setTrustQuestionLabels({});
+          setServiceModeLabel(String(serviceModeEntry?.[0] || "Service Type"));
+        }
+      }
+    }
+
+    loadTrustQuestionMeta();
+    return () => {
+      cancelled = true;
+    };
+  }, [serviceModeEntry, trustCategoryId, trustKeysKey]);
 
   const activeRows = useMemo(() => {
     if (!activeSection) return [];
@@ -433,14 +531,7 @@ export default function NurseriesPreviewTemplate({
       buildNurseryRows(card, activeSection.sectionName)
     );
 
-    const filtered = rows.filter((row) => {
-      const haystack = [row.title, row.subtitle, row.summary, ...(row.categoryPath || [])]
-        .map((item) => String(item || "").toLowerCase())
-        .join(" ");
-      return haystack.includes(String(searchValue || "").trim().toLowerCase());
-    });
-
-    const sorted = [...filtered];
+    const sorted = [...rows];
     if (sortBy === "price_low") {
       sorted.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
     } else if (sortBy === "price_high") {
@@ -449,7 +540,7 @@ export default function NurseriesPreviewTemplate({
       sorted.sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
     }
     return sorted;
-  }, [activeSection, searchValue, sortBy]);
+  }, [activeSection, sortBy]);
 
   const collectionCards = useMemo(() => {
     return serviceSections.map((section) => {
@@ -487,29 +578,36 @@ export default function NurseriesPreviewTemplate({
   }, [mergedHeroImages, serviceSections]);
 
   const repeatedCollectionCards = collectionCards.length > 1 ? [...collectionCards, ...collectionCards] : collectionCards;
-  const heroImage = mergedHeroImages?.[0] || collectionCards[0]?.imageUrl || "";
+  const heroImageList = useMemo(() => {
+    return [
+      ...new Set(
+        [
+          ...(Array.isArray(mergedHeroImages) ? mergedHeroImages : []),
+          ...collectionCards.flatMap((collection) => (Array.isArray(collection.images) ? collection.images : [])),
+        ]
+          .map((image) => String(image || "").trim())
+          .filter(Boolean)
+      ),
+    ];
+  }, [collectionCards, mergedHeroImages]);
+  const heroImage = heroImageList[heroImageIndex] || "";
   const introSummary = getRefinedHeroCopy({
     heroDescription,
     categoryName: category?.name,
     address: vendorInfo?.location?.address,
   });
+  const serviceModeSummary =
+    trustDisplayEntries.find((entry) => String(entry.key || "") === String(serviceModeEntry?.[0] || ""))
+      ?.value || "";
 
   const phoneNumbers = [
     vendorInfo?.phone,
     ...(Array.isArray(vendorInfo?.secondaryPhones) ? vendorInfo.secondaryPhones : []),
   ].filter(Boolean);
 
-  const businessHours = Array.isArray(vendorInfo?.businessHours) ? vendorInfo.businessHours : [];
   const locationLat = vendorInfo?.location?.lat;
   const locationLng = vendorInfo?.location?.lng;
   const logoUrl = typeof vendorInfo?.logoUrl === "string" ? vendorInfo.logoUrl.trim() : "";
-
-  const stats = [
-    { label: "Collections", value: serviceSections.length || 0 },
-    { label: "Products", value: activeRows.length || 0 },
-    { label: "Delivery", value: "PAN India" },
-    { label: "Support", value: phoneNumbers[0] ? "WhatsApp" : "Available" },
-  ];
 
   const handleOpenEnquiry = () => {
     if (typeof window !== "undefined") {
@@ -518,20 +616,42 @@ export default function NurseriesPreviewTemplate({
     scrollToElementById("contact");
   };
 
+  useEffect(() => {
+    if (!heroImageList.length) return;
+    setHeroImageIndex((current) => (current >= heroImageList.length ? 0 : current));
+  }, [heroImageList]);
+
+  useEffect(() => {
+    if (heroImageList.length <= 1) return;
+    const interval = window.setInterval(() => {
+      setHeroImageIndex((current) => (current + 1) % heroImageList.length);
+    }, 1800);
+
+    return () => window.clearInterval(interval);
+  }, [heroImageList]);
+
   return (
-    <div className="nursery-template-shell">
+    <div
+      className={`nursery-template-shell theme-${
+        String(colorScheme || "forest").trim().toLowerCase() || "forest"
+      }`}
+    >
       <header className="nursery-header" id="home">
         <div className="nursery-header-top">
-          <button
-            type="button"
-            className={`nursery-mobile-toggle ${mobileMenuOpen ? "is-open" : ""}`}
-            aria-expanded={mobileMenuOpen}
-            onClick={() => setMobileMenuOpen((current) => !current)}
-          >
-            <span />
-            <span />
-            <span />
-          </button>
+          {navItems.length > 0 ? (
+            <button
+              type="button"
+              className={`nursery-mobile-toggle ${mobileMenuOpen ? "is-open" : ""}`}
+              aria-expanded={mobileMenuOpen}
+              onClick={() => setMobileMenuOpen((current) => !current)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+          ) : (
+            <div />
+          )}
 
           <a className="nursery-brand" href="#home">
             {logoUrl ? (
@@ -559,38 +679,37 @@ export default function NurseriesPreviewTemplate({
                 </option>
               ))}
             </select>
-            <input
-              type="search"
-              placeholder="What are you looking for?"
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-            />
-            <button type="button" onClick={() => scrollToElementById("services")}>
-              Search
-            </button>
           </div>
 
           <div className="nursery-header-actions">
-            {phoneNumbers[0] ? <a href={`tel:${phoneNumbers[0]}`}>Call Now</a> : <span>Support</span>}
-            <button type="button" onClick={() => scrollToElementById("contact")}>Login</button>
+            {phoneNumbers[0] ? <a href={`tel:${phoneNumbers[0]}`}>Call Now</a> : null}
             <button type="button" onClick={onOpenMenu}>
               Cart {cartItems.length > 0 ? `(${cartItems.length})` : ""}
             </button>
           </div>
         </div>
 
-        <nav className="nursery-nav" aria-label="Primary">
-          {navItems.map((item) => (
-            <a key={`${item.label}-${item.href}`} href={item.href}>
-              {item.label}
-            </a>
-          ))}
-        </nav>
+        {navItems.length > 0 ? (
+          <nav className="nursery-nav" aria-label="Primary">
+            {navItems.map((item) => (
+              <a key={`${item.label}-${item.href}`} href={item.href} onClick={(event) => handleNavClick(event, item)}>
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        ) : null}
 
-        {mobileMenuOpen ? (
+        {mobileMenuOpen && navItems.length > 0 ? (
           <div className="nursery-mobile-menu">
             {navItems.map((item) => (
-              <a key={`${item.label}-mobile`} href={item.href} onClick={() => setMobileMenuOpen(false)}>
+              <a
+                key={`${item.label}-mobile`}
+                href={item.href}
+                onClick={(event) => {
+                  handleNavClick(event, item);
+                  if (item?.action !== "gallery") setMobileMenuOpen(false);
+                }}
+              >
                 {item.label}
               </a>
             ))}
@@ -600,50 +719,49 @@ export default function NurseriesPreviewTemplate({
 
       <section className="nursery-hero">
         <div className="nursery-hero-copy">
-          <span className="nursery-kicker">{vendorInfo?.location?.address?.split(",")[0] || "Premium Nursery"}</span>
-          <h1>{heroTagline || "Where Nature Blooms"}</h1>
+          <h1>{heroTagline || vendorInfo?.businessName || category?.name || "Nursery"}</h1>
           <p>{introSummary}</p>
 
-          <div className="nursery-hero-actions">
-            <button type="button" className="nursery-primary-btn" onClick={() => scrollToElementById("services")}>
-              Shop All Plants
-            </button>
-            <button type="button" className="nursery-secondary-btn" onClick={() => scrollToElementById("collections")}>
-              Explore Collections
-            </button>
+          {serviceModeSummary ? (
+            <div className="nursery-service-mode-line">
+              <span>{serviceModeLabel}:</span> {serviceModeSummary}
+            </div>
+          ) : null}
+
+          {trustDisplayEntries.length > 0 || typeof vendorInfo?.googlePlace?.rating === "number" ? (
+            <div className="nursery-stats-grid">
+              {trustDisplayEntries.map((entry) => (
+                <div key={entry.key} className="nursery-stat-card">
+                  <strong>{entry.value}</strong>
+                  <span>{entry.label}</span>
+                </div>
+              ))}
+              {typeof vendorInfo?.googlePlace?.rating === "number" ? (
+                <div className="nursery-stat-card">
+                  <strong>{vendorInfo.googlePlace.rating}*</strong>
+                  <span>
+                    Google Rating
+                    {vendorInfo?.googlePlace?.userRatingsTotal
+                      ? ` (${vendorInfo.googlePlace.userRatingsTotal})`
+                      : ""}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="nursery-hero-visual-column">
+          <div className="nursery-hero-visual">
+            {heroImage ? <img src={heroImage} alt={heroTagline || vendorInfo?.businessName || "Nursery preview"} /> : null}
           </div>
-
-          <div className="nursery-stats-grid">
-            {stats.map((item) => (
-              <div key={item.label} className="nursery-stat-card">
-                <strong>{item.value}</strong>
-                <span>{item.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="nursery-hero-visual">
-          {heroImage ? <img src={heroImage} alt={heroTagline || vendorInfo?.businessName || "Nursery preview"} /> : null}
-        </div>
-      </section>
-
-      <section className="nursery-feature-strip">
-        <div className="nursery-feature-item">
-          <strong>Pan-India Support</strong>
-          <span>Collections across categories</span>
-        </div>
-        <div className="nursery-feature-item">
-          <strong>Healthy Stock</strong>
-          <span>Fresh listings from your catalog</span>
-        </div>
-        <div className="nursery-feature-item">
-          <strong>{phoneNumbers[0] ? "WhatsApp Support" : "Quick Support"}</strong>
-          <span>{phoneNumbers[0] || "Responsive team"}</span>
-        </div>
-        <div className="nursery-feature-item">
-          <strong>{businessHours.length > 0 ? "Open Weekly" : "Quick Enquiry"}</strong>
-          <span>{businessHours[0]?.hours || "Available on request"}</span>
+          {heroImageList.length > 0 ? (
+            <div className="nursery-hero-gallery-action">
+              <button type="button" className="nursery-secondary-btn" onClick={onOpenGallery}>
+                View Gallery
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
 

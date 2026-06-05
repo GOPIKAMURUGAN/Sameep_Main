@@ -233,6 +233,16 @@ const cardHandlers = {
         <HeroTextModal
           vendorId={vendorId}
           businessName={currentVendorInfo?.businessName || ""}
+          categoryId={
+            typeof currentVendorInfo?.categoryId === "object"
+              ? currentVendorInfo?.categoryId?._id || ""
+              : currentVendorInfo?.categoryId || ""
+          }
+          categoryName={
+            typeof currentVendorInfo?.categoryId === "object"
+              ? currentVendorInfo?.categoryId?.name || ""
+              : currentVendorInfo?.categoryName || ""
+          }
           initialHeading={currentVendorInfo?.customFields?.freeText1 || ""}
           initialDescription={currentVendorInfo?.customFields?.freeText2 || ""}
           onClose={() => setShowHeroText(false)}
@@ -244,6 +254,7 @@ const cardHandlers = {
           vendorId={vendorId}
           businessName={currentVendorInfo?.businessName || ""}
           initialTemplateKey={currentVendorInfo?.selectedTemplateKey || ""}
+          initialNurseryColorScheme={currentVendorInfo?.nurseryColorScheme || ""}
           onClose={() => setShowTemplateSelection(false)}
         />
       )}

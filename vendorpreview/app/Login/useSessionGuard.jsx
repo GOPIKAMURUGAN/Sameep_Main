@@ -4,6 +4,17 @@ import { useEffect } from "react";
 
 const SESSION_CHECK_INTERVAL_MS = 30000;
 
+const getSafeDeviceId = () => {
+  if (typeof globalThis !== "undefined") {
+    const randomUuid = globalThis.crypto?.randomUUID;
+    if (typeof randomUuid === "function") {
+      return randomUuid.call(globalThis.crypto);
+    }
+  }
+
+  return `dev-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
 const guardState = {
   refCount: 0,
   intervalId: null,
@@ -256,7 +267,7 @@ export function useSessionGuard() {
     let deviceId = localStorage.getItem("deviceId");
 
     if (!deviceId) {
-      deviceId = crypto.randomUUID();
+      deviceId = getSafeDeviceId();
       localStorage.setItem("deviceId", deviceId);
     }
 

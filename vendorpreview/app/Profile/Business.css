@@ -284,6 +284,11 @@
   margin-top:10px;
 }
 
+.branding-trust-grid{
+  display:grid;
+  gap:14px;
+}
+
 .branding-contact-section{
   display:flex;
   flex-direction:column;
@@ -294,12 +299,23 @@
   background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));
 }
 
+.branding-contact-section.nested{
+  padding:16px;
+  border-radius:16px;
+}
+
 .branding-label{
   color:#f5e2a4;
   font-size:13px;
   font-weight:800;
   letter-spacing:.06em;
   text-transform:uppercase;
+}
+
+.branding-helper-text{
+  color:rgba(245,226,164,.72);
+  font-size:13px;
+  line-height:1.5;
 }
 
 .branding-logo-row{
@@ -375,6 +391,38 @@
   outline:none;
   border-color:#f5d97a;
   box-shadow:0 0 0 2px rgba(245,217,122,.18);
+}
+
+.branding-trust-multi-options{
+  display:grid;
+  gap:8px;
+  margin-top:4px;
+  justify-items:start;
+}
+
+.branding-trust-multi-row{
+  display:grid;
+  grid-template-columns:16px auto;
+  align-items:center;
+  justify-content:start;
+  column-gap:8px;
+  width:max-content;
+  max-width:100%;
+  color:#f3e6c9;
+  font-size:14px;
+  text-align:left;
+}
+
+.branding-trust-multi-row input{
+  width:16px;
+  height:16px;
+  margin:0;
+  accent-color:#f5d97a;
+}
+
+.branding-trust-multi-text{
+  display:block;
+  line-height:1.35;
 }
 
 .branding-upload-btn{

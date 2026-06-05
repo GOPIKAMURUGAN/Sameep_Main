@@ -164,10 +164,47 @@ function filterTreeBySelection(nodes = [], selectedIdSet) {
   }, []);
 }
 
+function isNodeFullySelected(node, selectedIdSet) {
+  const allIds = collectTreeIds([node]);
+  return allIds.length > 0 && allIds.every((id) => selectedIdSet.has(String(id)));
+}
+
+function buildInsertionTreeForDestination(nodes = [], selectedIdSet) {
+  return nodes.reduce((acc, node) => {
+    const isSelected = selectedIdSet.has(String(node.id));
+    const selectedChildren = buildInsertionTreeForDestination(node.children || [], selectedIdSet);
+    const fullySelected = isNodeFullySelected(node, selectedIdSet);
+
+    if (!isSelected && !selectedChildren.length) {
+      return acc;
+    }
+
+    if (!fullySelected) {
+      if (selectedChildren.length) {
+        acc.push(...selectedChildren);
+      } else if (isSelected) {
+        acc.push({
+          ...node,
+          children: [],
+        });
+      }
+      return acc;
+    }
+
+    acc.push({
+      ...node,
+      children: selectedChildren,
+    });
+    return acc;
+  }, []);
+}
+
 async function createVendorMenuTreeForTarget({
   vendorId,
   nodes,
   parentNodeId = null,
+  parentPathNames = [],
+  parentLevel = 0,
   uploadBatchId,
   datasetStatus = "active",
   startSequence = 1,
@@ -175,11 +212,13 @@ async function createVendorMenuTreeForTarget({
   let sequence = startSequence;
 
   for (const node of nodes) {
+    const nodeLevel = parentLevel + 1;
+    const nodePathNames = [...parentPathNames, node.name].filter(Boolean);
     const created = await VendorMenuNode.create({
       vendorId,
       parentNodeId,
       name: node.name,
-      level: Number(node.level || 1),
+      level: nodeLevel,
       isLeaf: Boolean(node.isLeaf),
       price: node.price ?? null,
       pricingStatus: node.pricingStatus || (node.isLeaf ? "Active" : "Inactive"),
@@ -198,7 +237,7 @@ async function createVendorMenuTreeForTarget({
       sourceType: "manual_upload",
       uploadBatchId,
       datasetStatus,
-      pathNames: Array.isArray(node.pathNames) ? node.pathNames : [],
+      pathNames: nodePathNames,
     });
 
     if (Array.isArray(node.children) && node.children.length) {
@@ -206,6 +245,8 @@ async function createVendorMenuTreeForTarget({
         vendorId,
         nodes: node.children,
         parentNodeId: created._id,
+        parentPathNames: nodePathNames,
+        parentLevel: nodeLevel,
         uploadBatchId,
         datasetStatus,
         startSequence: 1,
@@ -412,8 +453,7 @@ router.get("/vendor-menu-copy/preview", requireAdminAuth, async (req, res) => {
           leafCount,
           topLevelCount: tree.length,
           topLevelNames,
-          canCopy:
-            (vendor.pricingSource || "standard") === "self_managed" && nodes.length > 0,
+          canCopy: nodes.length > 0,
         },
         tree,
       });
@@ -471,6 +511,7 @@ router.post("/vendor-menu-copy/execute", requireAdminAuth, async (req, res) => {
     const sourceCategoryId = String(req.body?.sourceCategoryId || "").trim();
     const targetVendorId = String(req.body?.targetVendorId || "").trim();
     const mode = String(req.body?.mode || "replace_archive").trim();
+    const destinationNodeId = String(req.body?.destinationNodeId || "").trim();
     const selectedNodeIds = Array.isArray(req.body?.selectedNodeIds)
       ? req.body.selectedNodeIds.map((id) => String(id || "").trim()).filter(Boolean)
       : [];
@@ -499,6 +540,12 @@ router.post("/vendor-menu-copy/execute", requireAdminAuth, async (req, res) => {
       return res.status(400).json({ message: "Unsupported copy mode" });
     }
 
+    if (destinationNodeId && mode !== "append_keep") {
+      return res.status(400).json({
+        message: "Destination node can only be used when adding to the existing target menu",
+      });
+    }
+
     let sourceLabel = "";
     let sourceTree = [];
     let effectiveSelectedIds = [];
@@ -506,6 +553,29 @@ router.post("/vendor-menu-copy/execute", requireAdminAuth, async (req, res) => {
     const targetVendor = await DummyVendor.findById(targetVendorId);
     if (!targetVendor) {
       return res.status(404).json({ message: "Target vendor not found" });
+    }
+
+    let destinationNode = null;
+    if (destinationNodeId) {
+      if (!mongoose.Types.ObjectId.isValid(destinationNodeId)) {
+        return res.status(400).json({ message: "Invalid destinationNodeId" });
+      }
+
+      destinationNode = await VendorMenuNode.findOne({
+        _id: destinationNodeId,
+        vendorId: targetVendorId,
+        datasetStatus: "active",
+      }).lean();
+
+      if (!destinationNode) {
+        return res.status(404).json({ message: "Destination node not found on target vendor" });
+      }
+
+      if (destinationNode.isLeaf) {
+        return res.status(400).json({
+          message: "Destination node must be a group or subcategory, not a service item",
+        });
+      }
     }
 
     if (sourceType === "vendor") {
@@ -523,10 +593,6 @@ router.post("/vendor-menu-copy/execute", requireAdminAuth, async (req, res) => {
 
       if (!sourceNodes.length) {
         return res.status(400).json({ message: "Source vendor has no active My Menu to copy" });
-      }
-
-      if ((sourceVendor.pricingSource || "standard") !== "self_managed") {
-        return res.status(400).json({ message: "Source vendor is not using My Menu" });
       }
 
       sourceTree = buildVendorMenuTree(sourceNodes);
@@ -556,7 +622,11 @@ router.post("/vendor-menu-copy/execute", requireAdminAuth, async (req, res) => {
       return res.status(400).json({ message: "Selected menu nodes are not valid for this source" });
     }
 
-    const filteredTree = filterTreeBySelection(sourceTree, new Set(effectiveSelectedIds));
+    const selectedIdSet = new Set(effectiveSelectedIds);
+    const filteredTree =
+      mode === "append_keep" && destinationNode
+        ? buildInsertionTreeForDestination(sourceTree, selectedIdSet)
+        : filterTreeBySelection(sourceTree, selectedIdSet);
     if (!filteredTree.length) {
       return res.status(400).json({ message: "No selectable menu hierarchy found for copy" });
     }
@@ -582,7 +652,7 @@ router.post("/vendor-menu-copy/execute", requireAdminAuth, async (req, res) => {
       const lastTopLevelNode = await VendorMenuNode.findOne({
         vendorId: targetVendorId,
         datasetStatus: "active",
-        parentNodeId: null,
+        parentNodeId: destinationNode ? destinationNode._id : null,
       })
         .sort({ sequence: -1, createdAt: -1 })
         .lean();
@@ -593,6 +663,9 @@ router.post("/vendor-menu-copy/execute", requireAdminAuth, async (req, res) => {
     await createVendorMenuTreeForTarget({
       vendorId: targetVendorId,
       nodes: filteredTree,
+      parentNodeId: destinationNode ? destinationNode._id : null,
+      parentPathNames: Array.isArray(destinationNode?.pathNames) ? destinationNode.pathNames : [],
+      parentLevel: Number(destinationNode?.level || 0),
       uploadBatchId,
       datasetStatus: "active",
       startSequence: topLevelStartSequence,
@@ -614,6 +687,13 @@ router.post("/vendor-menu-copy/execute", requireAdminAuth, async (req, res) => {
       copiedNodeCount: effectiveSelectedIds.length,
       copiedTopLevelNames,
       sourceLabel,
+      destinationNode: destinationNode
+        ? {
+            id: String(destinationNode._id),
+            name: destinationNode.name || "",
+            pathNames: Array.isArray(destinationNode.pathNames) ? destinationNode.pathNames : [],
+          }
+        : null,
       targetVendor: {
         id: String(targetVendor._id),
         businessName: targetVendor.businessName || "",

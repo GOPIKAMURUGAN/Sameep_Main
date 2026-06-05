@@ -67,6 +67,16 @@ const VendorCustomPackageSchema = new mongoose.Schema(
       enum: ['custom'],
       default: 'custom',
     },
+    customType: {
+      type: String,
+      enum: ['', 'package', 'service_item', 'offer'],
+      default: '',
+    },
+    variantMode: {
+      type: String,
+      enum: ['', 'single', 'nested'],
+      default: '',
+    },
     createdByVendor: { type: Boolean, default: true },
 
     ancestorNodeIds: {

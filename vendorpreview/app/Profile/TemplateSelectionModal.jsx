@@ -13,15 +13,92 @@ function prettyTemplateLabel(value) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+const NURSERY_COLOR_SCHEMES = [
+  {
+    key: "forest",
+    name: "Forest Green",
+    preview: "linear-gradient(135deg, #214122 0%, #ef6a44 100%)",
+  },
+  {
+    key: "terracotta",
+    name: "Terracotta Clay",
+    preview: "linear-gradient(135deg, #6d3b2b 0%, #e59e62 100%)",
+  },
+  {
+    key: "midnight",
+    name: "Midnight Garden",
+    preview: "linear-gradient(135deg, #1a2744 0%, #7db1a7 100%)",
+  },
+  {
+    key: "rosewood",
+    name: "Rosewood Bloom",
+    preview: "linear-gradient(135deg, #5d2f41 0%, #d6a37d 100%)",
+  },
+  {
+    key: "olive",
+    name: "Olive Grove",
+    preview: "linear-gradient(135deg, #59633d 0%, #d9c489 100%)",
+  },
+  {
+    key: "sage",
+    name: "Sage Mist",
+    preview: "linear-gradient(135deg, #93a691 0%, #f1eee4 100%)",
+  },
+  {
+    key: "sunset",
+    name: "Sunset Orchard",
+    preview: "linear-gradient(135deg, #b85f34 0%, #f0b36f 100%)",
+  },
+  {
+    key: "ivory",
+    name: "Ivory Gold",
+    preview: "linear-gradient(135deg, #f4ead2 0%, #b79a56 100%)",
+  },
+  {
+    key: "onyx",
+    name: "Black Onyx",
+    preview: "linear-gradient(135deg, #171717 0%, #b89a57 100%)",
+  },
+  {
+    key: "ruby",
+    name: "Ruby Red",
+    preview: "linear-gradient(135deg, #6b1f2f 0%, #d8b06b 100%)",
+  },
+  {
+    key: "emerald",
+    name: "Emerald Sand",
+    preview: "linear-gradient(135deg, #136a5c 0%, #e5d6ad 100%)",
+  },
+  {
+    key: "tealcopper",
+    name: "Teal Copper",
+    preview: "linear-gradient(135deg, #2b6f77 0%, #c48a5a 100%)",
+  },
+  {
+    key: "mochasage",
+    name: "Mocha Sage",
+    preview: "linear-gradient(135deg, #6b4f3f 0%, #9aac8a 100%)",
+  },
+  {
+    key: "chocolategold",
+    name: "Chocolate Gold",
+    preview: "linear-gradient(135deg, #4c3427 0%, #c9a96a 100%)",
+  },
+];
+
 export default function TemplateSelectionModal({
   vendorId,
   businessName,
   initialTemplateKey = "",
+  initialNurseryColorScheme = "",
   onClose,
 }) {
   const { setVendorInfo } = useVendor();
   const [templates, setTemplates] = useState([]);
   const [selectedTemplateKey, setSelectedTemplateKey] = useState(initialTemplateKey || "");
+  const [nurseryColorScheme, setNurseryColorScheme] = useState(
+    initialNurseryColorScheme || "forest"
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -64,6 +141,8 @@ export default function TemplateSelectionModal({
     );
   }, [templates, initialTemplateKey]);
 
+  const showNurseryColorScheme = selectedTemplateKey === "nurseries";
+
   const handleSave = async () => {
     if (!vendorId) {
       alert("Vendor ID missing");
@@ -85,6 +164,7 @@ export default function TemplateSelectionModal({
         },
         body: JSON.stringify({
           selectedTemplateKey: selectedTemplateKey || "",
+          nurseryColorScheme: nurseryColorScheme || "forest",
         }),
       });
       const data = await response.json();
@@ -97,6 +177,7 @@ export default function TemplateSelectionModal({
           ? {
               ...prev,
               selectedTemplateKey: data?.selectedTemplateKey || "",
+              nurseryColorScheme: data?.nurseryColorScheme || nurseryColorScheme || "forest",
             }
           : prev
       );
@@ -139,6 +220,66 @@ export default function TemplateSelectionModal({
               </select>
             )}
           </div>
+
+          {showNurseryColorScheme ? (
+            <div className="branding-contact-section">
+              <label className="branding-label" htmlFor="nursery-color-scheme-select">
+                Color Scheme
+              </label>
+              <select
+                id="nursery-color-scheme-select"
+                className="branding-text-input"
+                value={nurseryColorScheme}
+                onChange={(event) => setNurseryColorScheme(event.target.value)}
+              >
+                {NURSERY_COLOR_SCHEMES.map((scheme) => (
+                  <option key={scheme.key} value={scheme.key}>
+                    {scheme.name}
+                  </option>
+                ))}
+              </select>
+
+              <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+                {NURSERY_COLOR_SCHEMES.map((scheme) => {
+                  const active = nurseryColorScheme === scheme.key;
+                  return (
+                    <button
+                      key={scheme.key}
+                      type="button"
+                      onClick={() => setNurseryColorScheme(scheme.key)}
+                      style={{
+                        alignItems: "center",
+                        background: active ? "rgba(245, 217, 122, 0.08)" : "rgba(255,255,255,0.04)",
+                        border: active
+                          ? "1px solid rgba(245, 217, 122, 0.7)"
+                          : "1px solid rgba(255,255,255,0.12)",
+                        borderRadius: 12,
+                        color: "#fffaf0",
+                        cursor: "pointer",
+                        display: "grid",
+                        gap: 12,
+                        gridTemplateColumns: "44px minmax(0, 1fr)",
+                        padding: 10,
+                        textAlign: "left",
+                      }}
+                    >
+                      <span
+                        style={{
+                          background: scheme.preview,
+                          borderRadius: 12,
+                          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+                          display: "block",
+                          height: 44,
+                          width: 44,
+                        }}
+                      />
+                      <span style={{ fontWeight: 700 }}>{scheme.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           <div className="branding-contact-section">
             <label className="branding-label">Available Templates</label>
