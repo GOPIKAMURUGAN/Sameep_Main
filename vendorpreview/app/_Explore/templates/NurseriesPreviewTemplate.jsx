@@ -550,7 +550,6 @@ export default function NurseriesPreviewTemplate({
           [
             ...section.cards.map((card) => getCardImage(card)),
             ...rows.map((row) => row.imageUrl),
-            mergedHeroImages?.[0] || "",
           ].filter(Boolean)
         ),
       ];
@@ -575,7 +574,7 @@ export default function NurseriesPreviewTemplate({
         itemCount: rows.length,
       };
     });
-  }, [mergedHeroImages, serviceSections]);
+  }, [serviceSections]);
 
   const repeatedCollectionCards = collectionCards.length > 1 ? [...collectionCards, ...collectionCards] : collectionCards;
   const heroImageList = useMemo(() => {
