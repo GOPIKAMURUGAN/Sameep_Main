@@ -463,7 +463,7 @@ function getSocialHref(key, value) {
   if (!value) return "#";
   if (value.startsWith("http")) return value;
   if (key === "email") return `mailto:${value}`;
-  if (key === "whatsapp") return `https://wa.me/${value}`;
+  if (key === "whatsapp") return `https://wa.me/${String(value).replace(/\D/g, "")}`;
   return `https://${key}.com/${value}`;
 }
 
@@ -550,7 +550,10 @@ function getCardImage(card) {
 
 function getCardDescription(card) {
   if (Array.isArray(card?.terms) && card.terms.length > 0) {
-    return card.terms.slice(0, 2).join(" • ");
+    return card.terms
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .join(" • ");
   }
   if (card?.offerText?.trim()) return card.offerText.trim();
   return "";
@@ -651,7 +654,7 @@ function isDisplayableCard(card) {
 
 function getTermsSummary(terms) {
   if (Array.isArray(terms) && terms.length > 0) {
-    return terms.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 2).join(" • ");
+    return terms.map((item) => String(item || "").trim()).filter(Boolean).join(" • ");
   }
 
   if (typeof terms === "string" && terms.trim()) {
@@ -788,11 +791,20 @@ function getRefinedHeroCopy({ heroDescription, categoryName, address, isTelugu =
 
 function getHeroHighlights({
   vendorInfo,
-  serviceModes,
   categoryName,
-  serviceModeLabel,
   isTelugu = false,
 }) {
+  const customHighlights = Array.isArray(vendorInfo?.customFields?.quickHighlights)
+    ? vendorInfo.customFields.quickHighlights
+        .map((item) => String(item || "").trim().slice(0, 80))
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+
+  if (customHighlights.length > 0) {
+    return customHighlights;
+  }
+
   const highlights = [];
   const address = String(vendorInfo?.location?.address || "").trim();
   const addressParts = address
@@ -806,14 +818,6 @@ function getHeroHighlights({
     } else {
     highlights.push(`${categoryName} experiences tailored to your needs`);
     }
-  }
-
-  if (serviceModes?.length) {
-    const modeValue = serviceModes.join(" + ");
-    const modeLabel = String(
-      serviceModeLabel || (isTelugu ? "సేవ రకం" : "Service Type")
-    ).trim();
-    highlights.push(`${modeLabel}: ${modeValue}`);
   }
 
   if (addressParts.length > 0) {
@@ -1117,9 +1121,12 @@ export default function ModernPreviewTemplate({
   onIncreaseQty,
   onDecreaseQty,
   templateVariant = "modern",
+  colorScheme = "ivory",
 }) {
   const isTelugu = String(vendorInfo?.languagePreference || "").trim().toLowerCase() === "te";
   const isAstrologyTheme = templateVariant === "astrology";
+  const modernThemeKey =
+    String(colorScheme || "ivory").trim().toLowerCase() || "ivory";
   const [serviceModeLabel, setServiceModeLabel] = useState("Service Modes");
   const [activeSectionName, setActiveSectionName] = useState("");
   const [activeCardId, setActiveCardId] = useState("");
@@ -1131,6 +1138,8 @@ export default function ModernPreviewTemplate({
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
   const [inquiryFeedback, setInquiryFeedback] = useState("");
   const [translatedHeroCopy, setTranslatedHeroCopy] = useState(null);
+  const [activeShowcaseItemIndex, setActiveShowcaseItemIndex] = useState(null);
+  const [activeShowcaseImageIndex, setActiveShowcaseImageIndex] = useState(0);
 
   const navItems = useMemo(() => {
     const webMenu = Array.isArray(category?.webMenu) ? category.webMenu : [];
@@ -1203,6 +1212,7 @@ export default function ModernPreviewTemplate({
     ([, value]) => value !== null && value !== undefined && value !== ""
   );
   const trustCategoryId = vendorInfo?.categoryId || category?._id || category?.id;
+  const [trustQuestionLabels, setTrustQuestionLabels] = useState({});
   const serviceModeEntry = trustEntries.find(
     ([key, value]) =>
       Array.isArray(value) &&
@@ -1211,8 +1221,19 @@ export default function ModernPreviewTemplate({
   const serviceModes = Array.isArray(serviceModeEntry?.[1])
     ? serviceModeEntry[1].map((item) => String(item || "").trim()).filter(Boolean)
     : [];
-  const statEntries = Object.entries(trustSummary).filter(([, value]) => {
+  const serviceModeTrustKey = String(serviceModeEntry?.[0] || "").trim();
+  const listTrustEntries = trustEntries
+    .filter(([, value]) => Array.isArray(value))
+    .map(([key, value]) => ({
+      key,
+      label: trustQuestionLabels[key] || prettifyLabel(key, { isTelugu }),
+      values: value.map((item) => String(item || "").trim()).filter(Boolean),
+    }))
+    .filter((entry) => entry.values.length > 0);
+  const extraListEntries = listTrustEntries.filter((entry) => entry.key !== serviceModeTrustKey);
+  const statEntries = Object.entries(trustSummary).filter(([key, value]) => {
     if (value === null || value === undefined || value === "") return false;
+    if (key === serviceModeTrustKey) return false;
     return !Array.isArray(value);
   });
   const mapsLink = useMemo(() => {
@@ -1239,17 +1260,31 @@ export default function ModernPreviewTemplate({
           .filter((key) => Boolean(key) && Boolean(SOCIAL_ICONS[key]))
       : [];
 
+    const buildWhatsappEntry = () => {
+      const whatsappValue = String(socialLinks.whatsapp || vendorInfo?.phone || "").trim();
+      return whatsappValue ? { key: "whatsapp", value: whatsappValue } : null;
+    };
+
     if (enabledSocials.length > 0) {
-      return enabledSocials
+      const mapped = enabledSocials
         .map((key) => {
-          const value = String(socialLinks[key] || "").trim();
+          const value = String(
+            key === "whatsapp" ? socialLinks.whatsapp || vendorInfo?.phone || "" : socialLinks[key] || ""
+          ).trim();
           if (!value || !SOCIAL_ICONS[key]) return null;
           return { key, value };
         })
         .filter(Boolean);
+
+      if (!mapped.some(({ key }) => key === "whatsapp")) {
+        const whatsappEntry = buildWhatsappEntry();
+        if (whatsappEntry) mapped.push(whatsappEntry);
+      }
+
+      return mapped;
     }
 
-    return Object.entries(socialLinks)
+    const mapped = Object.entries(socialLinks)
       .map(([key, rawValue]) => {
         const normalizedKey = normalizeSocialKey(key);
         const value = String(rawValue || "").trim();
@@ -1257,15 +1292,23 @@ export default function ModernPreviewTemplate({
         return { key: normalizedKey, value };
       })
       .filter(Boolean);
-  }, [category, vendorInfo?.socialLinks]);
+
+    if (!mapped.some(({ key }) => key === "whatsapp")) {
+      const whatsappEntry = buildWhatsappEntry();
+      if (whatsappEntry) mapped.push(whatsappEntry);
+    }
+
+    return mapped;
+  }, [category, vendorInfo?.phone, vendorInfo?.socialLinks]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadTrustQuestionMeta() {
-      if (!trustCategoryId || !serviceModeEntry?.[0]) {
+      if (!trustCategoryId || listTrustEntries.length === 0) {
         if (!cancelled) {
           setServiceModeLabel("Service Modes");
+          setTrustQuestionLabels({});
         }
         return;
       }
@@ -1276,16 +1319,27 @@ export default function ModernPreviewTemplate({
         );
         const data = await response.json();
         const questions = Array.isArray(data?.questions) ? data.questions : [];
-        const matched = questions.find(
-          (question) => String(question?.id || "").trim() === String(serviceModeEntry[0]).trim()
-        );
+        const labelMap = {};
+        questions.forEach((question) => {
+          const id = String(question?.id || "").trim();
+          if (!id) return;
+          labelMap[id] = String(question?.label || id);
+        });
 
         if (!cancelled) {
-          setServiceModeLabel(String(matched?.label || serviceModeEntry[0] || "Service Modes"));
+          setTrustQuestionLabels(labelMap);
+          setServiceModeLabel(
+            String(
+              (serviceModeTrustKey && labelMap[serviceModeTrustKey]) ||
+              serviceModeTrustKey ||
+              "Service Modes"
+            )
+          );
         }
       } catch {
         if (!cancelled) {
-          setServiceModeLabel(String(serviceModeEntry?.[0] || "Service Modes"));
+          setTrustQuestionLabels({});
+          setServiceModeLabel(String(serviceModeTrustKey || "Service Modes"));
         }
       }
     }
@@ -1295,7 +1349,7 @@ export default function ModernPreviewTemplate({
     return () => {
       cancelled = true;
     };
-  }, [serviceModeEntry, trustCategoryId]);
+  }, [listTrustEntries.length, serviceModeTrustKey, trustCategoryId]);
 
   const serviceSections = useMemo(() => {
     const flatSections = [];
@@ -1388,8 +1442,71 @@ export default function ModernPreviewTemplate({
   const storyImages = rotatingGalleryWindow.slice(1);
 
   const offerCards = useMemo(() => getOfferCards(orderedCategories), [orderedCategories]);
-  const featureCards = Array.isArray(category?.whyUs?.cards) ? category.whyUs.cards.filter(Boolean) : [];
+  const vendorWhyUs =
+    vendorInfo?.customFields?.whyUs && typeof vendorInfo.customFields.whyUs === "object"
+      ? vendorInfo.customFields.whyUs
+      : {};
+  const vendorWhyUsCards = Array.isArray(vendorWhyUs?.cards)
+    ? vendorWhyUs.cards.filter((card) => card?.title || card?.description)
+    : [];
+  const founderAbout =
+    vendorInfo?.customFields?.founderAbout && typeof vendorInfo.customFields.founderAbout === "object"
+      ? vendorInfo.customFields.founderAbout
+      : {};
+  const featureCards = vendorWhyUsCards.length
+    ? vendorWhyUsCards
+    : Array.isArray(category?.whyUs?.cards)
+      ? category.whyUs.cards.filter(Boolean)
+      : [];
   const about = category?.about || {};
+  const storyHeading =
+    String(vendorWhyUs?.heading || "").trim() ||
+    about?.heading ||
+    `Crafting confidence at ${vendorInfo?.businessName || "our studio"}`;
+  const storyDescription =
+    String(vendorWhyUs?.subHeading || "").trim() ||
+    about?.mainText ||
+    category?.whyUs?.subHeading ||
+    heroDescription;
+  const founderHeading = String(founderAbout?.heading || "").trim() || "Meet the Founder";
+  const founderBody = String(founderAbout?.body || "").trim();
+  const founderName = String(founderAbout?.founderName || "").trim();
+  const founderRole = String(founderAbout?.founderRole || "").trim();
+  const founderImageUrl = String(founderAbout?.founderImageUrl || "").trim();
+  const founderParagraphs = founderBody
+    ? founderBody
+        .split(/\n\s*\n+/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean)
+    : [];
+  const showcaseSection =
+    vendorInfo?.customFields?.showcaseSection &&
+    typeof vendorInfo.customFields.showcaseSection === "object"
+      ? vendorInfo.customFields.showcaseSection
+      : {};
+  const showcaseItems = Array.isArray(showcaseSection?.items)
+    ? showcaseSection.items
+        .map((item) => ({
+          name: String(item?.name || item?.title || "").trim(),
+          description: String(item?.description || "").trim(),
+          imageUrls: Array.isArray(item?.imageUrls)
+            ? item.imageUrls.map((url) => String(url || "").trim()).filter(Boolean)
+            : [],
+        }))
+        .filter((item) => item.name || item.description || item.imageUrls.length)
+    : [];
+  const showcaseHeading = String(showcaseSection?.heading || "").trim() || "Featured Showcase";
+  const showcaseSubHeading = String(showcaseSection?.subHeading || "").trim();
+  const showcaseItemLabel = String(showcaseSection?.itemLabel || "").trim() || "Profile";
+  const showFounderAbout =
+    !isAstrologyTheme && Boolean(founderBody || founderName || founderRole || founderImageUrl);
+  const showShowcaseSection = !isAstrologyTheme && showcaseItems.length > 0;
+  const activeShowcaseItem =
+    activeShowcaseItemIndex !== null && activeShowcaseItemIndex >= 0 && activeShowcaseItemIndex < showcaseItems.length
+      ? showcaseItems[activeShowcaseItemIndex]
+      : null;
+  const activeShowcaseImage =
+    activeShowcaseItem?.imageUrls?.[activeShowcaseImageIndex] || activeShowcaseItem?.imageUrls?.[0] || "";
   const locationAddress = vendorInfo?.location?.address || "Location not available";
   const businessHours = Array.isArray(vendorInfo?.businessHours)
     ? vendorInfo.businessHours
@@ -1429,9 +1546,7 @@ export default function ModernPreviewTemplate({
   const requiresCartSelection = Boolean(isEnquiryFlowEnabled && enquiryConfig?.cartBasedEnquiry);
   const heroHighlights = getHeroHighlights({
     vendorInfo,
-    serviceModes,
     categoryName: category?.name,
-    serviceModeLabel,
     isTelugu,
   });
   const activeSection =
@@ -1755,7 +1870,7 @@ export default function ModernPreviewTemplate({
     <div
       className={`modern-template-shell ${
         isAstrologyTheme ? "modern-template-shell--astrology" : ""
-      }`}
+      } ${!isAstrologyTheme ? `theme-${modernThemeKey}` : ""}`}
     >
       <header className="modern-header" id="home">
         <a className="modern-brand" href="#home">
@@ -1871,7 +1986,7 @@ export default function ModernPreviewTemplate({
               return (
                 <div key={key} className="modern-stat-card">
                   <span className={`modern-stat-accent is-${getStatAccent(label)}`} aria-hidden="true" />
-                  <strong>{String(value)}</strong>
+                  <strong>{String(value ?? "").trim()}</strong>
                   <span className="modern-stat-label">{label}</span>
                 </div>
               );
@@ -1901,6 +2016,38 @@ export default function ModernPreviewTemplate({
               </div>
             )}
           </div>
+
+          {serviceModes.length > 0 ? (
+            <div className="modern-service-modes">
+              <div className="modern-service-modes-label">{serviceModeLabel}</div>
+              <div className="modern-service-mode-list">
+                {serviceModes.map((mode) => (
+                  <span key={mode} className="modern-service-mode-chip">
+                    <span className="modern-service-mode-chip-icon" aria-hidden="true">
+                      ✓
+                    </span>
+                    {mode}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {extraListEntries.map((entry) => (
+            <div key={entry.key} className="modern-service-modes">
+              <div className="modern-service-modes-label">{entry.label}</div>
+              <div className="modern-service-mode-list">
+                {entry.values.map((value) => (
+                  <span key={`${entry.key}-${value}`} className="modern-service-mode-chip">
+                    <span className="modern-service-mode-chip-icon" aria-hidden="true">
+                      ✓
+                    </span>
+                    {value}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
 
         </div>
 
@@ -2094,8 +2241,8 @@ export default function ModernPreviewTemplate({
 
         <div className="modern-story-copy">
           <span className="modern-section-kicker">Our Story</span>
-          <h2>{about?.heading || `Crafting confidence at ${vendorInfo?.businessName || "our studio"}`}</h2>
-          <p>{about?.mainText || category?.whyUs?.subHeading || heroDescription}</p>
+          <h2>{storyHeading}</h2>
+          <p>{storyDescription}</p>
 
           <div className="modern-feature-list">
             {featureCards.slice(0, 4).map((card, index) => (
@@ -2110,6 +2257,97 @@ export default function ModernPreviewTemplate({
           </div>
         </div>
       </section>
+
+      {showFounderAbout ? (
+        <section className="modern-founder" id="about">
+          <div className="modern-founder-copy">
+            <span className="modern-section-kicker">Founder Story</span>
+            <h2>{founderHeading}</h2>
+            {founderBody ? (
+              <div className="modern-founder-body">
+                {(founderParagraphs.length ? founderParagraphs : [founderBody]).map((paragraph, index) => (
+                  <p
+                    key={`${paragraph.slice(0, 32)}-${index}`}
+                    className={index === 0 ? "modern-founder-lead" : ""}
+                  >
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+            ) : null}
+            {founderName || founderRole ? (
+              <div className="modern-founder-signoff">
+                <div className="modern-founder-signoff-line" />
+                <div className="modern-founder-signoff-copy">
+                  {founderName ? <strong>{founderName}</strong> : null}
+                  {founderRole ? <span>{founderRole}</span> : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="modern-founder-visual">
+            {founderImageUrl ? (
+              <div className="modern-founder-image">
+                <img
+                  src={founderImageUrl}
+                  alt={founderName || `${vendorInfo?.businessName || "Business"} founder`}
+                />
+              </div>
+            ) : (
+              <div className="modern-founder-placeholder">
+                <span>
+                  {(founderName || vendorInfo?.businessName || "Founder").charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {showShowcaseSection ? (
+        <section className="modern-showcase" id="showcase">
+          <div className="modern-showcase-header">
+            <h2>{showcaseHeading}</h2>
+            {showcaseSubHeading ? <p>{showcaseSubHeading}</p> : null}
+          </div>
+
+          <div className="modern-showcase-grid">
+            {showcaseItems.map((item, index) => {
+              const previewImage = item.imageUrls[0] || heroImage || profileImage || "";
+              return (
+                <button
+                  key={`${item.name || showcaseItemLabel}-${index}`}
+                  type="button"
+                  className="modern-showcase-card"
+                  onClick={() => {
+                    setActiveShowcaseItemIndex(index);
+                    setActiveShowcaseImageIndex(0);
+                  }}
+                >
+                  <div className="modern-showcase-card-image">
+                    {previewImage ? (
+                      <img src={previewImage} alt={item.name || `${showcaseItemLabel} ${index + 1}`} />
+                    ) : (
+                      <div className="modern-showcase-card-placeholder">
+                        {(item.name || showcaseItemLabel).charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    {item.imageUrls.length > 1 ? (
+                      <span className="modern-showcase-count">{item.imageUrls.length} images</span>
+                    ) : null}
+                  </div>
+
+                  <div className="modern-showcase-card-copy">
+                    <strong>{item.name || `${showcaseItemLabel} ${index + 1}`}</strong>
+                    {item.description ? <p>{item.description}</p> : null}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <section className="modern-contact" id="contact">
         <div className="modern-contact-left">
@@ -2325,6 +2563,71 @@ export default function ModernPreviewTemplate({
           </div>
         </div>
       </section>
+
+      {activeShowcaseItem ? (
+        <div
+          className="modern-showcase-modal-backdrop"
+          role="presentation"
+          onClick={() => {
+            setActiveShowcaseItemIndex(null);
+            setActiveShowcaseImageIndex(0);
+          }}
+        >
+          <div
+            className="modern-showcase-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${showcaseItemLabel} details`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="modern-showcase-close"
+              onClick={() => {
+                setActiveShowcaseItemIndex(null);
+                setActiveShowcaseImageIndex(0);
+              }}
+              aria-label="Close showcase viewer"
+            >
+              ×
+            </button>
+
+            <div className="modern-showcase-modal-media">
+              {activeShowcaseImage ? (
+                <img
+                  src={activeShowcaseImage}
+                  alt={activeShowcaseItem.name || `${showcaseItemLabel} image`}
+                />
+              ) : (
+                <div className="modern-showcase-card-placeholder modern-showcase-modal-placeholder">
+                  {(activeShowcaseItem.name || showcaseItemLabel).charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+
+            <div className="modern-showcase-modal-copy">
+              <span className="modern-section-kicker">{showcaseItemLabel}</span>
+              <h3>{activeShowcaseItem.name || `${showcaseItemLabel} Details`}</h3>
+              {activeShowcaseItem.description ? <p>{activeShowcaseItem.description}</p> : null}
+
+              {activeShowcaseItem.imageUrls.length > 1 ? (
+                <div className="modern-showcase-thumbs">
+                  {activeShowcaseItem.imageUrls.map((imageUrl, imageIndex) => (
+                    <button
+                      key={`${imageUrl}-${imageIndex}`}
+                      type="button"
+                      className={`modern-showcase-thumb${imageIndex === activeShowcaseImageIndex ? " is-active" : ""}`}
+                      onClick={() => setActiveShowcaseImageIndex(imageIndex)}
+                    >
+                      <img src={imageUrl} alt={`${activeShowcaseItem.name || showcaseItemLabel} ${imageIndex + 1}`} />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <footer className="modern-footer">
         <div className="modern-footer-brand">

@@ -10,6 +10,9 @@ import BusinessHoursModal from "../../Profile/BusinessHoursModal";
 import BrandingContactModal from "../../Profile/BrandingContactModal";
 import HeroTextModal from "../../Profile/HeroTextModal";
 import TemplateSelectionModal from "../../Profile/TemplateSelectionModal";
+import WhyUsModal from "../../Profile/WhyUsModal";
+import AboutFounderModal from "../../Profile/AboutFounderModal";
+import ShowcaseSectionModal from "../../Profile/ShowcaseSectionModal";
 
 function ProfileDashboard({
   vendorInfo,
@@ -25,6 +28,9 @@ function ProfileDashboard({
   const [showBusinessHours, setShowBusinessHours] = useState(false);
   const [showBrandingContact, setShowBrandingContact] = useState(false);
   const [showHeroText, setShowHeroText] = useState(false);
+  const [showWhyUs, setShowWhyUs] = useState(false);
+  const [showFounderAbout, setShowFounderAbout] = useState(false);
+  const [showShowcaseSection, setShowShowcaseSection] = useState(false);
   const [showTemplateSelection, setShowTemplateSelection] = useState(false);
   const [hoursVendor, setHoursVendor] = useState(null);
   const [loadingVendor, setLoadingVendor] = useState(false);
@@ -60,7 +66,33 @@ function ProfileDashboard({
   const hoursCount = currentVendorInfo?.businessHours?.length || currentVendorInfo?.hours?.length || 0;
   const heroTextCount =
     (currentVendorInfo?.customFields?.freeText1 ? 1 : 0) +
-    (currentVendorInfo?.customFields?.freeText2 ? 1 : 0);
+    (currentVendorInfo?.customFields?.freeText2 ? 1 : 0) +
+    (Array.isArray(currentVendorInfo?.customFields?.quickHighlights)
+      ? currentVendorInfo.customFields.quickHighlights.filter(Boolean).length
+      : 0);
+  const whyUsCards = Array.isArray(currentVendorInfo?.customFields?.whyUs?.cards)
+    ? currentVendorInfo.customFields.whyUs.cards
+    : [];
+  const founderAbout = currentVendorInfo?.customFields?.founderAbout || {};
+  const showcaseSection = currentVendorInfo?.customFields?.showcaseSection || {};
+  const showcaseItems = Array.isArray(showcaseSection?.items) ? showcaseSection.items : [];
+  const whyUsCount =
+    (currentVendorInfo?.customFields?.whyUs?.heading ? 1 : 0) +
+    (currentVendorInfo?.customFields?.whyUs?.subHeading ? 1 : 0) +
+    whyUsCards.filter((card) => card?.title || card?.description).length;
+  const founderAboutCount =
+    (founderAbout?.heading ? 1 : 0) +
+    (founderAbout?.body ? 1 : 0) +
+    (founderAbout?.founderName ? 1 : 0) +
+    (founderAbout?.founderRole ? 1 : 0) +
+    (founderAbout?.founderImageUrl ? 1 : 0);
+  const showcaseSectionCount =
+    (showcaseSection?.heading ? 1 : 0) +
+    (showcaseSection?.subHeading ? 1 : 0) +
+    (showcaseSection?.itemLabel ? 1 : 0) +
+    showcaseItems.filter(
+      (item) => item?.title || item?.subtitle || item?.description || (Array.isArray(item?.imageUrls) && item.imageUrls.length)
+    ).length;
   const openService = (serviceKey) => {
     onOpenServices?.(serviceKey);
   };
@@ -96,23 +128,44 @@ function ProfileDashboard({
   const socialsToRender =
     categorySocials === null
       ? []
-      : (categorySocials || [])
-          .map((label) => {
-            const key = normalize(label);
-            if (!SOCIAL_ICONS[key]) return null;
+      : (() => {
+          const mapped = (categorySocials || [])
+            .map((label) => {
+              const key = normalize(label);
+              if (!SOCIAL_ICONS[key]) return null;
 
-            return {
-              key,
-              label,
-              value: socialLinks[key] || "",
-            };
-          })
-          .filter(Boolean);
+              return {
+                key,
+                label,
+                value:
+                  key === "whatsapp"
+                    ? socialLinks.whatsapp || currentVendorInfo?.phone || ""
+                    : socialLinks[key] || "",
+              };
+            })
+            .filter(Boolean);
+
+          if (!mapped.some(({ key }) => key === "whatsapp")) {
+            const whatsappValue = socialLinks.whatsapp || currentVendorInfo?.phone || "";
+            if (whatsappValue) {
+              mapped.push({
+                key: "whatsapp",
+                label: "WhatsApp",
+                value: whatsappValue,
+              });
+            }
+          }
+
+          return mapped;
+        })();
   const socialCount = socialsToRender.filter((item) => Boolean(item.value?.trim())).length;
 
 const cardHandlers = {
   brandingContact: () => setShowBrandingContact(true),
   heroText: () => setShowHeroText(true),
+  whyUs: () => setShowWhyUs(true),
+  founderAbout: () => setShowFounderAbout(true),
+  showcaseSection: () => setShowShowcaseSection(true),
   websiteTemplate: () => setShowTemplateSelection(true),
   gallery: () => openService("gallery"),
   locations: () => setShowHomeLocation(true),
@@ -129,7 +182,22 @@ const cardHandlers = {
     {
       key: "heroText",
       title: "Hero Text",
-      description: `Update the homepage heading and description. ${heroTextCount} text field${heroTextCount === 1 ? "" : "s"} configured.`,
+      description: `Update the heading, description, and quick highlights. ${heroTextCount} field${heroTextCount === 1 ? "" : "s"} configured.`,
+    },
+    {
+      key: "whyUs",
+      title: "Why Us",
+      description: `Manage the Modern Light Our Story section with heading, sub heading, and 4 cards. ${whyUsCount} field${whyUsCount === 1 ? "" : "s"} configured.`,
+    },
+    {
+      key: "founderAbout",
+      title: "About Founder",
+      description: `Add the founder story, name, role, and optional image. ${founderAboutCount} field${founderAboutCount === 1 ? "" : "s"} configured.`,
+    },
+    {
+      key: "showcaseSection",
+      title: "Showcase Section",
+      description: `Create premium projects, partners, clients, or customer showcases for Modern Light. ${showcaseSectionCount} field${showcaseSectionCount === 1 ? "" : "s"} configured.`,
     },
     {
       key: "websiteTemplate",
@@ -245,7 +313,42 @@ const cardHandlers = {
           }
           initialHeading={currentVendorInfo?.customFields?.freeText1 || ""}
           initialDescription={currentVendorInfo?.customFields?.freeText2 || ""}
+          initialQuickHighlights={currentVendorInfo?.customFields?.quickHighlights || []}
           onClose={() => setShowHeroText(false)}
+        />
+      )}
+
+      {showWhyUs && (
+        <WhyUsModal
+          vendorId={vendorId}
+          businessName={currentVendorInfo?.businessName || ""}
+          categoryId={
+            typeof currentVendorInfo?.categoryId === "object"
+              ? currentVendorInfo?.categoryId?._id || ""
+              : currentVendorInfo?.categoryId || ""
+          }
+          initialHeading={currentVendorInfo?.customFields?.whyUs?.heading || ""}
+          initialSubHeading={currentVendorInfo?.customFields?.whyUs?.subHeading || ""}
+          initialCards={currentVendorInfo?.customFields?.whyUs?.cards || []}
+          onClose={() => setShowWhyUs(false)}
+        />
+      )}
+
+      {showFounderAbout && (
+        <AboutFounderModal
+          vendorId={vendorId}
+          businessName={currentVendorInfo?.businessName || ""}
+          initialFounderAbout={currentVendorInfo?.customFields?.founderAbout || {}}
+          onClose={() => setShowFounderAbout(false)}
+        />
+      )}
+
+      {showShowcaseSection && (
+        <ShowcaseSectionModal
+          vendorId={vendorId}
+          businessName={currentVendorInfo?.businessName || ""}
+          initialShowcaseSection={currentVendorInfo?.customFields?.showcaseSection || {}}
+          onClose={() => setShowShowcaseSection(false)}
         />
       )}
 
@@ -255,6 +358,7 @@ const cardHandlers = {
           businessName={currentVendorInfo?.businessName || ""}
           initialTemplateKey={currentVendorInfo?.selectedTemplateKey || ""}
           initialNurseryColorScheme={currentVendorInfo?.nurseryColorScheme || ""}
+          initialModernColorScheme={currentVendorInfo?.modernColorScheme || ""}
           onClose={() => setShowTemplateSelection(false)}
         />
       )}

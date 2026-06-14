@@ -1,8 +1,6 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import AdvantageSection from "../About/About";
-import RootsSection from "../Root/RootSection";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useVendor } from "../context/VendorContext";
 import "./Explore.css";
@@ -493,11 +491,18 @@ const total = useMemo(() => {
 
     if (selectedSub && main.subOptions?.length) {
       const sub = main.subOptions.find((option) => option.label === selectedSub);
-      return sub?.terms || [];
+      if (!sub) return main.terms || [];
+
+      if (selectedSubSub && Array.isArray(sub.subSubOptions) && sub.subSubOptions.length > 0) {
+        const subSub = sub.subSubOptions.find((option) => option.label === selectedSubSub);
+        return subSub?.terms || sub?.terms || main.terms || [];
+      }
+
+      return sub?.terms || main.terms || [];
     }
 
     return main.terms || [];
-  }, [data.options, selectedMain, selectedSub]);
+  }, [data.options, selectedMain, selectedSub, selectedSubSub]);
 
   const handleSimpleAddToCart = () => {
     const categoryPath = buildCartPath(sectionName, data.title);
@@ -772,10 +777,9 @@ function normalizeTerms(terms) {
   if (!terms) return [];
 
   return terms
-    .split(/[.,]/)     // ✅ split by comma OR dot
+    .split(/[.,]/)
     .map(t => t.trim())
-    .filter(Boolean)
-    .slice(0, 10);      // max 3 points
+    .filter(Boolean);
 }
 
 function collectLeafTerms(node) {
@@ -794,7 +798,7 @@ function collectLeafTerms(node) {
 
   walk(node);
 
-  // unique + max 3
+  // Keep summaries concise when rolling up leaf-level terms.
   return [...new Set(terms)].slice(0, 3);
 }
 
@@ -3411,6 +3415,7 @@ function ExploreContent({ onReady, onOpenServices }) {
           onIncreaseQty={increaseQty}
           onDecreaseQty={decreaseQty}
           templateVariant={activeTemplateKey === "astrology" ? "astrology" : "modern"}
+          colorScheme={vendorInfo?.modernColorScheme || "ivory"}
         />
       ) : activeTemplateKey === "catalog" ? (
         <CatalogPreviewTemplate
@@ -3455,6 +3460,8 @@ function ExploreContent({ onReady, onOpenServices }) {
             setServiceType("gallery");
             setOpenServices(true);
           }}
+          hasVendorSession={hasActiveVendorSession}
+          onLogout={vendorLogout}
           colorScheme={vendorInfo?.nurseryColorScheme || "forest"}
         />
       ) : (
@@ -3723,10 +3730,6 @@ function ExploreContent({ onReady, onOpenServices }) {
               )}
             </div>
           )}
-          {category?.whyUs && (
-            <AdvantageSection whyUs={category.whyUs} />
-          )}
-          <RootsSection about={category?.about} />
         </>
       )}
       {viewMode === "menu" && (

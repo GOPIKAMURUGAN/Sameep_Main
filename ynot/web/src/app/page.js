@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import CategoryCard from "../components/CategoryCard";
-import { getCategories, getSiteContact, getTrustedPartners } from "../services/api";
+import {
+  getCategories,
+  getDigitalScorePublicConfig,
+  getSiteContact,
+  getTrustedPartners,
+} from "../services/api";
 import {
   buildSiteAnalyticsPayload,
   buildPageViewPayload,
@@ -21,6 +26,7 @@ export default function Home() {
     phone: "",
   });
   const [trustedPartners, setTrustedPartners] = useState([]);
+  const [digitalScoreConfig, setDigitalScoreConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -39,6 +45,19 @@ export default function Home() {
     }
 
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    async function fetchDigitalScoreConfig() {
+      try {
+        const data = await getDigitalScorePublicConfig();
+        setDigitalScoreConfig(data);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    fetchDigitalScoreConfig();
   }, []);
 
   useEffect(() => {
@@ -139,6 +158,11 @@ export default function Home() {
     target?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const startDigitalScore = (source = "digital_score_cta") => {
+    trackHomeCta(source);
+    router.push("/digital-score");
+  };
+
   const startOnboarding = (categoryId, source = "onboarding_cta") => {
     trackHomeCta(source, categoryId ? { utmContent: String(categoryId) } : {});
     const base = "/onboarding";
@@ -209,6 +233,14 @@ export default function Home() {
                 >
                   View categories
                 </button>
+                {digitalScoreConfig?.isEnabled ? (
+                  <button
+                    className="secondaryHeroButton digitalScoreHeroButton"
+                    onClick={() => startDigitalScore("hero_digital_score")}
+                  >
+                    {digitalScoreConfig?.ctaText || "Check Your Digital Score"}
+                  </button>
+                ) : null}
               </div>
 
               <div className="trustRow">

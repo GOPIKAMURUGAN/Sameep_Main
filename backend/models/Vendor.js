@@ -46,6 +46,27 @@ const vendorSchema = new mongoose.Schema({
   customFields: {
     freeText1: { type: String, default: "" }, // Heading
     freeText2: { type: String, default: "" }, // Description
+    quickHighlights: { type: [String], default: [] },
+    founderAbout: {
+      heading: { type: String, default: "" },
+      body: { type: String, default: "" },
+      founderName: { type: String, default: "" },
+      founderRole: { type: String, default: "" },
+      founderImageUrl: { type: String, default: "" },
+    },
+    whyUs: {
+      heading: { type: String, default: "" },
+      subHeading: { type: String, default: "" },
+      cards: {
+        type: [
+          {
+            title: { type: String, default: "" },
+            description: { type: String, default: "" },
+          },
+        ],
+        default: [],
+      },
+    },
   },
 
   // Trust answers from onboarding

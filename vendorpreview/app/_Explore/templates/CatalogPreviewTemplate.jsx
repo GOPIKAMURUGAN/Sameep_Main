@@ -438,6 +438,12 @@ export default function CatalogPreviewTemplate({
   const serviceModes = Array.isArray(serviceModeEntry?.[1])
     ? serviceModeEntry[1].map((item) => String(item || "").trim()).filter(Boolean)
     : [];
+  const formatTrustStatValue = (value) => {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item || "").trim()).filter(Boolean).join(" + ");
+    }
+    return String(value ?? "").trim();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -541,7 +547,14 @@ export default function CatalogPreviewTemplate({
   }, [heroTagline, vendorInfo?.businessName, vendorInfo?.googlePlace?.mapsUrl]);
 
   const statEntries = Object.entries(trustSummary)
-    .filter(([, value]) => value !== null && value !== undefined && value !== "" && !Array.isArray(value))
+    .filter(([key, value]) => {
+      if (value === null || value === undefined || value === "") return false;
+      if (key === serviceModeEntry?.[0]) return false;
+      if (Array.isArray(value)) {
+        return value.map((item) => String(item || "").trim()).filter(Boolean).length > 0;
+      }
+      return true;
+    })
     .slice(0, 3);
 
   const introSummary = getRefinedHeroCopy({
@@ -636,7 +649,7 @@ export default function CatalogPreviewTemplate({
           <div className="catalog-stats">
             {statEntries.map(([key, value]) => (
               <div key={key} className="catalog-stat-card">
-                <strong>{String(value)}</strong>
+                <strong>{formatTrustStatValue(value)}</strong>
                 <span>{prettifyLabel(key)}</span>
               </div>
             ))}

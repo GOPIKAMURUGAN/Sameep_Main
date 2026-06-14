@@ -42,7 +42,7 @@ export default function MasterPage() {
       <h2 style={{ color: "#000", marginBottom: "30px", fontWeight: "bold" }}>
         Master Data
       </h2>
-
+F
       <div
         style={{
           display: "grid",

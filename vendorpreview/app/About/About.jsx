@@ -24,9 +24,23 @@ export default function AdvantageSection({ whyUs }) {
   const { vendorInfo } = useVendor() || {};
 
   const businessName = vendorInfo?.businessName || "Us";
-const cards = (whyUs?.cards || []).filter(
-  c => c.title?.trim() || c.description?.trim() || c.iconUrl?.trim()
-);
+  const vendorWhyUs =
+    vendorInfo?.customFields?.whyUs && typeof vendorInfo.customFields.whyUs === "object"
+      ? vendorInfo.customFields.whyUs
+      : {};
+  const effectiveWhyUs = {
+    ...whyUs,
+    ...vendorWhyUs,
+    cards:
+      Array.isArray(vendorWhyUs?.cards) && vendorWhyUs.cards.length > 0
+        ? vendorWhyUs.cards
+        : Array.isArray(whyUs?.cards)
+          ? whyUs.cards
+          : [],
+  };
+  const cards = (effectiveWhyUs?.cards || [])
+    .filter((card) => card?.title?.trim() || card?.description?.trim() || card?.iconUrl?.trim())
+    .slice(0, 4);
 
 
 
@@ -49,16 +63,16 @@ const cards = (whyUs?.cards || []).filter(
     return () => window.removeEventListener("scroll", revealOnScroll);
   }, []);
 
-  if (!whyUs || !cards.length) return null;
+  if (!effectiveWhyUs || !cards.length) return null;
 
   return (
     <section id="about"  className="adv-section">
       <h2 className="adv-title">
-        {whyUs.heading || `Why Choose ${businessName}?`}
+        {effectiveWhyUs.heading || `Why Choose ${businessName}?`}
       </h2>
 
-      {whyUs.subHeading && (
-        <p className="adv-subtitle">{whyUs.subHeading}</p>
+      {effectiveWhyUs.subHeading && (
+        <p className="adv-subtitle">{effectiveWhyUs.subHeading}</p>
       )}
 
       <div className="adv-grid">

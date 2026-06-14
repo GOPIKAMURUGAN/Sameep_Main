@@ -9,6 +9,19 @@ function normalizeText(value) {
   return String(value || "");
 }
 
+function normalizeQuickHighlights(values) {
+  const source = Array.isArray(values) ? values : [];
+  const normalized = source
+    .slice(0, 3)
+    .map((value) => String(value || "").trim().slice(0, 80));
+
+  while (normalized.length < 3) {
+    normalized.push("");
+  }
+
+  return normalized;
+}
+
 function humanizeTrustLabel(question = {}) {
   if (question.label) return question.label;
   const id = String(question.id || "").trim();
@@ -27,15 +40,27 @@ export default function HeroTextModal({
   categoryName = "",
   initialHeading = "",
   initialDescription = "",
+  initialQuickHighlights = [],
   onClose,
 }) {
   const { setVendorInfo } = useVendor();
   const [heading, setHeading] = useState(() => normalizeText(initialHeading));
   const [description, setDescription] = useState(() => normalizeText(initialDescription));
+  const [quickHighlights, setQuickHighlights] = useState(() =>
+    normalizeQuickHighlights(initialQuickHighlights)
+  );
   const [trustQuestions, setTrustQuestions] = useState([]);
   const [trustAnswers, setTrustAnswers] = useState({});
   const [loadingTrust, setLoadingTrust] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const updateQuickHighlight = (index, value) => {
+    setQuickHighlights((prev) => {
+      const next = [...prev];
+      next[index] = String(value || "").slice(0, 80);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!vendorId) return;
@@ -244,6 +269,10 @@ export default function HeroTextModal({
     const payload = {
       freeText1: normalizeText(heading),
       freeText2: normalizeText(description),
+      quickHighlights: quickHighlights
+        .map((item) => String(item || "").trim().slice(0, 80))
+        .filter(Boolean)
+        .slice(0, 3),
     };
 
     try {
@@ -297,6 +326,7 @@ export default function HeroTextModal({
       const nextCustomFields = {
         freeText1: payload.freeText1,
         freeText2: payload.freeText2,
+        quickHighlights: payload.quickHighlights,
         ...(data?.customFields || {}),
       };
 
@@ -357,6 +387,34 @@ export default function HeroTextModal({
                 onChange={(event) => setDescription(event.target.value)}
                 rows={6}
               />
+            </div>
+
+            <div className="branding-contact-section">
+              <label className="branding-label">Quick Highlights</label>
+              <div className="branding-helper-text">
+                Common profile field. Only Modern Light preview shows this right now. Up to 3 bullet points, 80 characters each.
+              </div>
+              <div className="branding-quick-highlights">
+                {quickHighlights.map((item, index) => (
+                  <div key={`quick-highlight-${index}`} className="branding-quick-highlight-row">
+                    <label className="branding-sub-label" htmlFor={`quick-highlight-${index}`}>
+                      Bullet Point {index + 1}
+                    </label>
+                    <input
+                      id={`quick-highlight-${index}`}
+                      className="branding-text-input"
+                      type="text"
+                      maxLength={80}
+                      placeholder={`Enter highlight ${index + 1}`}
+                      value={item}
+                      onChange={(event) => updateQuickHighlight(index, event.target.value)}
+                    />
+                    <div className="branding-helper-text">
+                      {item.trim().length}/80 characters
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="branding-contact-section">

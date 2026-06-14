@@ -59,8 +59,8 @@ function PageContent() {
     <div>
       {!isImmersiveTemplate ? <Header /> : null}
       <Explore />
-      <Root />
-      <About />
+      {!isImmersiveTemplate ? <Root /> : null}
+      {!isImmersiveTemplate ? <About /> : null}
       {!isImmersiveTemplate ? <Contact /> : null}
       <ScrollToTop />
       <Portal />

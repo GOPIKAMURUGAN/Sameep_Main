@@ -93,6 +93,15 @@ function Sidebar() {
       <NavLink to="/templates" style={linkStyle}>
         🎨 Website Templates
       </NavLink>
+      <NavLink to="/digital-score/config" style={linkStyle}>
+        📊 Digital Score Config
+      </NavLink>
+      <NavLink to="/digital-score/questions" style={linkStyle}>
+        ❔ Digital Score Questions
+      </NavLink>
+      <NavLink to="/digital-score/submissions" style={linkStyle}>
+        📝 Digital Score Leads
+      </NavLink>
 
       <div style={{ flex: 1 }} />
       <button

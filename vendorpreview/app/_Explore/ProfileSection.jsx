@@ -19,6 +19,7 @@ function normalizeGalleryImages(rowImages) {
 
 function normalizeSocialLinks(vendorInfo) {
   const socialLinks = vendorInfo?.socialLinks || {};
+  const whatsappValue = socialLinks.whatsapp || vendorInfo?.phone || "";
 
   return [
     {
@@ -50,12 +51,22 @@ function normalizeSocialLinks(vendorInfo) {
         vendorInfo?.twitter ||
         vendorInfo?.x,
     },
+    {
+      key: "whatsapp",
+      label: "WhatsApp",
+      value: whatsappValue,
+    },
   ].filter((item) => item.value);
 }
 
 function toLink(value, key) {
   if (!value) return "#";
   if (/^https?:\/\//i.test(value)) return value;
+  if (key === "email") return `mailto:${value}`;
+  if (key === "whatsapp") {
+    const digits = String(value).replace(/\D/g, "");
+    return digits ? `https://wa.me/${digits}` : "#";
+  }
   return `https://${key}.com/${String(value).replace(/^@/, "")}`;
 }
 

@@ -86,11 +86,35 @@ const NURSERY_COLOR_SCHEMES = [
   },
 ];
 
+const MODERN_LIGHT_COLOR_SCHEMES = [
+  {
+    key: "ivory",
+    name: "Ivory Gold",
+    preview: "linear-gradient(135deg, #fbf8f2 0%, #d0ad4c 100%)",
+  },
+  {
+    key: "champagne",
+    name: "Champagne Beige",
+    preview: "linear-gradient(135deg, #f8f1e7 0%, #c89e62 100%)",
+  },
+  {
+    key: "rose",
+    name: "Rose Ivory",
+    preview: "linear-gradient(135deg, #fcf4f1 0%, #c88782 100%)",
+  },
+  {
+    key: "sage",
+    name: "Sage Linen",
+    preview: "linear-gradient(135deg, #f5f3eb 0%, #8da289 100%)",
+  },
+];
+
 export default function TemplateSelectionModal({
   vendorId,
   businessName,
   initialTemplateKey = "",
   initialNurseryColorScheme = "",
+  initialModernColorScheme = "",
   onClose,
 }) {
   const { setVendorInfo } = useVendor();
@@ -98,6 +122,9 @@ export default function TemplateSelectionModal({
   const [selectedTemplateKey, setSelectedTemplateKey] = useState(initialTemplateKey || "");
   const [nurseryColorScheme, setNurseryColorScheme] = useState(
     initialNurseryColorScheme || "forest"
+  );
+  const [modernColorScheme, setModernColorScheme] = useState(
+    initialModernColorScheme || "ivory"
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -142,6 +169,7 @@ export default function TemplateSelectionModal({
   }, [templates, initialTemplateKey]);
 
   const showNurseryColorScheme = selectedTemplateKey === "nurseries";
+  const showModernColorScheme = selectedTemplateKey === "modern";
 
   const handleSave = async () => {
     if (!vendorId) {
@@ -165,6 +193,7 @@ export default function TemplateSelectionModal({
         body: JSON.stringify({
           selectedTemplateKey: selectedTemplateKey || "",
           nurseryColorScheme: nurseryColorScheme || "forest",
+          modernColorScheme: modernColorScheme || "ivory",
         }),
       });
       const data = await response.json();
@@ -178,6 +207,7 @@ export default function TemplateSelectionModal({
               ...prev,
               selectedTemplateKey: data?.selectedTemplateKey || "",
               nurseryColorScheme: data?.nurseryColorScheme || nurseryColorScheme || "forest",
+              modernColorScheme: data?.modernColorScheme || modernColorScheme || "ivory",
             }
           : prev
       );
@@ -247,6 +277,66 @@ export default function TemplateSelectionModal({
                       key={scheme.key}
                       type="button"
                       onClick={() => setNurseryColorScheme(scheme.key)}
+                      style={{
+                        alignItems: "center",
+                        background: active ? "rgba(245, 217, 122, 0.08)" : "rgba(255,255,255,0.04)",
+                        border: active
+                          ? "1px solid rgba(245, 217, 122, 0.7)"
+                          : "1px solid rgba(255,255,255,0.12)",
+                        borderRadius: 12,
+                        color: "#fffaf0",
+                        cursor: "pointer",
+                        display: "grid",
+                        gap: 12,
+                        gridTemplateColumns: "44px minmax(0, 1fr)",
+                        padding: 10,
+                        textAlign: "left",
+                      }}
+                    >
+                      <span
+                        style={{
+                          background: scheme.preview,
+                          borderRadius: 12,
+                          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.12)",
+                          display: "block",
+                          height: 44,
+                          width: 44,
+                        }}
+                      />
+                      <span style={{ fontWeight: 700 }}>{scheme.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {showModernColorScheme ? (
+            <div className="branding-contact-section">
+              <label className="branding-label" htmlFor="modern-color-scheme-select">
+                Color Scheme
+              </label>
+              <select
+                id="modern-color-scheme-select"
+                className="branding-text-input"
+                value={modernColorScheme}
+                onChange={(event) => setModernColorScheme(event.target.value)}
+              >
+                {MODERN_LIGHT_COLOR_SCHEMES.map((scheme) => (
+                  <option key={scheme.key} value={scheme.key}>
+                    {scheme.name}
+                  </option>
+                ))}
+              </select>
+
+              <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+                {MODERN_LIGHT_COLOR_SCHEMES.map((scheme) => {
+                  const active = modernColorScheme === scheme.key;
+                  return (
+                    <button
+                      key={scheme.key}
+                      type="button"
+                      onClick={() => setModernColorScheme(scheme.key)}
                       style={{
                         alignItems: "center",
                         background: active ? "rgba(245, 217, 122, 0.08)" : "rgba(255,255,255,0.04)",

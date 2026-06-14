@@ -698,6 +698,7 @@ router.get("/:vendorId/template", async (req, res) => {
       success: true,
       selectedTemplateKey,
       nurseryColorScheme: String(vendor.nurseryColorScheme || "").trim().toLowerCase(),
+      modernColorScheme: String(vendor.modernColorScheme || "").trim().toLowerCase(),
       template,
     });
   } catch (err) {
@@ -714,6 +715,9 @@ router.put("/:vendorId/template", async (req, res) => {
     const nurseryColorScheme = String(req.body?.nurseryColorScheme || "")
       .trim()
       .toLowerCase();
+    const modernColorScheme = String(req.body?.modernColorScheme || "")
+      .trim()
+      .toLowerCase();
     const selectedTemplateKey = String(req.body?.selectedTemplateKey || "")
       .trim()
       .toLowerCase();
@@ -721,11 +725,13 @@ router.put("/:vendorId/template", async (req, res) => {
     if (!selectedTemplateKey) {
       vendor.selectedTemplateKey = "";
       vendor.nurseryColorScheme = nurseryColorScheme;
+      vendor.modernColorScheme = modernColorScheme;
       await vendor.save();
       return res.json({
         success: true,
         selectedTemplateKey: "",
         nurseryColorScheme: vendor.nurseryColorScheme || "",
+        modernColorScheme: vendor.modernColorScheme || "",
         vendor: vendor.toObject(),
       });
     }
@@ -744,12 +750,14 @@ router.put("/:vendorId/template", async (req, res) => {
 
     vendor.selectedTemplateKey = selectedTemplateKey;
     vendor.nurseryColorScheme = nurseryColorScheme;
+    vendor.modernColorScheme = modernColorScheme;
     await vendor.save();
 
     return res.json({
       success: true,
       selectedTemplateKey,
       nurseryColorScheme: vendor.nurseryColorScheme || "",
+      modernColorScheme: vendor.modernColorScheme || "",
       template,
       vendor: vendor.toObject(),
     });
@@ -819,18 +827,97 @@ router.get("/:vendorId", async (req, res) => {
   }
 });
 
+function sanitizeWhyUsPayload(input) {
+  const source = input && typeof input === "object" ? input : {};
+  const cards = Array.isArray(source.cards) ? source.cards : [];
+
+  return {
+    heading: String(source.heading || "").trim().slice(0, 120),
+    subHeading: String(source.subHeading || "").trim().slice(0, 220),
+    cards: cards.slice(0, 4).map((card) => ({
+      title: String(card?.title || "").trim().slice(0, 60),
+      description: String(card?.description || "").trim().slice(0, 180),
+    })),
+  };
+}
+
+function sanitizeFounderAboutPayload(input) {
+  const source = input && typeof input === "object" ? input : {};
+  return {
+    heading: String(source.heading || "").trim().slice(0, 120),
+    body: String(source.body || "").trim().slice(0, 2000),
+    founderName: String(source.founderName || "").trim().slice(0, 80),
+    founderRole: String(source.founderRole || "").trim().slice(0, 80),
+    founderImageUrl: String(source.founderImageUrl || "").trim().slice(0, 500),
+  };
+}
+
+function sanitizeShowcaseSectionPayload(input) {
+  const source = input && typeof input === "object" ? input : {};
+  const items = Array.isArray(source.items) ? source.items : [];
+
+  return {
+    heading: String(source.heading || "").trim().slice(0, 120),
+    subHeading: String(source.subHeading || "").trim().slice(0, 260),
+    itemLabel: String(source.itemLabel || "").trim().slice(0, 40),
+    items: items
+      .slice(0, 10)
+      .map((item) => {
+        const normalizedName = String(item?.name || item?.title || "").trim().slice(0, 90);
+        return {
+          name: normalizedName,
+          title: String(item?.title || item?.name || "").trim().slice(0, 90),
+          subtitle: String(item?.subtitle || "").trim().slice(0, 120),
+          description: String(item?.description || "").trim().slice(0, 2200),
+          imageUrls: Array.isArray(item?.imageUrls)
+            ? item.imageUrls
+                .map((url) => String(url || "").trim().slice(0, 500))
+                .filter(Boolean)
+                .slice(0, 10)
+            : [],
+        };
+      })
+      .filter(
+        (item) =>
+          item.name ||
+          item.title ||
+          item.subtitle ||
+          item.description ||
+          (Array.isArray(item.imageUrls) && item.imageUrls.length)
+      ),
+  };
+}
+
+function toPlainCustomFields(customFields) {
+  if (!customFields) return {};
+  if (typeof customFields.toObject === "function") {
+    return customFields.toObject();
+  }
+  if (typeof customFields === "object") {
+    return { ...customFields };
+  }
+  return {};
+}
+
 /**
  * GET /api/dummy-vendors/:vendorId/custom-fields
- * Returns { freeText1, freeText2 }
+ * Returns { freeText1, freeText2, quickHighlights, founderAbout, whyUs, showcaseSection }
  */
 router.get("/:vendorId/custom-fields", async (req, res) => {
   try {
     const v = await DummyVendor.findById(req.params.vendorId).lean();
     if (!v) return res.status(404).json({ message: "Vendor not found" });
     const cf = (v.customFields && typeof v.customFields === 'object') ? v.customFields : {};
+    const quickHighlights = Array.isArray(cf.quickHighlights)
+      ? cf.quickHighlights.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 3)
+      : [];
     return res.json({
       freeText1: typeof cf.freeText1 === 'string' ? cf.freeText1 : "",
       freeText2: typeof cf.freeText2 === 'string' ? cf.freeText2 : "",
+      quickHighlights,
+      founderAbout: sanitizeFounderAboutPayload(cf.founderAbout),
+      whyUs: sanitizeWhyUsPayload(cf.whyUs),
+      showcaseSection: sanitizeShowcaseSectionPayload(cf.showcaseSection),
     });
   } catch (err) {
     console.error("GET /dummy-vendors/:vendorId/custom-fields error:", err);
@@ -840,16 +927,43 @@ router.get("/:vendorId/custom-fields", async (req, res) => {
 
 /**
  * PUT /api/dummy-vendors/:vendorId/custom-fields
- * Body: { freeText1, freeText2 }
+ * Body: { freeText1, freeText2, quickHighlights, founderAbout, whyUs, showcaseSection }
  */
 router.put("/:vendorId/custom-fields", async (req, res) => {
   try {
     const { vendorId } = req.params;
-    const freeText1 = typeof req.body?.freeText1 === 'string' ? req.body.freeText1 : '';
-    const freeText2 = typeof req.body?.freeText2 === 'string' ? req.body.freeText2 : '';
     const vdoc = await DummyVendor.findById(vendorId);
     if (!vdoc) return res.status(404).json({ message: "Vendor not found" });
-    vdoc.customFields = { ...(vdoc.customFields || {}), freeText1, freeText2 };
+    const nextCustomFields = toPlainCustomFields(vdoc.customFields);
+
+    if (req.body?.freeText1 !== undefined) {
+      nextCustomFields.freeText1 =
+        typeof req.body.freeText1 === "string" ? req.body.freeText1 : "";
+    }
+    if (req.body?.freeText2 !== undefined) {
+      nextCustomFields.freeText2 =
+        typeof req.body.freeText2 === "string" ? req.body.freeText2 : "";
+    }
+    if (req.body?.quickHighlights !== undefined) {
+      nextCustomFields.quickHighlights = Array.isArray(req.body?.quickHighlights)
+        ? req.body.quickHighlights
+            .map((item) => String(item || "").trim().slice(0, 80))
+            .filter(Boolean)
+            .slice(0, 3)
+        : [];
+    }
+    if (req.body?.founderAbout !== undefined) {
+      nextCustomFields.founderAbout = sanitizeFounderAboutPayload(req.body?.founderAbout);
+    }
+    if (req.body?.whyUs !== undefined) {
+      nextCustomFields.whyUs = sanitizeWhyUsPayload(req.body?.whyUs);
+    }
+    if (req.body?.showcaseSection !== undefined) {
+      nextCustomFields.showcaseSection = sanitizeShowcaseSectionPayload(req.body?.showcaseSection);
+    }
+
+    vdoc.customFields = nextCustomFields;
+    vdoc.markModified("customFields");
     await vdoc.save();
     return res.json({ success: true, customFields: vdoc.customFields });
   } catch (err) {

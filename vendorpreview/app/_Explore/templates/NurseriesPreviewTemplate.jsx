@@ -67,7 +67,7 @@ function splitTextList(value) {
 }
 
 function getTermsSummary(terms) {
-  return splitTextList(terms).slice(0, 2).join(" • ");
+  return splitTextList(terms).join(" • ");
 }
 
 function isOffersLabel(value) {
@@ -227,6 +227,181 @@ function buildNurseryRows(card, sectionName) {
   return rows;
 }
 
+function buildNurseryHierarchyTree(rows) {
+  const root = [];
+  const nodeMap = new Map();
+
+  rows.forEach((row) => {
+    const segments = (row?.categoryPath || [])
+      .slice(1)
+      .map((label) => String(label || "").trim())
+      .filter(Boolean);
+
+    if (!segments.length) return;
+
+    let parentChildren = root;
+    let parentKey = "";
+
+    segments.forEach((segment, index) => {
+      const nodeKey = parentKey ? `${parentKey}__${segment}` : segment;
+      let node = nodeMap.get(nodeKey);
+
+      if (!node) {
+        node = {
+          key: nodeKey,
+          label: segment,
+          depth: index,
+          children: [],
+          rowIds: new Set(),
+          row: null,
+        };
+        nodeMap.set(nodeKey, node);
+        parentChildren.push(node);
+      }
+
+      node.rowIds.add(row.id);
+
+      if (index === segments.length - 1) {
+        node.row = row;
+      }
+
+      parentChildren = node.children;
+      parentKey = nodeKey;
+    });
+  });
+
+  const finalize = (nodes) =>
+    nodes
+      .map((node) => ({
+        ...node,
+        rowIds: Array.from(node.rowIds),
+        children: finalize(node.children),
+      }));
+
+  return finalize(root);
+}
+
+function collectHierarchyRowIds(nodes) {
+  const ids = new Set();
+
+  const walk = (items) => {
+    items.forEach((item) => {
+      item.rowIds.forEach((id) => ids.add(id));
+      if (item.children.length > 0) walk(item.children);
+    });
+  };
+
+  walk(nodes);
+  return Array.from(ids);
+}
+
+function collectHierarchyNodeKeys(nodes) {
+  const keys = [];
+
+  const walk = (items) => {
+    items.forEach((item) => {
+      keys.push(item.key);
+      if (item.children.length > 0) walk(item.children);
+    });
+  };
+
+  walk(nodes);
+  return keys;
+}
+
+function filterHierarchyTree(nodes, query) {
+  const normalizedQuery = String(query || "").trim().toLowerCase();
+  if (!normalizedQuery) return nodes;
+
+  const walk = (items) =>
+    items.reduce((accumulator, item) => {
+      const filteredChildren = walk(item.children || []);
+      const selfMatches = String(item.label || "").toLowerCase().includes(normalizedQuery);
+
+      if (selfMatches || filteredChildren.length > 0) {
+        accumulator.push({
+          ...item,
+          children: filteredChildren,
+        });
+      }
+
+      return accumulator;
+    }, []);
+
+  return walk(nodes);
+}
+
+function getHierarchySelectionState(rowIds, selectedRowIds) {
+  const total = rowIds.length;
+  const selectedCount = rowIds.filter((id) => selectedRowIds.has(id)).length;
+
+  return {
+    checked: total > 0 && selectedCount === total,
+    indeterminate: selectedCount > 0 && selectedCount < total,
+  };
+}
+
+function NurseryHierarchyNode({ node, selectedRowIds, expandedKeys, onToggle, onToggleExpand }) {
+  const selectionState = getHierarchySelectionState(node.rowIds, selectedRowIds);
+  const isExpandable = node.children.length > 0;
+  const isExpanded = isExpandable ? expandedKeys.has(node.key) : false;
+
+  return (
+    <div className={`nursery-filter-tree-node depth-${Math.min(node.depth, 4)}`}>
+      <div className="nursery-filter-tree-label">
+        <input
+          ref={(element) => {
+            if (element) {
+              element.indeterminate = selectionState.indeterminate;
+            }
+          }}
+          type="checkbox"
+          checked={selectionState.checked}
+          onChange={() => onToggle(node.rowIds, !selectionState.checked)}
+        />
+
+        <span className="nursery-filter-tree-text">
+          <span className="nursery-filter-tree-title">
+            {isExpandable ? (
+              <button
+                type="button"
+                className="nursery-filter-tree-expand"
+                aria-label={isExpanded ? `Collapse ${node.label}` : `Expand ${node.label}`}
+                onClick={() => onToggleExpand(node.key)}
+              >
+                {isExpanded ? "−" : "+"}
+              </button>
+            ) : (
+              <span className="nursery-filter-tree-expand is-placeholder" aria-hidden="true">
+                •
+              </span>
+            )}
+            <span className="nursery-filter-tree-name">{node.label}</span>
+          </span>
+          {node.children.length > 0 ? (
+            <span className="nursery-filter-tree-meta">{node.rowIds.length}</span>
+          ) : null}
+        </span>
+      </div>
+
+      {node.children.length > 0 && isExpanded ? (
+        <div className="nursery-filter-tree-children">
+          {node.children.map((child) => (
+            <NurseryHierarchyNode
+              key={child.key}
+              node={child}
+              selectedRowIds={selectedRowIds}
+              expandedKeys={expandedKeys}
+              onToggle={onToggle}
+              onToggleExpand={onToggleExpand}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function NurseryProductCard({ row, cartItem, onAddToCart, onIncreaseQty, onDecreaseQty, viewMode }) {
   const normalizedPath = [...new Set((row?.categoryPath || []).map((label) => String(label || "").trim()).filter(Boolean))];
   const categoryRoot = normalizedPath[0] || "";
@@ -367,15 +542,20 @@ export default function NurseriesPreviewTemplate({
   onDecreaseQty,
   onOpenMenu,
   onOpenGallery,
+  hasVendorSession = false,
+  onLogout,
   colorScheme = "forest",
 }) {
   const [activeSectionName, setActiveSectionName] = useState("");
+  const [selectedHierarchyRowIds, setSelectedHierarchyRowIds] = useState([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [sortBy, setSortBy] = useState("featured");
   const [viewMode, setViewMode] = useState("grid");
   const [serviceModeLabel, setServiceModeLabel] = useState("Service Type");
   const [heroImageIndex, setHeroImageIndex] = useState(0);
+  const [hierarchySearch, setHierarchySearch] = useState("");
+  const [expandedHierarchyKeys, setExpandedHierarchyKeys] = useState([]);
 
   const navItems = useMemo(() => {
     const webMenu = Array.isArray(category?.webMenu) ? category.webMenu : [];
@@ -429,10 +609,20 @@ export default function NurseriesPreviewTemplate({
     setActiveSectionName(serviceSections[0].sectionName);
   }, [activeSectionName, serviceSections]);
 
+  useEffect(() => {
+    setSelectedHierarchyRowIds([]);
+  }, [activeSectionName]);
+
   const activeSection =
     serviceSections.find((section) => section.sectionName === activeSectionName) ||
     serviceSections[0] ||
     null;
+  const activeSectionRows = useMemo(() => {
+    if (!activeSection) return [];
+    return activeSection.cards.flatMap((card) =>
+      buildNurseryRows(card, activeSection.sectionName)
+    );
+  }, [activeSection]);
   const trustSummary = vendorInfo?.trustSummary || vendorInfo?.trust || {};
   const trustEntries = useMemo(
     () =>
@@ -456,6 +646,7 @@ export default function NurseriesPreviewTemplate({
               trustQuestionLabels[key] ||
               String(key).replace(/[_-]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
             value: Array.isArray(value) ? items.join(" + ") : String(value),
+            values: items,
             isList: Array.isArray(value),
           };
         })
@@ -469,6 +660,28 @@ export default function NurseriesPreviewTemplate({
           Array.isArray(value) && /(service|mode|delivery|format|type)/i.test(String(key))
       ) || null,
     [trustEntries]
+  );
+  const serviceModes = useMemo(
+    () =>
+      Array.isArray(serviceModeEntry?.[1])
+        ? serviceModeEntry[1].map((item) => String(item || "").trim()).filter(Boolean)
+        : [],
+    [serviceModeEntry]
+  );
+  const serviceModeTrustKey = useMemo(
+    () => String(serviceModeEntry?.[0] || "").trim(),
+    [serviceModeEntry]
+  );
+  const extraListEntries = useMemo(
+    () =>
+      trustDisplayEntries.filter(
+        (entry) => entry.isList && String(entry.key || "") !== serviceModeTrustKey
+      ),
+    [serviceModeTrustKey, trustDisplayEntries]
+  );
+  const statEntries = useMemo(
+    () => trustDisplayEntries.filter((entry) => !entry.isList),
+    [trustDisplayEntries]
   );
   const trustKeysKey = useMemo(
     () => trustEntries.map(([key]) => String(key || "").trim()).filter(Boolean).join("|"),
@@ -505,8 +718,8 @@ export default function NurseriesPreviewTemplate({
           setTrustQuestionLabels(labelMap);
           setServiceModeLabel(
             String(
-              (serviceModeEntry && labelMap[serviceModeEntry[0]]) ||
-              serviceModeEntry?.[0] ||
+              (serviceModeTrustKey && labelMap[serviceModeTrustKey]) ||
+              serviceModeTrustKey ||
               "Service Type"
             )
           );
@@ -514,7 +727,7 @@ export default function NurseriesPreviewTemplate({
       } catch {
         if (!cancelled) {
           setTrustQuestionLabels({});
-          setServiceModeLabel(String(serviceModeEntry?.[0] || "Service Type"));
+          setServiceModeLabel(String(serviceModeTrustKey || "Service Type"));
         }
       }
     }
@@ -523,13 +736,45 @@ export default function NurseriesPreviewTemplate({
     return () => {
       cancelled = true;
     };
-  }, [serviceModeEntry, trustCategoryId, trustKeysKey]);
+  }, [serviceModeTrustKey, trustCategoryId, trustKeysKey]);
+
+  const hierarchyTree = useMemo(
+    () => buildNurseryHierarchyTree(activeSectionRows),
+    [activeSectionRows]
+  );
+
+  const allHierarchyRowIds = useMemo(
+    () => collectHierarchyRowIds(hierarchyTree),
+    [hierarchyTree]
+  );
+
+  const allHierarchyKeys = useMemo(
+    () => collectHierarchyNodeKeys(hierarchyTree),
+    [hierarchyTree]
+  );
+
+  useEffect(() => {
+    setSelectedHierarchyRowIds(allHierarchyRowIds);
+  }, [allHierarchyRowIds]);
+
+  useEffect(() => {
+    setExpandedHierarchyKeys(allHierarchyKeys);
+  }, [allHierarchyKeys]);
+
+  const filteredHierarchyTree = useMemo(
+    () => filterHierarchyTree(hierarchyTree, hierarchySearch),
+    [hierarchyTree, hierarchySearch]
+  );
 
   const activeRows = useMemo(() => {
-    if (!activeSection) return [];
-    const rows = activeSection.cards.flatMap((card) =>
-      buildNurseryRows(card, activeSection.sectionName)
-    );
+    let rows = [...activeSectionRows];
+
+    if (selectedHierarchyRowIds.length > 0) {
+      const selectedSet = new Set(selectedHierarchyRowIds);
+      rows = rows.filter((row) => selectedSet.has(row.id));
+    } else {
+      rows = [];
+    }
 
     const sorted = [...rows];
     if (sortBy === "price_low") {
@@ -540,7 +785,43 @@ export default function NurseriesPreviewTemplate({
       sorted.sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
     }
     return sorted;
-  }, [activeSection, sortBy]);
+  }, [activeSectionRows, selectedHierarchyRowIds, sortBy]);
+
+  const selectedHierarchyRowIdSet = useMemo(
+    () => new Set(selectedHierarchyRowIds),
+    [selectedHierarchyRowIds]
+  );
+
+  const expandedHierarchyKeySet = useMemo(
+    () => new Set(expandedHierarchyKeys),
+    [expandedHierarchyKeys]
+  );
+
+  const toggleHierarchyRows = (rowIds, shouldSelect) => {
+    setSelectedHierarchyRowIds((current) => {
+      const next = new Set(current);
+      rowIds.forEach((id) => {
+        if (shouldSelect) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
+      });
+      return Array.from(next);
+    });
+  };
+
+  const toggleHierarchyExpand = (nodeKey) => {
+    setExpandedHierarchyKeys((current) => {
+      const next = new Set(current);
+      if (next.has(nodeKey)) {
+        next.delete(nodeKey);
+      } else {
+        next.add(nodeKey);
+      }
+      return Array.from(next);
+    });
+  };
 
   const collectionCards = useMemo(() => {
     return serviceSections.map((section) => {
@@ -595,10 +876,6 @@ export default function NurseriesPreviewTemplate({
     categoryName: category?.name,
     address: vendorInfo?.location?.address,
   });
-  const serviceModeSummary =
-    trustDisplayEntries.find((entry) => String(entry.key || "") === String(serviceModeEntry?.[0] || ""))
-      ?.value || "";
-
   const phoneNumbers = [
     vendorInfo?.phone,
     ...(Array.isArray(vendorInfo?.secondaryPhones) ? vendorInfo.secondaryPhones : []),
@@ -682,6 +959,11 @@ export default function NurseriesPreviewTemplate({
 
           <div className="nursery-header-actions">
             {phoneNumbers[0] ? <a href={`tel:${phoneNumbers[0]}`}>Call Now</a> : null}
+            {hasVendorSession ? (
+              <button type="button" onClick={onLogout}>
+                Logout
+              </button>
+            ) : null}
             <button type="button" onClick={onOpenMenu}>
               Cart {cartItems.length > 0 ? `(${cartItems.length})` : ""}
             </button>
@@ -712,6 +994,18 @@ export default function NurseriesPreviewTemplate({
                 {item.label}
               </a>
             ))}
+            {hasVendorSession ? (
+              <button
+                type="button"
+                className="nursery-mobile-menu-logout"
+                onClick={() => {
+                  onLogout?.();
+                  setMobileMenuOpen(false);
+                }}
+              >
+                Logout
+              </button>
+            ) : null}
           </div>
         ) : null}
       </header>
@@ -721,15 +1015,9 @@ export default function NurseriesPreviewTemplate({
           <h1>{heroTagline || vendorInfo?.businessName || category?.name || "Nursery"}</h1>
           <p>{introSummary}</p>
 
-          {serviceModeSummary ? (
-            <div className="nursery-service-mode-line">
-              <span>{serviceModeLabel}:</span> {serviceModeSummary}
-            </div>
-          ) : null}
-
-          {trustDisplayEntries.length > 0 || typeof vendorInfo?.googlePlace?.rating === "number" ? (
+          {statEntries.length > 0 || typeof vendorInfo?.googlePlace?.rating === "number" ? (
             <div className="nursery-stats-grid">
-              {trustDisplayEntries.map((entry) => (
+              {statEntries.map((entry) => (
                 <div key={entry.key} className="nursery-stat-card">
                   <strong>{entry.value}</strong>
                   <span>{entry.label}</span>
@@ -746,6 +1034,38 @@ export default function NurseriesPreviewTemplate({
                   </span>
                 </div>
               ) : null}
+            </div>
+          ) : null}
+
+          {serviceModes.length > 0 || extraListEntries.length > 0 ? (
+            <div className="nursery-service-mode-groups">
+              {serviceModes.length > 0 ? (
+                <div className="nursery-service-mode-group">
+                  <p className="nursery-service-mode-group-label">{serviceModeLabel}</p>
+                  <div className="nursery-service-mode-list">
+                    {serviceModes.map((mode) => (
+                      <span key={`service-mode-${mode}`} className="nursery-service-mode-chip">
+                        <span className="nursery-service-mode-chip-icon">✓</span>
+                        {mode}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {extraListEntries.map((entry) => (
+                <div key={entry.key} className="nursery-service-mode-group">
+                  <p className="nursery-service-mode-group-label">{entry.label}</p>
+                  <div className="nursery-service-mode-list">
+                    {entry.values.map((value) => (
+                      <span key={`${entry.key}-${value}`} className="nursery-service-mode-chip">
+                        <span className="nursery-service-mode-chip-icon">✓</span>
+                        {value}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : null}
         </div>
@@ -829,6 +1149,7 @@ export default function NurseriesPreviewTemplate({
                       className={`nursery-filter-item ${active ? "is-active" : ""}`}
                       onClick={() => {
                         setActiveSectionName(section.sectionName);
+                        setSelectedHierarchyRowIds([]);
                         setMobileFiltersOpen(false);
                       }}
                     >
@@ -839,6 +1160,67 @@ export default function NurseriesPreviewTemplate({
                 })}
               </div>
             </div>
+
+            {hierarchyTree.length > 0 ? (
+              <div className="nursery-filter-group">
+                <div className="nursery-filter-group-head">
+                  <strong>Hierarchy</strong>
+                </div>
+
+                <div className="nursery-filter-search">
+                  <input
+                    type="text"
+                    value={hierarchySearch}
+                    onChange={(event) => setHierarchySearch(event.target.value)}
+                    placeholder="Search hierarchy"
+                  />
+                </div>
+
+                <div className="nursery-filter-bulk-actions">
+                  <button
+                    type="button"
+                    className="nursery-filter-bulk-btn"
+                    onClick={() => setSelectedHierarchyRowIds(allHierarchyRowIds)}
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    className="nursery-filter-bulk-btn is-secondary"
+                    onClick={() => setSelectedHierarchyRowIds([])}
+                  >
+                    Deselect All
+                  </button>
+                  <button
+                    type="button"
+                    className="nursery-filter-bulk-btn is-tertiary"
+                    onClick={() => setExpandedHierarchyKeys(allHierarchyKeys)}
+                  >
+                    Expand All
+                  </button>
+                  <button
+                    type="button"
+                    className="nursery-filter-bulk-btn is-tertiary"
+                    onClick={() => setExpandedHierarchyKeys([])}
+                  >
+                    Collapse All
+                  </button>
+                </div>
+
+                <div className="nursery-filter-hierarchy-tree">
+                  {filteredHierarchyTree.map((node) => (
+                    <NurseryHierarchyNode
+                      key={node.key}
+                      node={node}
+                      selectedRowIds={selectedHierarchyRowIdSet}
+                      expandedKeys={expandedHierarchyKeySet}
+                      onToggle={toggleHierarchyRows}
+                      onToggleExpand={toggleHierarchyExpand}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </aside>
 
           <div className="nursery-products-main">

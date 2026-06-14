@@ -20,6 +20,7 @@ const HeroSection = ({
   const [index, setIndex] = useState(0);
   const [slide, setSlide] = useState(false);
   const [serviceModeLabel, setServiceModeLabel] = useState("Service Modes");
+  const [trustQuestionLabels, setTrustQuestionLabels] = useState({});
 
   const prettifyLabel = (key) =>
     String(key || "")
@@ -44,14 +45,25 @@ const HeroSection = ({
   const serviceModes = Array.isArray(serviceModeEntry?.[1])
     ? serviceModeEntry[1].map((item) => String(item || "").trim()).filter(Boolean)
     : [];
+  const serviceModeTrustKey = String(serviceModeEntry?.[0] || "").trim();
+  const multiSelectEntries = trustEntries
+    .filter(([, value]) => Array.isArray(value))
+    .map(([key, value]) => ({
+      key,
+      label: trustQuestionLabels[key] || prettifyLabel(key),
+      values: value.map((item) => String(item || "").trim()).filter(Boolean),
+    }))
+    .filter((entry) => entry.values.length > 0);
+  const extraListEntries = multiSelectEntries.filter((entry) => entry.key !== serviceModeTrustKey);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadTrustQuestionMeta() {
-      if (!trustCategoryId || !serviceModeEntry?.[0]) {
+      if (!trustCategoryId || multiSelectEntries.length === 0) {
         if (!cancelled) {
           setServiceModeLabel("Service Modes");
+          setTrustQuestionLabels({});
         }
         return;
       }
@@ -62,16 +74,27 @@ const HeroSection = ({
         );
         const data = await response.json();
         const questions = Array.isArray(data?.questions) ? data.questions : [];
-        const matched = questions.find(
-          (question) => String(question?.id || "").trim() === String(serviceModeEntry[0]).trim()
-        );
+        const labelMap = {};
+        questions.forEach((question) => {
+          const id = String(question?.id || "").trim();
+          if (!id) return;
+          labelMap[id] = String(question?.label || id);
+        });
 
         if (!cancelled) {
-          setServiceModeLabel(String(matched?.label || serviceModeEntry[0] || "Service Modes"));
+          setTrustQuestionLabels(labelMap);
+          setServiceModeLabel(
+            String(
+              (serviceModeTrustKey && labelMap[serviceModeTrustKey]) ||
+              serviceModeTrustKey ||
+              "Service Modes"
+            )
+          );
         }
       } catch (_) {
         if (!cancelled) {
-          setServiceModeLabel(String(serviceModeEntry[0] || "Service Modes"));
+          setTrustQuestionLabels({});
+          setServiceModeLabel(String(serviceModeTrustKey || "Service Modes"));
         }
       }
     }
@@ -81,7 +104,7 @@ const HeroSection = ({
     return () => {
       cancelled = true;
     };
-  }, [serviceModeEntry, trustCategoryId]);
+  }, [multiSelectEntries.length, serviceModeTrustKey, trustCategoryId]);
 
   const formatStatValue = (value) => {
     if (value === null || value === undefined) return "";
@@ -92,7 +115,6 @@ const HeroSection = ({
 
   const statEntries = trustEntries.filter(([key, value]) => {
     if (key === experienceEntry?.[0]) return false;
-    if (key === serviceModeEntry?.[0]) return false;
     if (Array.isArray(value)) return false;
     return true;
   });
@@ -201,6 +223,20 @@ const HeroSection = ({
             </div>
           </div>
         )}
+
+        {extraListEntries.map((entry) => (
+          <div key={entry.key} className="hero-service-modes">
+            <p className="hero-service-modes-label">{entry.label}</p>
+            <div className="hero-service-mode-list">
+              {entry.values.map((value) => (
+                <span key={`${entry.key}-${value}`} className="hero-service-mode-chip">
+                  <span className="hero-service-mode-chip-icon">✓</span>
+                  {value}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
 
       </div>
 

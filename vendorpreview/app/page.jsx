@@ -180,8 +180,8 @@ if (!sessionAllowed) {
         {/* HEADER */}
       {!isImmersiveTemplate ? <Header /> : null}
 <Explore onReady={() => setLoading(false)} />
-<Root />
-<About />
+{!isImmersiveTemplate ? <Root /> : null}
+{!isImmersiveTemplate ? <About /> : null}
 {!isImmersiveTemplate ? <Contact /> : null}
 
 

@@ -54,6 +54,9 @@ import AdminLoginPage from "./pages/AdminLoginPage";
 import PlansPage from "./pages/subscriptionPlans/PlansPage";
 import TemplatesPage from "./pages/TemplatesPage";
 import SiteAnalyticsPage from "./pages/SiteAnalyticsPage";
+import DigitalScoreConfigPage from "./pages/DigitalScoreConfigPage";
+import DigitalScoreQuestionsPage from "./pages/DigitalScoreQuestionsPage";
+import DigitalScoreSubmissionsPage from "./pages/DigitalScoreSubmissionsPage";
 
 
 function App() {
@@ -161,6 +164,9 @@ function AppContent() {
           {/* Subscription Plans */}
           <Route path="/subscription-plans" element={<PlansPage />} />
           <Route path="/templates" element={<TemplatesPage />} />
+          <Route path="/digital-score/config" element={<DigitalScoreConfigPage />} />
+          <Route path="/digital-score/questions" element={<DigitalScoreQuestionsPage />} />
+          <Route path="/digital-score/submissions" element={<DigitalScoreSubmissionsPage />} />
 
           {/* Fallback */}
           <Route path="*" element={<Dashboard />} />

@@ -180,6 +180,47 @@ trustSummary: {
   customFields: {
     freeText1: { type: String, default: "" }, // Heading
     freeText2: { type: String, default: "" }, // Description
+    quickHighlights: { type: [String], default: [] },
+    founderAbout: {
+      heading: { type: String, default: "" },
+      body: { type: String, default: "" },
+      founderName: { type: String, default: "" },
+      founderRole: { type: String, default: "" },
+      founderImageUrl: { type: String, default: "" },
+    },
+    whyUs: {
+      heading: { type: String, default: "" },
+      subHeading: { type: String, default: "" },
+      cards: {
+        type: [
+          {
+            title: { type: String, default: "" },
+            description: { type: String, default: "" },
+          },
+        ],
+        default: [],
+      },
+    },
+    showcaseSection: {
+      heading: { type: String, default: "" },
+      subHeading: { type: String, default: "" },
+      itemLabel: { type: String, default: "" },
+      items: {
+        type: [
+          {
+            name: { type: String, default: "" },
+            title: { type: String, default: "" },
+            subtitle: { type: String, default: "" },
+            description: { type: String, default: "" },
+            imageUrls: {
+              type: [String],
+              default: [],
+            },
+          },
+        ],
+        default: [],
+      },
+    },
   },
 
   selectedTemplateKey: {
@@ -189,6 +230,12 @@ trustSummary: {
   },
 
   nurseryColorScheme: {
+    type: String,
+    trim: true,
+    default: "",
+  },
+
+  modernColorScheme: {
     type: String,
     trim: true,
     default: "",

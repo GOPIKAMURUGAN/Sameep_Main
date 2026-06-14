@@ -32,9 +32,14 @@ export default function ProfileSocialHandles({
   const normalize = (label) =>
     label.toLowerCase().replace(/\s+/g, "");
 
-  const normalizeSocialUrl = (value) => {
+  const normalizeWhatsappNumber = (value) =>
+    String(value || "").replace(/\D/g, "");
+
+  const normalizeSocialUrl = (value, key) => {
     const trimmedValue = value.trim();
     if (!trimmedValue) return "";
+    if (key === "whatsapp") return normalizeWhatsappNumber(trimmedValue);
+    if (key === "email") return trimmedValue;
     if (/^https?:\/\//i.test(trimmedValue)) return trimmedValue;
     return `https://${trimmedValue}`;
   };
@@ -77,18 +82,36 @@ export default function ProfileSocialHandles({
   const socialsToRender =
     categorySocials === null
       ? []
-      : categorySocials
-        .map((label) => {
-          const key = normalize(label);
-          if (!SOCIAL_ICONS[key]) return null;
+      : (() => {
+          const mapped = categorySocials
+            .map((label) => {
+              const key = normalize(label);
+              if (!SOCIAL_ICONS[key]) return null;
 
-          return {
-            key,
-            label,
-            value: socialLinks[key] || "",
-          };
-        })
-        .filter(Boolean);
+              return {
+                key,
+                label,
+                value:
+                  key === "whatsapp"
+                    ? socialLinks.whatsapp || vendorInfo?.phone || ""
+                    : socialLinks[key] || "",
+              };
+            })
+            .filter(Boolean);
+
+          if (!mapped.some(({ key }) => key === "whatsapp")) {
+            const whatsappValue = socialLinks.whatsapp || vendorInfo?.phone || "";
+            if (whatsappValue) {
+              mapped.push({
+                key: "whatsapp",
+                label: "WhatsApp",
+                value: whatsappValue,
+              });
+            }
+          }
+
+          return mapped;
+        })();
 
   /* ================= SAVE SOCIAL ================= */
   const handleSaveSocial = async () => {
@@ -97,7 +120,7 @@ export default function ProfileSocialHandles({
 
       setSaving(true);
       const token = localStorage.getItem("token");
-      const normalizedValue = normalizeSocialUrl(socialValue);
+      const normalizedValue = normalizeSocialUrl(socialValue, socialType);
       const nextSocialLinks = {
         ...socialLinks,
         [socialType]: normalizedValue,
@@ -167,7 +190,11 @@ export default function ProfileSocialHandles({
         socialsToRender.map(({ key, label, value }) => {
           const Icon = SOCIAL_ICONS[key];
           const hasValue = Boolean(value?.trim());
-          const displayValue = hasValue ? formatSocialUrl(value) : "";
+          const displayValue = hasValue
+            ? key === "whatsapp"
+              ? value
+              : formatSocialUrl(value)
+            : "";
 
           return (
             <div
@@ -194,7 +221,13 @@ export default function ProfileSocialHandles({
               {hasValue ? (
                 <a
                   className="profile-social-task-status"
-                  href={value}
+                  href={
+                    key === "whatsapp"
+                      ? `https://wa.me/${normalizeWhatsappNumber(value)}`
+                      : key === "email"
+                      ? `mailto:${value}`
+                      : value
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(event) => {
@@ -219,7 +252,13 @@ export default function ProfileSocialHandles({
               className="dashboard-social-input"
               value={socialValue}
               onChange={(e) => setSocialValue(e.target.value)}
-              placeholder="Enter link or handle"
+              placeholder={
+                socialType === "whatsapp"
+                  ? "Enter WhatsApp number with country code"
+                  : socialType === "email"
+                  ? "Enter email address"
+                  : "Enter link or handle"
+              }
             />
 
             <div className="popup-actions">

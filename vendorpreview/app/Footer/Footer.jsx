@@ -15,6 +15,10 @@ const PAGE_SECTIONS = {
 };
 const FOOTER_GALLERY_OPEN_EVENT = "ynot-footer-open-gallery";
 
+function sanitizeWhatsappNumber(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
 function getPoweredByUrl() {
   return (
     process.env.NEXT_PUBLIC_VENDOR_PREVIEW_ROOT_URL ||
@@ -82,14 +86,29 @@ export default function Footer() {
     : [];
 
   // ---------- FINAL SOCIALS ----------
-  const socialsToRender = categorySocials
-    .map((label) => {
-      const key = normalize(label);
-      const value = socialLinks[key];
-      if (!value || !SOCIAL_ICONS[key]) return null;
-      return { key, value };
-    })
-    .filter(Boolean);
+  const socialsToRender = (() => {
+    const mapped = categorySocials
+      .map((label) => {
+        const key = normalize(label);
+        const rawValue =
+          key === "whatsapp"
+            ? socialLinks.whatsapp || vendorInfo?.phone || ""
+            : socialLinks[key];
+        const value = String(rawValue || "").trim();
+        if (!value || !SOCIAL_ICONS[key]) return null;
+        return { key, value };
+      })
+      .filter(Boolean);
+
+    const hasWhatsapp = mapped.some(({ key }) => key === "whatsapp");
+    const whatsappValue = String(socialLinks.whatsapp || vendorInfo?.phone || "").trim();
+
+    if (!hasWhatsapp && whatsappValue) {
+      mapped.push({ key: "whatsapp", value: whatsappValue });
+    }
+
+    return mapped;
+  })();
 
   return (
     <footer className="footer">
@@ -146,7 +165,7 @@ export default function Footer() {
                     : key === "email"
                     ? `mailto:${value}`
                     : key === "whatsapp"
-                    ? `https://wa.me/${value}`
+                    ? `https://wa.me/${sanitizeWhatsappNumber(value)}`
                     : `https://${key}.com/${value}`;
 
                 return (

@@ -2275,3 +2275,538 @@ button {
     min-height: 220px;
   }
 }
+
+.digitalScorePage {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(255, 204, 51, 0.16), transparent 28%),
+    linear-gradient(180deg, #fffdf4 0%, #fff 100%);
+  color: #101a34;
+}
+
+.digitalScoreShell {
+  width: min(1120px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 36px 0 72px;
+}
+
+.digitalScoreBackLink {
+  border: none;
+  background: transparent;
+  color: #6c7394;
+  font-weight: 700;
+  padding: 0;
+  margin-bottom: 18px;
+  cursor: pointer;
+}
+
+.digitalScoreHero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.digitalScoreHero h1,
+.digitalScoreStateCard h1 {
+  font-size: clamp(2rem, 4.2vw, 4rem);
+  line-height: 0.95;
+  margin: 10px 0 12px;
+  color: #101a34;
+}
+
+.digitalScoreHero p,
+.digitalScoreStateCard p {
+  max-width: 720px;
+  color: #6c7394;
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.digitalScoreEyebrow {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 177, 0, 0.28);
+  background: rgba(255, 225, 122, 0.16);
+  color: #8c6400;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.digitalScoreHeroMeta {
+  min-width: 140px;
+  border-radius: 28px;
+  background: #101a34;
+  color: #fff;
+  padding: 24px;
+  text-align: center;
+}
+
+.digitalScoreHeroMeta strong {
+  display: block;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.digitalScoreHeroMeta span {
+  display: block;
+  margin-top: 6px;
+  opacity: 0.78;
+}
+
+.digitalScoreProgressWrap {
+  margin-bottom: 22px;
+}
+
+.digitalScoreProgressTrack {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(16, 26, 52, 0.08);
+  overflow: hidden;
+}
+
+.digitalScoreProgressFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f5c63b 0%, #101a34 100%);
+}
+
+.digitalScoreProgressSteps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.digitalScoreProgressSteps span {
+  color: #a0a6c0;
+  font-weight: 700;
+}
+
+.digitalScoreProgressSteps span.is-active {
+  color: #101a34;
+}
+
+.digitalScoreCard {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(16, 26, 52, 0.08);
+  border-radius: 34px;
+  box-shadow: 0 20px 60px rgba(16, 26, 52, 0.08);
+  padding: 28px;
+}
+
+.digitalScoreStateCard {
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+}
+
+.digitalScoreCardHeader,
+.digitalScoreFooterActions,
+.digitalScoreResultActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.digitalScoreCardHeader {
+  margin-bottom: 22px;
+}
+
+.digitalScoreCardHeader h2 {
+  margin: 0 0 8px;
+  font-size: 1.9rem;
+  color: #101a34;
+}
+
+.digitalScoreCardHeader p {
+  margin: 0;
+  color: #6c7394;
+  line-height: 1.7;
+}
+
+.digitalScoreError {
+  margin: 0 0 18px;
+  border-radius: 18px;
+  background: #fff3f1;
+  color: #b53b2f;
+  padding: 14px 16px;
+  font-weight: 600;
+}
+
+.digitalScoreLanguageGrid,
+.digitalScoreCategoryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.digitalScoreChoiceCard,
+.digitalScoreOptionButton,
+.digitalScorePrimaryButton,
+.digitalScoreSecondaryButton {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.digitalScoreChoiceCard {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  border-radius: 24px;
+  border: 1px solid rgba(16, 26, 52, 0.1);
+  background: #fff;
+  padding: 22px;
+  cursor: pointer;
+}
+
+.digitalScoreChoiceCard strong {
+  font-size: 1.1rem;
+  color: #101a34;
+}
+
+.digitalScoreChoiceCard span {
+  color: #6c7394;
+}
+
+.digitalScoreChoiceCard.is-selected {
+  border-color: rgba(245, 177, 0, 0.42);
+  box-shadow: 0 18px 40px rgba(245, 177, 0, 0.12);
+  background: linear-gradient(180deg, #fffef7 0%, #fff 100%);
+}
+
+.digitalScoreQuestionList {
+  display: grid;
+  gap: 18px;
+}
+
+.digitalScoreQuestionCard {
+  border-radius: 28px;
+  border: 1px solid rgba(16, 26, 52, 0.08);
+  background: #fff;
+  padding: 22px;
+}
+
+.digitalScoreQuestionMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.digitalScoreQuestionMeta span {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(245, 177, 0, 0.14);
+  color: #8c6400;
+  font-weight: 800;
+}
+
+.digitalScoreQuestionMeta small {
+  color: #6c7394;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.digitalScoreQuestionCard h3 {
+  margin: 0 0 16px;
+  font-size: 1.2rem;
+  color: #101a34;
+}
+
+.digitalScoreOptionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.digitalScoreOptionButton {
+  border-radius: 18px;
+  border: 1px solid rgba(16, 26, 52, 0.08);
+  background: #fbfcff;
+  color: #101a34;
+  padding: 16px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.digitalScoreOptionButton.is-selected {
+  background: #101a34;
+  border-color: #101a34;
+  color: #fff;
+  box-shadow: 0 18px 32px rgba(16, 26, 52, 0.15);
+}
+
+.digitalScoreDetailsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.digitalScoreField {
+  display: grid;
+  gap: 8px;
+}
+
+.digitalScoreField span {
+  color: #101a34;
+  font-weight: 700;
+}
+
+.digitalScoreField input {
+  width: 100%;
+  min-height: 58px;
+  border-radius: 18px;
+  border: 1px solid rgba(16, 26, 52, 0.12);
+  background: #fff;
+  color: #101a34;
+  padding: 0 16px;
+  font-size: 1rem;
+}
+
+.digitalScoreFieldFull {
+  grid-column: 1 / -1;
+}
+
+.digitalScoreFooterActions,
+.digitalScoreResultActions {
+  margin-top: 24px;
+}
+
+.digitalScorePrimaryButton,
+.digitalScoreSecondaryButton {
+  min-height: 54px;
+  border-radius: 999px;
+  font-weight: 800;
+  padding: 0 24px;
+  cursor: pointer;
+}
+
+.digitalScorePrimaryButton {
+  border: none;
+  background: #101a34;
+  color: #fff;
+  box-shadow: 0 18px 32px rgba(16, 26, 52, 0.16);
+}
+
+.digitalScorePrimaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.digitalScoreSecondaryButton {
+  border: 1px solid rgba(16, 26, 52, 0.12);
+  background: #fff;
+  color: #101a34;
+}
+
+.digitalScoreInlineLoading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  color: #6c7394;
+}
+
+.digitalScoreSpinner {
+  width: 50px;
+  height: 50px;
+  border-radius: 999px;
+  border: 4px solid rgba(16, 26, 52, 0.1);
+  border-top-color: #f5c63b;
+  animation: digitalScoreSpin 0.8s linear infinite;
+}
+
+.digitalScoreSpinner.small {
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
+}
+
+@keyframes digitalScoreSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.digitalScoreResult {
+  display: grid;
+  gap: 22px;
+}
+
+.digitalScoreResultHero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  border-radius: 28px;
+  padding: 28px;
+}
+
+.digitalScoreResult.poor .digitalScoreResultHero {
+  background: #fff5f1;
+}
+
+.digitalScoreResult.average .digitalScoreResultHero {
+  background: #fff9ef;
+}
+
+.digitalScoreResult.good .digitalScoreResultHero {
+  background: #f5fbf3;
+}
+
+.digitalScoreResult.excellent .digitalScoreResultHero {
+  background: #eef8ff;
+}
+
+.digitalScoreResultHero h2 {
+  margin: 12px 0 8px;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 0.95;
+  color: #101a34;
+}
+
+.digitalScoreResultHero p {
+  margin: 0;
+  color: #6c7394;
+  line-height: 1.7;
+}
+
+.digitalScoreResultScore {
+  flex-shrink: 0;
+  text-align: center;
+  min-width: 180px;
+}
+
+.digitalScoreResultScore strong {
+  font-size: clamp(2.8rem, 5vw, 4.5rem);
+  line-height: 1;
+  color: #101a34;
+}
+
+.digitalScoreResultScore span {
+  display: block;
+  margin-top: 8px;
+  color: #6c7394;
+  font-weight: 700;
+}
+
+.digitalScoreSectionGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.digitalScoreSectionCard {
+  border-radius: 22px;
+  border: 1px solid rgba(16, 26, 52, 0.08);
+  background: #fff;
+  padding: 18px;
+}
+
+.digitalScoreSectionCard span {
+  display: block;
+  color: #6c7394;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.digitalScoreSectionCard strong {
+  display: block;
+  margin-top: 10px;
+  color: #101a34;
+  font-size: 1.9rem;
+}
+
+.digitalScoreRecommendationCard {
+  border-radius: 26px;
+  border: 1px solid rgba(16, 26, 52, 0.08);
+  background: #fff;
+  padding: 24px;
+}
+
+.digitalScoreRecommendationCard h3 {
+  margin: 0 0 12px;
+  color: #101a34;
+  font-size: 1.25rem;
+}
+
+.digitalScoreRecommendationCard ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #49506d;
+  line-height: 1.8;
+}
+
+.digitalScoreRecommendationCard p {
+  margin: 0;
+  color: #6c7394;
+  line-height: 1.7;
+}
+
+.digitalScoreHeroButton {
+  border-color: rgba(245, 177, 0, 0.18);
+}
+
+@media (max-width: 960px) {
+  .digitalScoreHero,
+  .digitalScoreCardHeader,
+  .digitalScoreFooterActions,
+  .digitalScoreResultActions,
+  .digitalScoreResultHero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .digitalScoreLanguageGrid,
+  .digitalScoreCategoryGrid,
+  .digitalScoreOptionGrid,
+  .digitalScoreDetailsGrid,
+  .digitalScoreSectionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .digitalScoreProgressSteps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .digitalScoreShell {
+    width: min(100vw - 20px, 100%);
+    padding: 20px 0 52px;
+  }
+
+  .digitalScoreCard {
+    padding: 22px 18px;
+    border-radius: 26px;
+  }
+
+  .digitalScoreHero h1,
+  .digitalScoreStateCard h1 {
+    font-size: 2.6rem;
+  }
+
+  .digitalScoreProgressSteps {
+    grid-template-columns: 1fr;
+  }
+}

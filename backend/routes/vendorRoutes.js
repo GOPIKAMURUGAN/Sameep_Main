@@ -643,18 +643,60 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+function sanitizeWhyUsPayload(input) {
+  const source = input && typeof input === "object" ? input : {};
+  const cards = Array.isArray(source.cards) ? source.cards : [];
+
+  return {
+    heading: String(source.heading || "").trim().slice(0, 120),
+    subHeading: String(source.subHeading || "").trim().slice(0, 220),
+    cards: cards.slice(0, 4).map((card) => ({
+      title: String(card?.title || "").trim().slice(0, 60),
+      description: String(card?.description || "").trim().slice(0, 180),
+    })),
+  };
+}
+
+function sanitizeFounderAboutPayload(input) {
+  const source = input && typeof input === "object" ? input : {};
+  return {
+    heading: String(source.heading || "").trim().slice(0, 120),
+    body: String(source.body || "").trim().slice(0, 2000),
+    founderName: String(source.founderName || "").trim().slice(0, 80),
+    founderRole: String(source.founderRole || "").trim().slice(0, 80),
+    founderImageUrl: String(source.founderImageUrl || "").trim().slice(0, 500),
+  };
+}
+
+function toPlainCustomFields(customFields) {
+  if (!customFields) return {};
+  if (typeof customFields.toObject === "function") {
+    return customFields.toObject();
+  }
+  if (typeof customFields === "object") {
+    return { ...customFields };
+  }
+  return {};
+}
+
 /**
  * GET /api/vendors/:vendorId/custom-fields
- * Returns { freeText1, freeText2 }
+ * Returns { freeText1, freeText2, quickHighlights, founderAbout, whyUs }
  */
 router.get("/:vendorId/custom-fields", async (req, res) => {
   try {
     const v = await Vendor.findById(req.params.vendorId).lean();
     if (!v) return res.status(404).json({ message: "Vendor not found" });
     const cf = (v.customFields && typeof v.customFields === 'object') ? v.customFields : {};
+    const quickHighlights = Array.isArray(cf.quickHighlights)
+      ? cf.quickHighlights.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 3)
+      : [];
     return res.json({
       freeText1: typeof cf.freeText1 === 'string' ? cf.freeText1 : "",
       freeText2: typeof cf.freeText2 === 'string' ? cf.freeText2 : "",
+      quickHighlights,
+      founderAbout: sanitizeFounderAboutPayload(cf.founderAbout),
+      whyUs: sanitizeWhyUsPayload(cf.whyUs),
     });
   } catch (err) {
     console.error("GET /vendors/:vendorId/custom-fields error:", err);
@@ -664,16 +706,40 @@ router.get("/:vendorId/custom-fields", async (req, res) => {
 
 /**
  * PUT /api/vendors/:vendorId/custom-fields
- * Body: { freeText1, freeText2 }
+ * Body: { freeText1, freeText2, quickHighlights, founderAbout, whyUs }
  */
 router.put("/:vendorId/custom-fields", async (req, res) => {
   try {
     const { vendorId } = req.params;
-    const freeText1 = typeof req.body?.freeText1 === 'string' ? req.body.freeText1 : '';
-    const freeText2 = typeof req.body?.freeText2 === 'string' ? req.body.freeText2 : '';
     const v = await Vendor.findById(vendorId);
     if (!v) return res.status(404).json({ message: "Vendor not found" });
-    v.customFields = { ...(v.customFields || {}), freeText1, freeText2 };
+    const nextCustomFields = toPlainCustomFields(v.customFields);
+
+    if (req.body?.freeText1 !== undefined) {
+      nextCustomFields.freeText1 =
+        typeof req.body.freeText1 === "string" ? req.body.freeText1 : "";
+    }
+    if (req.body?.freeText2 !== undefined) {
+      nextCustomFields.freeText2 =
+        typeof req.body.freeText2 === "string" ? req.body.freeText2 : "";
+    }
+    if (req.body?.quickHighlights !== undefined) {
+      nextCustomFields.quickHighlights = Array.isArray(req.body?.quickHighlights)
+        ? req.body.quickHighlights
+            .map((item) => String(item || "").trim().slice(0, 80))
+            .filter(Boolean)
+            .slice(0, 3)
+        : [];
+    }
+    if (req.body?.founderAbout !== undefined) {
+      nextCustomFields.founderAbout = sanitizeFounderAboutPayload(req.body?.founderAbout);
+    }
+    if (req.body?.whyUs !== undefined) {
+      nextCustomFields.whyUs = sanitizeWhyUsPayload(req.body?.whyUs);
+    }
+
+    v.customFields = nextCustomFields;
+    v.markModified("customFields");
     await v.save();
     return res.json({ success: true, customFields: v.customFields });
   } catch (err) {
