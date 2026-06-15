@@ -609,10 +609,6 @@ export default function NurseriesPreviewTemplate({
     setActiveSectionName(serviceSections[0].sectionName);
   }, [activeSectionName, serviceSections]);
 
-  useEffect(() => {
-    setSelectedHierarchyRowIds([]);
-  }, [activeSectionName]);
-
   const activeSection =
     serviceSections.find((section) => section.sectionName === activeSectionName) ||
     serviceSections[0] ||
@@ -958,14 +954,33 @@ export default function NurseriesPreviewTemplate({
           </div>
 
           <div className="nursery-header-actions">
-            {phoneNumbers[0] ? <a href={`tel:${phoneNumbers[0]}`}>Call Now</a> : null}
+            {phoneNumbers[0] ? (
+              <a
+                href={`tel:${phoneNumbers[0]}`}
+                className="nursery-header-action nursery-header-action-primary"
+              >
+                <span className="nursery-header-action-label">Call Now</span>
+                <span className="nursery-header-action-meta">{phoneNumbers[0]}</span>
+              </a>
+            ) : null}
             {hasVendorSession ? (
-              <button type="button" onClick={onLogout}>
-                Logout
+              <button
+                type="button"
+                className="nursery-header-action nursery-header-action-secondary"
+                onClick={onLogout}
+              >
+                <span className="nursery-header-action-label">Logout</span>
               </button>
             ) : null}
-            <button type="button" onClick={onOpenMenu}>
-              Cart {cartItems.length > 0 ? `(${cartItems.length})` : ""}
+            <button
+              type="button"
+              className="nursery-header-action nursery-header-action-secondary"
+              onClick={onOpenMenu}
+            >
+              <span className="nursery-header-action-label">Cart</span>
+              <span className="nursery-header-action-badge">
+                {cartItems.length > 0 ? cartItems.length : 0}
+              </span>
             </button>
           </div>
         </div>
@@ -1149,7 +1164,6 @@ export default function NurseriesPreviewTemplate({
                       className={`nursery-filter-item ${active ? "is-active" : ""}`}
                       onClick={() => {
                         setActiveSectionName(section.sectionName);
-                        setSelectedHierarchyRowIds([]);
                         setMobileFiltersOpen(false);
                       }}
                     >
