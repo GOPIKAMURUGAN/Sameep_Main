@@ -3,7 +3,7 @@ const fetch = global.fetch;
 console.log("🔥 CATEGORY CLONE SCRIPT STARTED");
 
 /******** CONFIG ********/
-const ROOT_ID = "69915983eca3f72d376e4970";
+const ROOT_ID = "6991177eeca3f72d376d8137";
 
 const SOURCE = `http://localhost:5001/api/categories/tree?rootCategoryId=${ROOT_ID}`;
 

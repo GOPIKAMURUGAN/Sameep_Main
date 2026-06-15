@@ -349,6 +349,10 @@ function defaultCustomForm(customType = "package") {
   };
 }
 
+function getSelfManagedTypeConfig(customType) {
+  return getCustomTypeConfig(getEffectiveCustomType(customType || "service_item"));
+}
+
 export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) {
   const { vendorInfo, setVendorInfo } = useVendor();
   const vendorId = vendorInfo?.vendorId || vendorInfo?._id || null;
@@ -383,13 +387,18 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
   const [addingNode, setAddingNode] = useState(false);
   const [addNodeType, setAddNodeType] = useState("subcategory");
   const [addNodeName, setAddNodeName] = useState("");
+  const [addNodeCustomType, setAddNodeCustomType] = useState("service_item");
   const [addNodePrice, setAddNodePrice] = useState("");
   const [addNodeTerms, setAddNodeTerms] = useState("");
+  const [addNodePackagesIncludes, setAddNodePackagesIncludes] = useState("");
+  const [addNodeOfferText, setAddNodeOfferText] = useState("");
   const [addNodeImageUrl, setAddNodeImageUrl] = useState("");
   const [uploadingAddNodeImage, setUploadingAddNodeImage] = useState(false);
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [editingCategoryNode, setEditingCategoryNode] = useState(null);
   const [editCategoryName, setEditCategoryName] = useState("");
+  const [modalCustomType, setModalCustomType] = useState("service_item");
+  const [modalPackagesIncludes, setModalPackagesIncludes] = useState("");
 
   const [pendingServiceId, setPendingServiceId] = useState(null);
   const [modalOfferText, setModalOfferText] = useState("");
@@ -909,8 +918,12 @@ if (missingLeafIds.length) {
     if (!pendingServiceId) return;   // safety
 
     if (isSelfManagedVendor) {
+      const pendingTypeConfig = getSelfManagedTypeConfig(pendingService?.customType);
       await updateSelfManagedNode(pendingServiceId, {
-        price: Number(activationPrice),
+        customType: getEffectiveCustomType(pendingService?.customType),
+        price: pendingTypeConfig.supportsPrice ? Number(activationPrice) : null,
+        terms: pendingTypeConfig.supportsTerms ? selectedTerms.join(", ") : "",
+        offerText: pendingTypeConfig.customType === "offer" ? activationOfferText : "",
         pricingStatus: "Active",
       });
     } else {
@@ -927,10 +940,11 @@ if (missingLeafIds.length) {
     }
 
     if (pendingService) {
-      pendingService.price = Number(activationPrice);
+      const pendingTypeConfig = getSelfManagedTypeConfig(pendingService.customType);
+      pendingService.price = pendingTypeConfig.supportsPrice ? Number(activationPrice) : null;
       pendingService.pricingStatus = "Active";
-      pendingService.terms = selectedTerms.join(", ");
-      pendingService.offerText = activationOfferText;
+      pendingService.terms = pendingTypeConfig.supportsTerms ? selectedTerms.join(", ") : "";
+      pendingService.offerText = pendingTypeConfig.customType === "offer" ? activationOfferText : "";
     }
 
     setRootNodes([...rootNodes]);
@@ -991,6 +1005,8 @@ async function updateService(service, status) {
   ];
   const showCustomEntryInList = showCustomEntry && structuralCategories.length > 0;
   const showCustomEntryAsStandaloneAction = showCustomEntry && structuralCategories.length === 0;
+  const selfManagedAddTypeConfig = getSelfManagedTypeConfig(addNodeCustomType);
+  const selfManagedEditTypeConfig = getSelfManagedTypeConfig(modalCustomType);
 
   const displayCategories = [
     ...(showCustomEntryInList
@@ -1271,9 +1287,12 @@ async function updateService(service, status) {
 
   function openAddNodeModal() {
     setAddNodeType("subcategory");
+    setAddNodeCustomType("service_item");
     setAddNodeName("");
     setAddNodePrice("");
     setAddNodeTerms("");
+    setAddNodePackagesIncludes("");
+    setAddNodeOfferText("");
     setAddNodeImageUrl("");
     setShowAddNodeModal(true);
   }
@@ -1337,15 +1356,28 @@ async function updateService(service, status) {
 
     try {
       setAddingNode(true);
+      const addTypeConfig = getSelfManagedTypeConfig(addNodeCustomType);
       await createSelfManagedNode({
         parentNodeId: showingRoot ? null : currentNode?._id || null,
         nodeType: addNodeType,
         name: trimmedName,
+        customType: addNodeType === "service" ? addNodeCustomType : "",
         price:
-          addNodeType === "service"
+          addNodeType === "service" && addTypeConfig.supportsPrice
             ? (String(addNodePrice || "").trim() === "" ? null : Number(addNodePrice))
             : null,
-        terms: addNodeTerms.trim(),
+        terms:
+          addNodeType === "service" && addTypeConfig.supportsTerms
+            ? addNodeTerms.trim()
+            : "",
+        packagesIncludes:
+          addNodeType === "service" && addTypeConfig.supportsPackagesIncludes
+            ? addNodePackagesIncludes.trim()
+            : "",
+        offerText:
+          addNodeType === "service" && addTypeConfig.customType === "offer"
+            ? addNodeOfferText.trim()
+            : "",
         imageUrl: addNodeImageUrl,
       });
 
@@ -1893,10 +1925,15 @@ async function updateService(service, status) {
                         toggleStatus={toggleStatus}
                         isOffer={isSelfManagedVendor ? false : isFreeTextEnabled(categoryTree, service.categoryId)}
                         onEdit={() => {
+                          const itemType = isSelfManagedVendor
+                            ? getEffectiveCustomType(service.customType)
+                            : (isFreeTextEnabled(categoryTree, service.categoryId) ? "offer" : "service_item");
                           setEditingService(service);
                           setEditCategoryName(service.name || "");
+                          setModalCustomType(itemType);
                           setModalPrice(service.price || "");
                           setModalTerms(service.terms || "");
+                          setModalPackagesIncludes(service.packagesIncludes || "");
                           setModalImageUrl(service.imageUrl || "");
                           setModalOfferText(service.offerText || "");
 
@@ -1934,10 +1971,15 @@ async function updateService(service, status) {
                         isActive={false}
                         toggleStatus={toggleStatus}
                         onEdit={() => {
+                          const itemType = isSelfManagedVendor
+                            ? getEffectiveCustomType(service.customType)
+                            : (isFreeTextEnabled(categoryTree, service.categoryId) ? "offer" : "service_item");
                           setEditingService(service);
                           setEditCategoryName(service.name || "");
+                          setModalCustomType(itemType);
                           setModalPrice(service.price || "");
                           setModalTerms(service.terms || "");
+                          setModalPackagesIncludes(service.packagesIncludes || "");
                           setModalImageUrl(service.imageUrl || "");
                           setModalOfferText(service.offerText || "");
                           setAllTerms([]);
@@ -2026,7 +2068,14 @@ async function updateService(service, status) {
       </div >
       {
         showEditModal && editingService && (
-          <Modal title="Edit Service" onClose={() => setShowEditModal(false)}>
+          <Modal
+            title={
+              isSelfManagedVendor
+                ? `Edit ${selfManagedEditTypeConfig.customType === "package" ? "Package" : selfManagedEditTypeConfig.customType === "offer" ? "Offer" : "Service"}`
+                : "Edit Service"
+            }
+            onClose={() => setShowEditModal(false)}
+          >
             <label className="modal-label">Name</label>
             <input
               className="price-input"
@@ -2034,7 +2083,87 @@ async function updateService(service, status) {
               onChange={e => setEditCategoryName(e.target.value)}
             />
 
-            {isFreeTextEnabled(categoryTree, editingService.categoryId) ? (
+            {isSelfManagedVendor ? (
+              <>
+                <label className="modal-label">Item Type</label>
+                <div className="custom-package-type-toggle">
+                  <button
+                    className={`type-pill ${modalCustomType === "service_item" ? "active" : ""}`}
+                    onClick={() => setModalCustomType("service_item")}
+                    type="button"
+                  >
+                    Service
+                  </button>
+                  <button
+                    className={`type-pill ${modalCustomType === "package" ? "active" : ""}`}
+                    onClick={() => setModalCustomType("package")}
+                    type="button"
+                  >
+                    Package
+                  </button>
+                  <button
+                    className={`type-pill ${modalCustomType === "offer" ? "active" : ""}`}
+                    onClick={() => setModalCustomType("offer")}
+                    type="button"
+                  >
+                    Offer
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {isSelfManagedVendor ? (
+              <>
+                {selfManagedEditTypeConfig.supportsPrice ? (
+                  <>
+                    <label className="modal-label">Price</label>
+                    <input
+                      className="price-input"
+                      value={modalPrice}
+                      onChange={e => setModalPrice(e.target.value)}
+                    />
+                  </>
+                ) : null}
+
+                {selfManagedEditTypeConfig.supportsTerms ? (
+                  <>
+                    <label className="modal-label">Terms (give multiple terms with a comma separator)</label>
+                    <textarea
+                      className="price-input custom-textarea"
+                      value={modalTerms}
+                      onChange={e => setModalTerms(e.target.value)}
+                      placeholder="Example: Age under 10 only, Weekends only, Base price only"
+                      rows={4}
+                    />
+                  </>
+                ) : null}
+
+                {selfManagedEditTypeConfig.supportsPackagesIncludes ? (
+                  <>
+                    <label className="modal-label">Package Includes</label>
+                    <textarea
+                      className="price-input custom-textarea"
+                      value={modalPackagesIncludes}
+                      onChange={e => setModalPackagesIncludes(e.target.value)}
+                      placeholder="Example: Hair wash, Facial, Massage"
+                      rows={4}
+                    />
+                  </>
+                ) : null}
+
+                {selfManagedEditTypeConfig.customType === "offer" ? (
+                  <>
+                    <label className="modal-label">Offer Text</label>
+                    <textarea
+                      className="price-input custom-textarea"
+                      value={modalOfferText}
+                      onChange={e => setModalOfferText(e.target.value)}
+                      rows={4}
+                    />
+                  </>
+                ) : null}
+              </>
+            ) : isFreeTextEnabled(categoryTree, editingService.categoryId) ? (
               <>
                 <label className="modal-label">Offer Text</label>
                 <input
@@ -2053,6 +2182,8 @@ async function updateService(service, status) {
                 />
               </>
             )}
+            {!isSelfManagedVendor ? (
+              <>
             <label className="modal-label">Terms (give multiple terms with a comma separator)</label>
             {allTerms.length > 0 ? (
               <div className="terms-checkbox-list">
@@ -2076,14 +2207,16 @@ async function updateService(service, status) {
               </div>
             ) : (
               <textarea
-                className="price-input"
+                className="price-input custom-textarea"
                 value={modalTerms}
                 onChange={e => setModalTerms(e.target.value)}
                 placeholder="Example: Age under 10 only, Weekends only, Base price only"
-                rows={3}
+                rows={4}
               />
             )}
-            <label className="modal-label">Image URL</label>
+              </>
+            ) : null}
+            <label className="modal-label">Image</label>
             <div className="image-row">
               <input
                 className="price-input"
@@ -2112,33 +2245,64 @@ async function updateService(service, status) {
                 if (!editingService) return; // safety
                 const resolvedTerms =
                   allTerms.length > 0 ? selectedTerms.join(", ") : modalTerms.trim();
-                editingService.price = Number(modalPrice);
+                const nextPrice =
+                  String(modalPrice || "").trim() === "" ? null : Number(modalPrice);
+                editingService.price = nextPrice;
                 editingService.name = editCategoryName;
                 editingService.pricingStatus = "Active";
-                editingService.terms = resolvedTerms;
+                editingService.terms = isSelfManagedVendor
+                  ? (selfManagedEditTypeConfig.supportsTerms ? modalTerms.trim() : "")
+                  : resolvedTerms;
+                editingService.packagesIncludes = isSelfManagedVendor
+                  ? (selfManagedEditTypeConfig.supportsPackagesIncludes ? modalPackagesIncludes.trim() : "")
+                  : editingService.packagesIncludes;
                 editingService.imageUrl = modalImageUrl;
-                editingService.offerText = modalOfferText;
+                editingService.offerText = isSelfManagedVendor
+                  ? (selfManagedEditTypeConfig.customType === "offer" ? modalOfferText.trim() : "")
+                  : modalOfferText;
+                editingService.customType = isSelfManagedVendor ? modalCustomType : editingService.customType;
                 if (isSelfManagedVendor) {
                   await updateSelfManagedNode(editingService._id, {
                     name: editCategoryName,
-                    price: Number(modalPrice),
+                    customType: modalCustomType,
+                    price: nextPrice,
                     pricingStatus: editingService.pricingStatus || "Active",
-                    terms: resolvedTerms,
+                    terms: selfManagedEditTypeConfig.supportsTerms ? modalTerms.trim() : "",
+                    packagesIncludes: selfManagedEditTypeConfig.supportsPackagesIncludes
+                      ? modalPackagesIncludes.trim()
+                      : "",
+                    offerText: selfManagedEditTypeConfig.customType === "offer"
+                      ? modalOfferText.trim()
+                      : "",
                     imageUrl: modalImageUrl || "",
                   });
                   setRootNodes(nodes =>
                     updateNodeFields(nodes, editingService._id, {
                       name: editCategoryName,
-                      price: Number(modalPrice),
-                      terms: resolvedTerms,
+                      customType: modalCustomType,
+                      price: nextPrice,
+                      terms: selfManagedEditTypeConfig.supportsTerms ? modalTerms.trim() : "",
+                      packagesIncludes: selfManagedEditTypeConfig.supportsPackagesIncludes
+                        ? modalPackagesIncludes.trim()
+                        : "",
+                      offerText: selfManagedEditTypeConfig.customType === "offer"
+                        ? modalOfferText.trim()
+                        : "",
                       imageUrl: modalImageUrl,
                     })
                   );
                   setPath(prev =>
                     updatePathFields(prev, editingService._id, {
                       name: editCategoryName,
-                      price: Number(modalPrice),
-                      terms: resolvedTerms,
+                      customType: modalCustomType,
+                      price: nextPrice,
+                      terms: selfManagedEditTypeConfig.supportsTerms ? modalTerms.trim() : "",
+                      packagesIncludes: selfManagedEditTypeConfig.supportsPackagesIncludes
+                        ? modalPackagesIncludes.trim()
+                        : "",
+                      offerText: selfManagedEditTypeConfig.customType === "offer"
+                        ? modalOfferText.trim()
+                        : "",
                       imageUrl: modalImageUrl,
                     })
                   );
@@ -2168,7 +2332,29 @@ async function updateService(service, status) {
         showActivateModal && pendingService && (
           <Modal title="Activate Service" onClose={() => setShowActivateModal(false)}>
 
-            {isFreeTextEnabled(categoryTree, pendingService.categoryId) ? (
+            {isSelfManagedVendor ? (
+              <>
+                {getSelfManagedTypeConfig(pendingService.customType).customType === "offer" ? (
+                  <>
+                    <label className="modal-label">Offer Text</label>
+                    <input
+                      className="price-input"
+                      value={activationOfferText}
+                      onChange={e => setActivationOfferText(e.target.value)}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <label className="modal-label">Price</label>
+                    <input
+                      className="price-input"
+                      value={activationPrice}
+                      onChange={e => setActivationPrice(e.target.value)}
+                    />
+                  </>
+                )}
+              </>
+            ) : isFreeTextEnabled(categoryTree, pendingService.categoryId) ? (
               <>
                 <label className="modal-label">Offer Text</label>
                 <input
@@ -2188,7 +2374,7 @@ async function updateService(service, status) {
               </>
             )}
 
-            {allTerms.length > 0 && (
+            {allTerms.length > 0 && !isSelfManagedVendor && (
               <>
                 <label className="modal-label">Terms</label>
 
@@ -2211,6 +2397,21 @@ async function updateService(service, status) {
               </div>
               </>
             )}
+
+            {isSelfManagedVendor && getSelfManagedTypeConfig(pendingService.customType).supportsTerms ? (
+              <>
+                <label className="modal-label">Terms</label>
+                <textarea
+                  className="price-input"
+                  value={selectedTerms.join(", ")}
+                  onChange={e => {
+                    const nextTerms = parseTerms(e.target.value);
+                    setSelectedTerms(nextTerms);
+                  }}
+                  rows={3}
+                />
+              </>
+            ) : null}
 
             <button
               className="btn-primary"
@@ -2380,6 +2581,33 @@ async function updateService(service, status) {
 
             {addNodeType === "service" ? (
               <>
+                <label className="modal-label">Item Type</label>
+                <div className="custom-package-type-toggle">
+                  <button
+                    className={`type-pill ${addNodeCustomType === "service_item" ? "active" : ""}`}
+                    onClick={() => setAddNodeCustomType("service_item")}
+                    type="button"
+                  >
+                    Service
+                  </button>
+                  <button
+                    className={`type-pill ${addNodeCustomType === "package" ? "active" : ""}`}
+                    onClick={() => setAddNodeCustomType("package")}
+                    type="button"
+                  >
+                    Package
+                  </button>
+                  <button
+                    className={`type-pill ${addNodeCustomType === "offer" ? "active" : ""}`}
+                    onClick={() => setAddNodeCustomType("offer")}
+                    type="button"
+                  >
+                    Offer
+                  </button>
+                </div>
+
+                {selfManagedAddTypeConfig.supportsPrice ? (
+                  <>
                 <label className="modal-label">Price</label>
                 <input
                   className="price-input"
@@ -2387,19 +2615,51 @@ async function updateService(service, status) {
                   onChange={e => setAddNodePrice(e.target.value)}
                   placeholder="Enter price"
                 />
+                  </>
+                ) : null}
+
+                {selfManagedAddTypeConfig.supportsTerms ? (
+                  <>
+                    <label className="modal-label">Terms (give multiple terms with a comma separator)</label>
+                    <textarea
+                      className="price-input custom-textarea"
+                      value={addNodeTerms}
+                      onChange={e => setAddNodeTerms(e.target.value)}
+                      placeholder="Example: Age under 10 only, Weekends only, Base price only"
+                      rows={4}
+                    />
+                  </>
+                ) : null}
+
+                {selfManagedAddTypeConfig.supportsPackagesIncludes ? (
+                  <>
+                    <label className="modal-label">Package Includes</label>
+                    <textarea
+                      className="price-input custom-textarea"
+                      value={addNodePackagesIncludes}
+                      onChange={e => setAddNodePackagesIncludes(e.target.value)}
+                      placeholder="Example: Hair wash, Facial, Massage"
+                      rows={4}
+                    />
+                  </>
+                ) : null}
+
+                {selfManagedAddTypeConfig.customType === "offer" ? (
+                  <>
+                    <label className="modal-label">Offer Text</label>
+                    <textarea
+                      className="price-input custom-textarea"
+                      value={addNodeOfferText}
+                      onChange={e => setAddNodeOfferText(e.target.value)}
+                      placeholder="Describe the offer"
+                      rows={4}
+                    />
+                  </>
+                ) : null}
               </>
             ) : null}
 
-            <label className="modal-label">Terms (give multiple terms with a comma separator)</label>
-            <textarea
-              className="price-input"
-              value={addNodeTerms}
-              onChange={e => setAddNodeTerms(e.target.value)}
-              placeholder="Example: Age under 10 only, Weekends only, Base price only"
-              rows={3}
-            />
-
-            <label className="modal-label">Image URL (Optional)</label>
+            <label className="modal-label">Image (Optional)</label>
             <div className="image-row">
               <input
                 className="price-input"
@@ -2699,9 +2959,11 @@ async function updateService(service, status) {
   );
 }
 /* ================= SERVICE CARD ================= */
-function ServiceCard({ service, isActive, toggleStatus, onEdit, onDelete, isOffer }) {
+function ServiceCard({ service, isActive, toggleStatus, onEdit, onDelete }) {
   const terms = parseTerms(service.terms);
   const packagesIncludes = parseTerms(service.packagesIncludes);
+  const typeConfig = getSelfManagedTypeConfig(service.customType);
+  const showPrice = typeConfig.supportsPrice && service.price !== null && service.price !== undefined && service.price !== "";
 
   return (
     <div className={`service-card ${isActive ? "active-card" : "inactive-card"}`}>
@@ -2714,17 +2976,20 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit, onDelete, isOffe
         <div className="service-info">
           <h4>{service.name}</h4>
 
-          {/* {terms.length > 0 && (
-            <ul className="service-terms">
-              {terms.map((term, index) => (
-                <li key={index}>✓ {term}</li>
-              ))}
-            </ul>
-          )} */}
+          {terms.length > 0 && (
+            <div className="service-includes">
+              <div className="includes-title">Terms</div>
+              <ul className="service-packages">
+                {terms.map((term, index) => (
+                  <li key={index}>✓ {term}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {packagesIncludes.length > 0 && (
             <div className="service-includes">
-              <div className="includes-title">Includes</div>
+              <div className="includes-title">Package Includes</div>
               <ul className="service-packages">
                 {packagesIncludes.map((pkg, index) => (
                   <li key={index}>✓ {pkg}</li>
@@ -2740,7 +3005,7 @@ function ServiceCard({ service, isActive, toggleStatus, onEdit, onDelete, isOffe
       </div>
 
       <div className="service-right">
-        <span className="price">Rs {service.price}</span>
+        {showPrice ? <span className="price">Rs {service.price}</span> : <span className="price"> </span>}
 
         {isActive && onEdit && (
           <span className="edit" onClick={onEdit}>

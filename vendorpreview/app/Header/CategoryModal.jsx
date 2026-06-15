@@ -222,7 +222,7 @@ const normalizePhone = (phone) => {
     }
 
     try {
-      await fetch(`${API_BASE_URL}/api/trust/save`, {
+      const response = await fetch(`${API_BASE_URL}/api/trust/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -232,10 +232,15 @@ const normalizePhone = (phone) => {
         }),
       });
 
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success === false) {
+        throw new Error(data?.message || "Failed to save trust info");
+      }
+
       setStep("SERVICES_SELECT");
     } catch (err) {
       console.error(err);
-      alert("Failed to save trust info");
+      alert(err.message || "Failed to save trust info");
     }
   };
 
@@ -1267,7 +1272,7 @@ onChange={(e) =>
                 onClick={async () => {
                   try {
                     setGlobalLoading(true);
-                    await fetch(`${API_BASE_URL}/api/trust/save`, {
+                    const response = await fetch(`${API_BASE_URL}/api/trust/save`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({
@@ -1277,10 +1282,15 @@ onChange={(e) =>
                       }),
                     });
 
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || data?.success === false) {
+                      throw new Error(data?.message || "Failed to save trust info");
+                    }
+
                     setStep("SERVICE_AREAS");
                   } catch (err) {
                     console.error(err);
-                    alert("Failed to save trust info");
+                    alert(err.message || "Failed to save trust info");
                   }
                   finally {
                     setGlobalLoading(false);

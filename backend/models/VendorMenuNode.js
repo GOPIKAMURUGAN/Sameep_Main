@@ -68,6 +68,12 @@ const VendorMenuNodeSchema = new mongoose.Schema(
       default: "",
     },
 
+    customType: {
+      type: String,
+      enum: ["", "service_item", "package", "offer"],
+      default: "",
+    },
+
     inventoryLabelName: {
       type: String,
       default: "",

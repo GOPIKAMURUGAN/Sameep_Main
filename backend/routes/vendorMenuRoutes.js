@@ -86,6 +86,7 @@ function buildTree(nodes = []) {
       terms: node.terms || "",
       packagesIncludes: node.packagesIncludes || "",
       offerText: node.offerText || "",
+      customType: normalizeCustomType(node.customType),
       inventoryLabelName: node.inventoryLabelName || "",
       parentSelectorLabel: node.parentSelectorLabel || "",
       sequence: node.sequence ?? 0,
@@ -279,6 +280,44 @@ function normalizeOptionalString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeCustomType(value) {
+  const normalized = normalizeOptionalString(value).toLowerCase();
+  if (!normalized) return "service_item";
+  if (["service_item", "package", "offer"].includes(normalized)) return normalized;
+  return "service_item";
+}
+
+function applyCustomTypeFields(payload = {}, customType, isLeaf) {
+  const next = { ...payload };
+  const effectiveCustomType = isLeaf ? normalizeCustomType(customType) : "";
+
+  next.customType = effectiveCustomType;
+
+  if (!isLeaf) {
+    next.price = null;
+    next.terms = "";
+    next.packagesIncludes = "";
+    next.offerText = "";
+    return next;
+  }
+
+  if (effectiveCustomType === "offer") {
+    next.price = null;
+    next.terms = "";
+    next.packagesIncludes = "";
+    return next;
+  }
+
+  if (effectiveCustomType === "service_item") {
+    next.packagesIncludes = "";
+    next.offerText = "";
+    return next;
+  }
+
+  next.offerText = "";
+  return next;
+}
+
 function serializeNode(node) {
   return {
     id: String(node._id),
@@ -293,6 +332,7 @@ function serializeNode(node) {
     terms: node.terms,
     packagesIncludes: node.packagesIncludes,
     offerText: node.offerText,
+    customType: normalizeCustomType(node.customType),
     inventoryLabelName: node.inventoryLabelName,
     parentSelectorLabel: node.parentSelectorLabel,
     sequence: node.sequence,
@@ -388,6 +428,7 @@ router.get("/:vendorId/flat", async (req, res) => {
         terms: node.terms,
         packagesIncludes: node.packagesIncludes,
         offerText: node.offerText,
+        customType: normalizeCustomType(node.customType),
         inventoryLabelName: node.inventoryLabelName,
         parentSelectorLabel: node.parentSelectorLabel,
         sequence: node.sequence,
@@ -616,8 +657,9 @@ router.post("/:vendorId/nodes", requireVendorParamWriteAccess(), async (req, res
     const level = parentNode ? Number(parentNode.level || 0) + 1 : 1;
     const isLeaf = nodeType === "service";
     const price = isLeaf ? sanitizeNumber(req.body?.price) : null;
+    const customType = isLeaf ? normalizeCustomType(req.body?.customType) : "";
 
-    const newNode = await VendorMenuNode.create({
+    const createPayload = applyCustomTypeFields({
       vendorId: req.params.vendorId,
       parentNodeId: parentNode ? parentNode._id : null,
       name,
@@ -628,8 +670,10 @@ router.post("/:vendorId/nodes", requireVendorParamWriteAccess(), async (req, res
       visibleToUser: true,
       visibleToVendor: true,
       terms: typeof req.body?.terms === "string" ? req.body.terms : "",
-      packagesIncludes: "",
-      offerText: "",
+      packagesIncludes:
+        typeof req.body?.packagesIncludes === "string" ? req.body.packagesIncludes : "",
+      offerText: typeof req.body?.offerText === "string" ? req.body.offerText : "",
+      customType,
       inventoryLabelName: "",
       parentSelectorLabel: "",
       sequence: Number(lastSibling?.sequence || 0) + 1,
@@ -641,7 +685,9 @@ router.post("/:vendorId/nodes", requireVendorParamWriteAccess(), async (req, res
       uploadBatchId,
       datasetStatus,
       pathNames: [...(parentNode?.pathNames || []), name],
-    });
+    }, customType, isLeaf);
+
+    const newNode = await VendorMenuNode.create(createPayload);
 
     if (
       vendor.pricingSource !== "self_managed" ||
@@ -717,6 +763,10 @@ router.patch("/:vendorId/nodes/:nodeId", requireVendorParamWriteAccess(), async 
       updates.offerText = req.body.offerText;
     }
 
+    if (typeof req.body?.customType === "string") {
+      updates.customType = normalizeCustomType(req.body.customType);
+    }
+
     if (typeof req.body?.imageUrl === "string") {
       updates.imageUrl = req.body.imageUrl.trim();
     }
@@ -745,7 +795,12 @@ router.patch("/:vendorId/nodes/:nodeId", requireVendorParamWriteAccess(), async 
 
     const previousPathNames = Array.isArray(node.pathNames) ? [...node.pathNames] : [];
 
-    Object.assign(node, updates);
+    const nextIsLeaf = updates.isLeaf !== undefined ? Boolean(updates.isLeaf) : Boolean(node.isLeaf);
+    const effectiveCustomType =
+      updates.customType !== undefined ? updates.customType : node.customType;
+    const normalizedUpdates = applyCustomTypeFields(updates, effectiveCustomType, nextIsLeaf);
+
+    Object.assign(node, normalizedUpdates);
     if (updates.name) {
       const parentPathNames = previousPathNames.slice(0, -1);
       node.pathNames = [...parentPathNames, node.name];

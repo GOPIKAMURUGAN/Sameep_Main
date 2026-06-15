@@ -549,12 +549,6 @@ function getCardImage(card) {
 }
 
 function getCardDescription(card) {
-  if (Array.isArray(card?.terms) && card.terms.length > 0) {
-    return card.terms
-      .map((item) => String(item || "").trim())
-      .filter(Boolean)
-      .join(" • ");
-  }
   if (card?.offerText?.trim()) return card.offerText.trim();
   return "";
 }
@@ -892,6 +886,12 @@ function ModernServiceRow({ card, sectionName, onAddToCart }) {
     (!secondaryOptions.length ? mainOption?.packagesIncludes : "") ||
     card?.packagesIncludes ||
     "";
+  const currentTerms =
+    (selectedSubSub ? subSubOption?.terms : null) ||
+    (selectedSub && !selectedSubSub ? subOption?.terms : null) ||
+    (!secondaryOptions.length ? mainOption?.terms : null) ||
+    card?.terms ||
+    null;
 
   let currentPrice = Number(card?.base || 0);
 
@@ -949,8 +949,18 @@ function ModernServiceRow({ card, sectionName, onAddToCart }) {
     return (
       <span className="modern-menu-copy">
         <span className="modern-menu-name">{label}</span>
-        {summary ? <span className="modern-menu-terms">{summary}</span> : null}
-        {packageSummary ? <span className="modern-menu-package-line">{packageSummary}</span> : null}
+        {summary ? (
+          <span className="modern-menu-meta">
+            <span className="modern-menu-meta-label">Terms</span>
+            <span className="modern-menu-terms">{summary}</span>
+          </span>
+        ) : null}
+        {packageSummary ? (
+          <span className="modern-menu-meta">
+            <span className="modern-menu-meta-label">Package Includes</span>
+            <span className="modern-menu-package-line">{packageSummary}</span>
+          </span>
+        ) : null}
       </span>
     );
   };
@@ -1081,9 +1091,20 @@ function ModernServiceRow({ card, sectionName, onAddToCart }) {
       <div className="modern-service-copy">
         <h3>{card.title}</h3>
         {currentDescription ? <p>{currentDescription}</p> : null}
-        {!hasHierarchy && currentPackagesIncludes ? (
+        {!hasHierarchy && (getTermsSummary(currentTerms) || getPackageSummary(currentPackagesIncludes)) ? (
           <div className="modern-inline-package-copy">
-            {getPackageSummary(currentPackagesIncludes)}
+            {getTermsSummary(currentTerms) ? (
+              <div className="modern-inline-meta-block">
+                <div className="modern-inline-meta-label">Terms</div>
+                <div className="modern-inline-meta-value">{getTermsSummary(currentTerms)}</div>
+              </div>
+            ) : null}
+            {getPackageSummary(currentPackagesIncludes) ? (
+              <div className="modern-inline-meta-block">
+                <div className="modern-inline-meta-label">Package Includes</div>
+                <div className="modern-inline-meta-value">{getPackageSummary(currentPackagesIncludes)}</div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -1505,8 +1526,24 @@ export default function ModernPreviewTemplate({
     activeShowcaseItemIndex !== null && activeShowcaseItemIndex >= 0 && activeShowcaseItemIndex < showcaseItems.length
       ? showcaseItems[activeShowcaseItemIndex]
       : null;
+  const activeShowcaseImageCount = Array.isArray(activeShowcaseItem?.imageUrls)
+    ? activeShowcaseItem.imageUrls.length
+    : 0;
   const activeShowcaseImage =
     activeShowcaseItem?.imageUrls?.[activeShowcaseImageIndex] || activeShowcaseItem?.imageUrls?.[0] || "";
+  const canNavigateShowcaseImages = activeShowcaseImageCount > 1;
+  const showPreviousShowcaseImage = () => {
+    if (!canNavigateShowcaseImages) return;
+    setActiveShowcaseImageIndex((prev) =>
+      prev <= 0 ? activeShowcaseImageCount - 1 : prev - 1
+    );
+  };
+  const showNextShowcaseImage = () => {
+    if (!canNavigateShowcaseImages) return;
+    setActiveShowcaseImageIndex((prev) =>
+      prev >= activeShowcaseImageCount - 1 ? 0 : prev + 1
+    );
+  };
   const locationAddress = vendorInfo?.location?.address || "Location not available";
   const businessHours = Array.isArray(vendorInfo?.businessHours)
     ? vendorInfo.businessHours
@@ -2593,6 +2630,29 @@ export default function ModernPreviewTemplate({
             </button>
 
             <div className="modern-showcase-modal-media">
+              {canNavigateShowcaseImages ? (
+                <>
+                  <button
+                    type="button"
+                    className="modern-showcase-nav modern-showcase-nav-prev"
+                    onClick={showPreviousShowcaseImage}
+                    aria-label="Show previous image"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    className="modern-showcase-nav modern-showcase-nav-next"
+                    onClick={showNextShowcaseImage}
+                    aria-label="Show next image"
+                  >
+                    ›
+                  </button>
+                  <span className="modern-showcase-modal-count">
+                    {activeShowcaseImageIndex + 1} / {activeShowcaseImageCount}
+                  </span>
+                </>
+              ) : null}
               {activeShowcaseImage ? (
                 <img
                   src={activeShowcaseImage}
@@ -2609,21 +2669,6 @@ export default function ModernPreviewTemplate({
               <span className="modern-section-kicker">{showcaseItemLabel}</span>
               <h3>{activeShowcaseItem.name || `${showcaseItemLabel} Details`}</h3>
               {activeShowcaseItem.description ? <p>{activeShowcaseItem.description}</p> : null}
-
-              {activeShowcaseItem.imageUrls.length > 1 ? (
-                <div className="modern-showcase-thumbs">
-                  {activeShowcaseItem.imageUrls.map((imageUrl, imageIndex) => (
-                    <button
-                      key={`${imageUrl}-${imageIndex}`}
-                      type="button"
-                      className={`modern-showcase-thumb${imageIndex === activeShowcaseImageIndex ? " is-active" : ""}`}
-                      onClick={() => setActiveShowcaseImageIndex(imageIndex)}
-                    >
-                      <img src={imageUrl} alt={`${activeShowcaseItem.name || showcaseItemLabel} ${imageIndex + 1}`} />
-                    </button>
-                  ))}
-                </div>
-              ) : null}
             </div>
           </div>
         </div>

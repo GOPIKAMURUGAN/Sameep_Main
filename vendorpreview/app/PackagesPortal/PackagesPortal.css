@@ -900,6 +900,7 @@
   background: rgba(255, 255, 255, 0.08);
   color: #ffd27d;
   font-weight: 500;
+  line-height: 1.45;
 }
 
 .terms-checkbox-list {
@@ -1010,6 +1011,7 @@
 .custom-textarea {
   min-height: 72px;
   resize: vertical;
+  white-space: pre-wrap;
 }
 
 .variants-editor {

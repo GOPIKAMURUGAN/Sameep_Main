@@ -171,12 +171,7 @@ exports.saveTrustProfile = async (req, res) => {
       const areas = (vendor.serviceAreas?.targetAreas || []).slice(0, 3).join(", ");
       const cityLabel = vendor.serviceAreas?.city || "";
 
-      const nextCustomFields = {
-        ...(vendor.customFields || {}),
-      };
-
       vendor.trustSummary = trustSummary;
-      vendor.customFields = nextCustomFields;
       await vendor.save();
     }
 
