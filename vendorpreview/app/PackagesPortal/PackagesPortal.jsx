@@ -254,6 +254,14 @@ function getCustomTypeConfig(customType) {
   };
 }
 
+function isPackagesLabel(value) {
+  return /\bpackages?\b/.test(String(value || "").trim().toLowerCase());
+}
+
+function isOffersLabel(value) {
+  return /\boffers?\b/.test(String(value || "").trim().toLowerCase());
+}
+
 function getCustomPackageContext(path) {
   if (!Array.isArray(path) || path.length === 0) return null;
 
@@ -268,12 +276,17 @@ function getCustomPackageContext(path) {
   if (!anchorNode) return null;
 
   const normalizedName = String(anchorNode?.name || "").trim().toLowerCase();
+  const pathNames = path
+    .map((node) => String(node?.name || "").trim())
+    .filter(Boolean);
+  const hasPackagesContext = pathNames.some(isPackagesLabel);
+  const hasOffersContext = pathNames.some(isOffersLabel);
   const customType =
-    normalizedName === "packages"
+    hasOffersContext
+      ? "offer"
+      : hasPackagesContext
       ? "package"
-      : normalizedName === "offers"
-        ? "offer"
-        : "service_item";
+      : "service_item";
   const typeConfig = getCustomTypeConfig(customType);
 
   if (normalizedName === "packages") {

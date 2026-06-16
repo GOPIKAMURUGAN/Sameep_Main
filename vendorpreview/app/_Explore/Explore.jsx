@@ -265,13 +265,17 @@ function mergeCustomPackagesIntoPricingTree(pricingTree, customTree, nameMap, ro
 
     if (!targetKey) return;
 
-    let targetNode =
-      effectiveCustomType === "package"
-        ? packagesTargets.get(targetKey)
-        : standardTargets.get(targetKey);
+    let targetNode = null;
+    if (effectiveCustomType === "package") {
+      targetNode =
+        standardTargets.get(targetKey) ||
+        packagesTargets.get(targetKey);
+    } else {
+      targetNode = standardTargets.get(targetKey);
+    }
     if (!targetNode) return;
 
-    if (effectiveCustomType !== "package") {
+    if (targetNode.isLeaf === true) {
       targetNode = ensureCustomMergeContainer(targetNode);
     }
 
