@@ -321,7 +321,12 @@ function getCurrentCustomPackages(nodes, context) {
   if (!context) return [];
 
   return (nodes || []).filter(node => {
-    const sameType = getEffectiveCustomType(node.customType) === getEffectiveCustomType(context.customType);
+    const nodeType = getEffectiveCustomType(node.customType);
+    const contextType = getEffectiveCustomType(context.customType);
+    const isLegacyPackageNode =
+      contextType === "package" &&
+      nodeType === "service_item";
+    const sameType = nodeType === contextType || isLegacyPackageNode;
     if (!sameType) return false;
     if (context.parentNodeType === "root") {
       return node.parentNodeType === "root" && !node.parentNodeId;
@@ -1056,7 +1061,12 @@ async function updateService(service, status) {
   }
 
   function openEditCustomModal(node) {
-    const effectiveType = getEffectiveCustomType(node.customType);
+    const nodeType = getEffectiveCustomType(node.customType);
+    const contextType = getEffectiveCustomType(customPackageContext?.customType);
+    const effectiveType =
+      contextType === "package" && nodeType === "service_item"
+        ? "package"
+        : nodeType;
     const childVariants = (node.children || []).map(child => ({
       id: child._id,
       name: child.name || "",
