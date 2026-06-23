@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "../../../config";
+import { useVendor } from "@/app/context/VendorContext";
 import "./EnquiriesDashboard.css";
 
 function formatDateTime(value) {
@@ -34,6 +35,12 @@ function formatAmount(value) {
   return `Rs ${amount.toLocaleString("en-IN")}`;
 }
 
+function formatCompactAmount(value) {
+  const amount = Number(value || 0);
+  if (!amount) return "";
+  return `Rs ${amount.toLocaleString("en-IN")}`;
+}
+
 function getEnquiryPhone(enquiry) {
   return String(enquiry?.phone || enquiry?.customerId || "").trim();
 }
@@ -50,6 +57,24 @@ function getStatusLabel(value) {
   if (normalized === "viewed") return "Viewed";
   if (normalized === "new") return "New";
   return String(value || "New").trim() || "New";
+}
+
+function normalizePaymentStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return "";
+  if (["created", "paid", "cancelled", "failed_verification"].includes(normalized)) {
+    return normalized;
+  }
+  return normalized;
+}
+
+function getPaymentStatusLabel(value) {
+  const normalized = normalizePaymentStatus(value);
+  if (normalized === "created") return "Payment Pending";
+  if (normalized === "paid") return "Paid";
+  if (normalized === "cancelled") return "Payment Cancelled";
+  if (normalized === "failed_verification") return "Payment Failed";
+  return normalized ? String(value).trim() : "";
 }
 
 function normalizeWhatsappStatus(value) {
@@ -140,7 +165,75 @@ function getAttributeRows(enquiry) {
   });
 }
 
+function isOrderLikeEnquiry(enquiry, selectedTemplateKey = "") {
+  const template = String(enquiry?.meta?.template || "").trim().toLowerCase();
+  const enquiryType = String(enquiry?.meta?.enquiryType || "").trim().toLowerCase();
+  const hasCartItems = Array.isArray(enquiry?.meta?.cartItems) && enquiry.meta.cartItems.length > 0;
+  const normalizedTemplateKey = String(selectedTemplateKey || "").trim().toLowerCase();
+
+  return (
+    template === "ecommerce-preview" ||
+    enquiryType === "order" ||
+    enquiryType === "order_request" ||
+    (normalizedTemplateKey === "ecommerce" && hasCartItems)
+  );
+}
+
+function isRazorpayManagedOrder(enquiry) {
+  return (
+    String(enquiry?.meta?.checkoutProvider || "").trim().toLowerCase() === "razorpay" ||
+    String(enquiry?.payment?.provider || "").trim().toLowerCase() === "razorpay"
+  );
+}
+
+function isPaidRazorpayOrder(enquiry) {
+  return normalizePaymentStatus(enquiry?.payment?.status) === "paid";
+}
+
+function getDashboardCopy(isOrderMode) {
+  if (isOrderMode) {
+    return {
+      singular: "Order",
+      plural: "Orders",
+      recentLabel: "Recent Orders",
+      recentMeta: "Last 10 days",
+      monthLabel: "This Month",
+      monthMeta: "Current month",
+      pastLabel: "Past Orders",
+      pastMeta: "Older orders",
+      loading: "Loading orders...",
+      empty: "No orders found in this section.",
+      requestedSection: "Ordered Items",
+      detailsSection: "Order Details",
+      emptyDetails: "No additional details were captured for this order.",
+      selectPrompt: "Select an order to review the details.",
+      totalValue: "Order Value",
+      customerCall: "Call Customer",
+    };
+  }
+
+  return {
+    singular: "Enquiry",
+    plural: "Enquiries",
+    recentLabel: "Recent Enquiries",
+    recentMeta: "Last 10 days",
+    monthLabel: "This Month",
+    monthMeta: "Current month",
+    pastLabel: "Past Enquiries",
+    pastMeta: "Older enquiries",
+    loading: "Loading enquiries...",
+    empty: "No enquiries found in this section.",
+    requestedSection: "Requested Services",
+    detailsSection: "Enquiry Details",
+    emptyDetails: "No additional details were captured for this enquiry.",
+    selectPrompt: "Select an enquiry to review the details.",
+    totalValue: "Total Value",
+    customerCall: "Call Customer",
+  };
+}
+
 export default function EnquiriesDashboard({ vendorId, categoryId }) {
+  const { vendorInfo } = useVendor() || {};
   const [activeTab, setActiveTab] = useState("recent");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -195,7 +288,22 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
     };
   }, [categoryId, vendorId]);
 
+  const isOrderMode = useMemo(() => {
+    const selectedTemplateKey = vendorInfo?.selectedTemplateKey || "";
+    return (
+      String(selectedTemplateKey || "").trim().toLowerCase() === "ecommerce" ||
+      enquiries.some((enquiry) => isOrderLikeEnquiry(enquiry, selectedTemplateKey))
+    );
+  }, [enquiries, vendorInfo?.selectedTemplateKey]);
+
   const groupedEnquiries = useMemo(() => {
+    const baseList = enquiries.filter((item) => {
+      if (!isOrderMode) return true;
+      if (!isOrderLikeEnquiry(item, vendorInfo?.selectedTemplateKey || "")) return true;
+      if (!isRazorpayManagedOrder(item)) return true;
+      return isPaidRazorpayOrder(item);
+    });
+
     const now = new Date();
     const tenDaysAgo = new Date(now);
     tenDaysAgo.setDate(now.getDate() - 10);
@@ -203,22 +311,27 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     return {
-      recent: enquiries.filter((item) => {
+      recent: baseList.filter((item) => {
         const createdAt = new Date(item?.createdAt || 0);
         return !Number.isNaN(createdAt.getTime()) && createdAt >= tenDaysAgo;
       }),
-      month: enquiries.filter((item) => {
+      month: baseList.filter((item) => {
         const createdAt = new Date(item?.createdAt || 0);
         return !Number.isNaN(createdAt.getTime()) && createdAt >= startOfMonth;
       }),
-      past: enquiries.filter((item) => {
+      past: baseList.filter((item) => {
         const createdAt = new Date(item?.createdAt || 0);
         return !Number.isNaN(createdAt.getTime()) && createdAt < startOfMonth;
       }),
     };
-  }, [enquiries]);
+  }, [enquiries, isOrderMode, vendorInfo?.selectedTemplateKey]);
 
-  const activeEnquiries = groupedEnquiries[activeTab] || [];
+  const copy = useMemo(() => getDashboardCopy(isOrderMode), [isOrderMode]);
+
+  const activeEnquiries = useMemo(
+    () => groupedEnquiries[activeTab] || [],
+    [activeTab, groupedEnquiries]
+  );
 
   useEffect(() => {
     if (activeEnquiries.some((item) => item?._id === selectedEnquiryId)) return;
@@ -227,11 +340,15 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
 
   const selectedEnquiry = activeEnquiries.find((item) => item?._id === selectedEnquiryId) || null;
   const selectedPhone = getEnquiryPhone(selectedEnquiry);
+  const selectedIsOrderLike = isOrderLikeEnquiry(selectedEnquiry, vendorInfo?.selectedTemplateKey || "");
+  const selectedUsesRazorpay = isRazorpayManagedOrder(selectedEnquiry);
   const detailRows = selectedEnquiry ? getAttributeRows(selectedEnquiry) : [];
   const cartItems = Array.isArray(selectedEnquiry?.meta?.cartItems)
     ? selectedEnquiry.meta.cartItems
     : [];
-  const selectedStatus = getStatusLabel(selectedEnquiry?.status);
+  const selectedStatus = selectedIsOrderLike && selectedUsesRazorpay
+    ? getPaymentStatusLabel(selectedEnquiry?.payment?.status) || getStatusLabel(selectedEnquiry?.status)
+    : getStatusLabel(selectedEnquiry?.status);
   const selectedWhatsappStatus = getWhatsappStatusLabel(selectedEnquiry?.meta?.vendorWhatsappStatus);
   const selectedWhatsappTone = normalizeWhatsappStatus(selectedEnquiry?.meta?.vendorWhatsappStatus);
   const selectedWhatsappError = String(selectedEnquiry?.meta?.vendorWhatsappError || "").trim();
@@ -239,6 +356,7 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
   useEffect(() => {
     const enquiryId = selectedEnquiry?._id;
     if (!enquiryId) return;
+    if (isOrderLikeEnquiry(selectedEnquiry, vendorInfo?.selectedTemplateKey || "")) return;
 
     const normalizedStatus = normalizeStatus(selectedEnquiry?.status);
     if (normalizedStatus === "viewed") return;
@@ -277,15 +395,15 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
     return () => {
       cancelled = true;
     };
-  }, [selectedEnquiry?._id, selectedEnquiry?.status]);
+  }, [selectedEnquiry, vendorInfo?.selectedTemplateKey]);
 
   return (
     <div className="enquiries-dashboard">
       <div className="enquiries-dashboard-tabs">
         {[
-          { key: "recent", label: "Recent Enquiries", meta: "Last 10 days" },
-          { key: "month", label: "This Month", meta: "Current month" },
-          { key: "past", label: "Past Enquiries", meta: "Older enquiries" },
+          { key: "recent", label: copy.recentLabel, meta: copy.recentMeta },
+          { key: "month", label: copy.monthLabel, meta: copy.monthMeta },
+          { key: "past", label: copy.pastLabel, meta: copy.pastMeta },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -300,20 +418,28 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
         ))}
       </div>
 
-      {loading ? <div className="enquiries-dashboard-empty">Loading enquiries...</div> : null}
+      {loading ? <div className="enquiries-dashboard-empty">{copy.loading}</div> : null}
       {error ? <div className="enquiries-dashboard-empty">{error}</div> : null}
 
       {!loading && !error ? (
         activeEnquiries.length === 0 ? (
-          <div className="enquiries-dashboard-empty">No enquiries found in this section.</div>
+          <div className="enquiries-dashboard-empty">{copy.empty}</div>
         ) : (
           <div className="enquiries-dashboard-layout">
             <div className="enquiries-dashboard-list">
               {activeEnquiries.map((enquiry) => {
                 const phone = getEnquiryPhone(enquiry);
                 const isActive = enquiry?._id === selectedEnquiryId;
-                const statusLabel = getStatusLabel(enquiry?.status);
-                const statusTone = normalizeStatus(enquiry?.status);
+                const isOrderLike = isOrderLikeEnquiry(enquiry, vendorInfo?.selectedTemplateKey || "");
+                const usesRazorpay = isRazorpayManagedOrder(enquiry);
+                const statusLabel =
+                  isOrderLike && usesRazorpay
+                    ? getPaymentStatusLabel(enquiry?.payment?.status) || getStatusLabel(enquiry?.status)
+                    : getStatusLabel(enquiry?.status);
+                const statusTone =
+                  isOrderLike && usesRazorpay
+                    ? normalizePaymentStatus(enquiry?.payment?.status) || normalizeStatus(enquiry?.status)
+                    : normalizeStatus(enquiry?.status);
                 const whatsappStatusLabel = getWhatsappStatusLabel(enquiry?.meta?.vendorWhatsappStatus);
                 const whatsappStatusTone = normalizeWhatsappStatus(enquiry?.meta?.vendorWhatsappStatus);
 
@@ -326,7 +452,7 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
                   >
                     <div className="enquiries-dashboard-row-top">
                       <span className="enquiries-dashboard-row-title">
-                        {String(enquiry?.serviceName || "Enquiry").trim() || "Enquiry"}
+                        {String(enquiry?.serviceName || copy.singular).trim() || copy.singular}
                       </span>
                       <div className="enquiries-dashboard-row-meta">
                         <span className={`enquiries-dashboard-status-badge is-${statusTone}`}>
@@ -359,7 +485,7 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
                   <div className="enquiries-dashboard-detail-top">
                     <div>
                       <div className="enquiries-dashboard-detail-title">
-                        {String(selectedEnquiry?.serviceName || "Enquiry").trim() || "Enquiry"}
+                        {String(selectedEnquiry?.serviceName || copy.singular).trim() || copy.singular}
                       </div>
                       <div className="enquiries-dashboard-detail-date">
                         {formatDateTime(selectedEnquiry?.createdAt)}
@@ -371,7 +497,7 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
                         className="enquiries-dashboard-call-btn"
                         href={`tel:${selectedPhone}`}
                       >
-                        Call Customer
+                        {copy.customerCall}
                       </a>
                     ) : null}
                   </div>
@@ -382,16 +508,20 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
                       <strong>{selectedPhone || "Not available"}</strong>
                     </div>
                     <div className="enquiries-dashboard-meta-card">
-                      <span>Total Value</span>
+                      <span>{copy.totalValue}</span>
                       <strong>{formatAmount(selectedEnquiry?.price)}</strong>
                     </div>
                     <div className="enquiries-dashboard-meta-card">
                       <span>Status</span>
                       <strong>
-                        <span className={`enquiries-dashboard-status-badge is-${normalizeStatus(selectedEnquiry?.status)}`}>
+                        <span className={`enquiries-dashboard-status-badge is-${
+                          selectedIsOrderLike && selectedUsesRazorpay
+                            ? normalizePaymentStatus(selectedEnquiry?.payment?.status) || normalizeStatus(selectedEnquiry?.status)
+                            : normalizeStatus(selectedEnquiry?.status)
+                        }`}>
                           {selectedStatus}
                         </span>
-                        {updatingStatusId === selectedEnquiry?._id ? (
+                        {!selectedIsOrderLike && updatingStatusId === selectedEnquiry?._id ? (
                           <span className="enquiries-dashboard-status-note">Updating...</span>
                         ) : null}
                       </strong>
@@ -412,7 +542,7 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
                   </div>
 
                   <div className="enquiries-dashboard-section">
-                    <div className="enquiries-dashboard-section-title">Requested Services</div>
+                    <div className="enquiries-dashboard-section-title">{copy.requestedSection}</div>
                     {cartItems.length > 0 ? (
                       <div className="enquiries-dashboard-services">
                         {cartItems.map((item, index) => (
@@ -420,11 +550,31 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
                             key={`${item?.cartKey || item?.itemId || item?.name || index}-${index}`}
                             className="enquiries-dashboard-service-row"
                           >
-                            <div>
-                              <strong>{item?.label || item?.name || "Service"}</strong>
-                              <span>Qty {Number(item?.qty || 0) || 1}</span>
+                            <div className="enquiries-dashboard-service-copy">
+                              <strong>{item?.label || item?.name || (isOrderMode ? "Item" : "Service")}</strong>
+                              <span>
+                                Qty {Number(item?.qty || 0) || 1}
+                                {item?.itemCode ? ` • ${String(item.itemCode).trim()}` : ""}
+                                {item?.unitLabel ? ` • ${String(item.unitLabel).trim()}` : ""}
+                              </span>
+                              {isOrderMode && (Number(item?.mrp) > 0 || Number(item?.discountPercent) > 0) ? (
+                                <div className="enquiries-dashboard-service-tags">
+                                  {Number(item?.mrp) > 0 ? (
+                                    <span className="enquiries-dashboard-service-tag">
+                                      MRP {formatCompactAmount(item.mrp)}
+                                    </span>
+                                  ) : null}
+                                  {Number(item?.discountPercent) > 0 ? (
+                                    <span className="enquiries-dashboard-service-tag">
+                                      {Number(item.discountPercent)}% off
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : null}
                             </div>
-                            <span>{formatAmount(item?.total || item?.price)}</span>
+                            <span className="enquiries-dashboard-service-price">
+                              {formatAmount(item?.total || item?.price)}
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -436,7 +586,7 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
                   </div>
 
                   <div className="enquiries-dashboard-section">
-                    <div className="enquiries-dashboard-section-title">Enquiry Details</div>
+                    <div className="enquiries-dashboard-section-title">{copy.detailsSection}</div>
                     {detailRows.length > 0 ? (
                       <div className="enquiries-dashboard-details-grid">
                         {detailRows.map(([key, value]) => (
@@ -450,14 +600,14 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
                       </div>
                     ) : (
                       <div className="enquiries-dashboard-copy">
-                        No additional details were captured for this enquiry.
+                        {copy.emptyDetails}
                       </div>
                     )}
                   </div>
                 </>
               ) : (
                 <div className="enquiries-dashboard-empty">
-                  Select an enquiry to review the details.
+                  {copy.selectPrompt}
                 </div>
               )}
             </div>

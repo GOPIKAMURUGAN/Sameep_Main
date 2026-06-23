@@ -27,12 +27,13 @@ import { useSessionGuard } from "../Login/useSessionGuard";
 import ModernPreviewTemplate from "./templates/ModernPreviewTemplate";
 import CatalogPreviewTemplate from "./templates/CatalogPreviewTemplate";
 import NurseriesPreviewTemplate from "./templates/NurseriesPreviewTemplate";
+import EcommercePreviewTemplate from "./templates/EcommercePreviewTemplate";
 import { CART_UPDATED_EVENT, ENQUIRY_OPEN_EVENT } from "../utils/enquiryFlow";
 const FOOTER_GALLERY_OPEN_EVENT = "ynot-footer-open-gallery";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return ["classic", "modern", "catalog", "astrology", "nurseries"].includes(normalized) ? normalized : "";
+  return ["classic", "modern", "catalog", "astrology", "nurseries", "ecommerce"].includes(normalized) ? normalized : "";
 }
 // import { useLoginPopup } from "./LoginPopupContext";
 
@@ -2530,11 +2531,14 @@ function ExploreContent({ onReady, onOpenServices }) {
       const itemId = node._id || node.id || node.categoryId;
       const cartKey = node.cartKey || itemId;
       const categoryId = node.categoryId || node._id || node.id;
+      const minQty = Math.max(1, Number(node.minQty) || 1);
+      const stepQty = Math.max(1, Number(node.stepQty) || 1);
       const existing = prev.find(i => (i.cartKey || i.itemId) === cartKey);
       if (existing) {
         return prev.map(i => {
           if ((i.cartKey || i.itemId) !== cartKey) return i;
-          const qty = i.qty + 1;
+          const incrementBy = Math.max(1, Number(i.stepQty) || 1);
+          const qty = i.qty + incrementBy;
           return { ...i, qty, total: i.price * qty };
         });
       }
@@ -2546,9 +2550,18 @@ function ExploreContent({ onReady, onOpenServices }) {
           categoryId,
 
           name: node.name,
+          subtitle: node.subtitle || "",
           price: node.price,
-          qty: 1,
-          total: node.price,
+          mrp: node.mrp ?? null,
+          discountPercent: node.discountPercent ?? null,
+          itemCode: node.itemCode || "",
+          unitLabel: node.unitLabel || "",
+          minQty,
+          stepQty,
+          isOrderable: node.isOrderable !== false,
+          imageUrl: node.imageUrl || "",
+          qty: minQty,
+          total: (Number(node.price) || 0) * minQty,
           resourceId: null,
           resourceName: "",
 
@@ -2772,20 +2785,63 @@ function ExploreContent({ onReady, onOpenServices }) {
     setCartItems(prev =>
       prev.map(i => {
         if ((i.cartKey || i.itemId) !== cartKey) return i;
-        const qty = i.qty + 1;
+        const incrementBy = Math.max(1, Number(i.stepQty) || 1);
+        const qty = i.qty + incrementBy;
         return { ...i, qty, total: i.price * qty };
       })
     );
+  };
+
+  const openQuickActionMenu = () => {
+    setViewMode("menu");
+    setShowOptions(false);
+  };
+
+  const openQuickActionDashboard = () => {
+    setShowOptions(false);
+    const vendorToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem(`vendorToken:${vendorId}`)
+        : null;
+
+    if (!vendorToken) {
+      setPendingAction(null);
+      setLoginAsAdmin(false);
+      setShowAdminPasscode(false);
+      setAdminPasscode("");
+      setShowVendorOtp(false);
+      setShowVendorLogin(true);
+      return;
+    }
+
+    const storedVendorId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("vendorSessionVendorId")
+        : null;
+
+    if (storedVendorId !== String(vendorId)) {
+      setPendingAction(null);
+      setLoginAsAdmin(false);
+      setShowAdminPasscode(false);
+      setAdminPasscode("");
+      setShowVendorOtp(false);
+      setShowVendorLogin(true);
+      return;
+    }
+
+    setViewMode("new-dashboard");
   };
 
   const decreaseQty = (cartKey) => {
     setCartItems(prev => {
       const item = prev.find(i => (i.cartKey || i.itemId) === cartKey);
       if (!item) return prev;
-      if (item.qty > 1) {
+      const minQty = Math.max(1, Number(item.minQty) || 1);
+      const stepQty = Math.max(1, Number(item.stepQty) || 1);
+      if (item.qty > minQty) {
         return prev.map(i => {
           if ((i.cartKey || i.itemId) !== cartKey) return i;
-          const qty = i.qty - 1;
+          const qty = Math.max(minQty, i.qty - stepQty);
           return { ...i, qty, total: i.price * qty };
         });
       }
@@ -3467,6 +3523,26 @@ function ExploreContent({ onReady, onOpenServices }) {
           hasVendorSession={hasActiveVendorSession}
           onLogout={vendorLogout}
           colorScheme={vendorInfo?.nurseryColorScheme || "forest"}
+        />
+      ) : activeTemplateKey === "ecommerce" ? (
+        <EcommercePreviewTemplate
+          vendorInfo={vendorInfo}
+          category={previewCategory}
+          menuTree={menuTree}
+          mergedHeroImages={mergedHeroImages}
+          heroTagline={heroTagline}
+          heroDescription={heroDescription}
+          cartItems={cartItems}
+          cartTotal={cartTotal}
+          onAddToCart={addToCart}
+          onIncreaseQty={increaseQty}
+          onDecreaseQty={decreaseQty}
+          onClearCart={clearCart}
+          showAdminMenu={showOptions}
+          onToggleAdminMenu={() => setShowOptions((prev) => !prev)}
+          onOpenAdminMenu={openQuickActionMenu}
+          onOpenAdminDashboard={openQuickActionDashboard}
+          onOpenAdmin={() => setShowOptions((prev) => !prev)}
         />
       ) : (
         <>
@@ -5268,22 +5344,21 @@ function ExploreContent({ onReady, onOpenServices }) {
         </div>
       )}
 
-      <button
-        className="quick-actions-toggle-btn"
-        type="button"
-        onClick={() => setShowOptions((prev) => !prev)}
-      >
-        Options
-      </button>
-      {showOptions && (
+      {activeTemplateKey !== "ecommerce" ? (
+        <button
+          className="quick-actions-toggle-btn"
+          type="button"
+          onClick={() => setShowOptions((prev) => !prev)}
+        >
+          Options
+        </button>
+      ) : null}
+      {activeTemplateKey !== "ecommerce" && showOptions && (
         <div className="quick-actions-panel">
           <button
             className="quick-action-btn"
             type="button"
-            onClick={() => {
-              setViewMode("menu");
-              setShowOptions(false);
-            }}
+            onClick={openQuickActionMenu}
           >
             Menu
           </button>
@@ -5302,40 +5377,7 @@ function ExploreContent({ onReady, onOpenServices }) {
           <button
             className="quick-action-btn"
             type="button"
-            onClick={() => {
-              setShowOptions(false);
-              const vendorToken =
-                typeof window !== "undefined"
-                  ? localStorage.getItem(`vendorToken:${vendorId}`)
-                  : null;
-
-              if (!vendorToken) {
-                setPendingAction(null);
-                setLoginAsAdmin(false);
-                setShowAdminPasscode(false);
-                setAdminPasscode("");
-                setShowVendorOtp(false);
-                setShowVendorLogin(true);
-                return;
-              }
-
-              const storedVendorId =
-                typeof window !== "undefined"
-                  ? localStorage.getItem("vendorSessionVendorId")
-                  : null;
-
-              if (storedVendorId !== String(vendorId)) {
-                setPendingAction(null);
-                setLoginAsAdmin(false);
-                setShowAdminPasscode(false);
-                setAdminPasscode("");
-                setShowVendorOtp(false);
-                setShowVendorLogin(true);
-                return;
-              }
-
-              setViewMode("new-dashboard");
-            }}
+            onClick={openQuickActionDashboard}
           >
             Dashboard
           </button>

@@ -37,6 +37,19 @@ const VendorMenuNodeSchema = new mongoose.Schema(
       default: null,
     },
 
+    mrp: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
+
+    discountPercent: {
+      type: Number,
+      default: null,
+      min: 0,
+      max: 100,
+    },
+
     pricingStatus: {
       type: String,
       enum: ["Active", "Inactive", "Archive"],
@@ -77,6 +90,35 @@ const VendorMenuNodeSchema = new mongoose.Schema(
     inventoryLabelName: {
       type: String,
       default: "",
+    },
+
+    itemCode: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    unitLabel: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    minQty: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
+
+    stepQty: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
+
+    isOrderable: {
+      type: Boolean,
+      default: true,
     },
 
     parentSelectorLabel: {

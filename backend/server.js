@@ -50,6 +50,8 @@ const vendorGalleryRoutes = require("./routes/vendorGalleryRoutes");
 const siteAnalyticsRoutes = require("./routes/siteAnalyticsRoutes");
 const digitalScoreRoutes = require("./routes/digitalScoreRoutes");
 const adminDigitalScoreRoutes = require("./routes/adminDigitalScoreRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+const vendorPaymentConfigRoutes = require("./routes/vendorPaymentConfigRoutes");
 
 const vendorPriceNodeRoutes = require(
   path.resolve(__dirname, "routes", "vendorPriceNodeRoutes")
@@ -184,6 +186,8 @@ app.use("/api/menu-image-library", menuImageLibraryRoutes);
 app.use("/api/vendor-gallery", vendorGalleryRoutes);
 app.use("/api/site-analytics", siteAnalyticsRoutes);
 app.use("/api/digital-score", digitalScoreRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/vendor-payment-config", vendorPaymentConfigRoutes);
 // Vendor Dashboard APIs
 app.use("/api/vendor/dashboard", require("./routes/vendorDashboardRoutes"));
 app.use("/api/vendor/dashboard", require("./routes/customerAnalyticsRoutes"));

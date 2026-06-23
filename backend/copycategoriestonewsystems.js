@@ -3,11 +3,11 @@ const fetch = global.fetch;
 console.log("🔥 CATEGORY CLONE SCRIPT STARTED");
 
 /******** CONFIG ********/
-const ROOT_ID = "6991177eeca3f72d376d8137";
+const ROOT_ID = "69913efbeca3f72d376ddaa8";
 
 const SOURCE = `http://localhost:5001/api/categories/tree?rootCategoryId=${ROOT_ID}`;
 
-const TARGET = "https://api.ynot-dev.co.in";
+const TARGET = "https://api.ynot.co.in";
 
 /******** IMAGE SAFE ********/
 async function getImageBlob(url) {

@@ -49,6 +49,15 @@ const SUPPORTED_PREVIEW_TEMPLATES = [
     isDefault: false,
     sortOrder: 5,
   },
+  {
+    key: "ecommerce",
+    name: "Ecommerce Catalog",
+    description: "Product-led commerce template with section tables, quantity controls and order summary.",
+    previewHint: "Best for dynamic self-managed catalogs such as crackers, wholesale lists and fast-moving product menus.",
+    status: "Active",
+    isDefault: false,
+    sortOrder: 6,
+  },
 ];
 
 async function syncSupportedTemplates() {

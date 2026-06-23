@@ -284,9 +284,40 @@
   line-height: 1.5;
 }
 
+.enquiries-dashboard-service-copy {
+  min-width: 0;
+}
+
 .enquiries-dashboard-service-row span {
   color: rgba(255, 255, 255, 0.72);
   font-size: 0.88rem;
+}
+
+.enquiries-dashboard-service-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.enquiries-dashboard-service-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(245, 217, 122, 0.12);
+  border: 1px solid rgba(245, 217, 122, 0.22);
+  color: #f8e6a6 !important;
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+}
+
+.enquiries-dashboard-service-price {
+  white-space: nowrap;
+  color: #fff !important;
+  font-size: 0.94rem !important;
+  font-weight: 800 !important;
 }
 
 .enquiries-dashboard-copy,

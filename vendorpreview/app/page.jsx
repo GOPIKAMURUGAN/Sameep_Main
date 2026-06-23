@@ -21,7 +21,7 @@ import { useRuntimeTeluguPreviewTranslation } from "./utils/runtimeTranslation";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return ["classic", "modern", "catalog", "astrology", "nurseries"].includes(normalized) ? normalized : "";
+  return ["classic", "modern", "catalog", "astrology", "nurseries", "ecommerce"].includes(normalized) ? normalized : "";
 }
 
 export default function Home() {

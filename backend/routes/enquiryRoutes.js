@@ -1,8 +1,6 @@
 const express = require('express');
 const Enquiry = require('../models/Enquiry');
-const DummyVendor = require('../models/DummyVendor');
-const { sendVendorEnquiryWhatsapp, normalizeWhatsAppMobile } = require('../utils/whatsappService');
-const { deductWhatsApp } = require('../services/vendorWalletService');
+const { createEnquiryAndNotify } = require('../services/enquiryCreationService');
 
 const router = express.Router();
 
@@ -50,68 +48,7 @@ router.post('/', async (req, res) => {
       payload.statusHistory = [{ status: s, changedAt: new Date() }];
     }
 
-    const doc = await Enquiry.create(payload);
-
-    setImmediate(async () => {
-      try {
-        const vendor = await DummyVendor.findById(vendorId).lean();
-        const vendorMobile = vendor?.phone ? String(vendor.phone).trim() : "";
-        const normalizedVendorMobile = normalizeWhatsAppMobile(vendorMobile);
-
-        if (!normalizedVendorMobile) {
-          await Enquiry.findByIdAndUpdate(doc._id, {
-            $set: {
-              "meta.vendorWhatsappStatus": "skipped",
-              "meta.vendorWhatsappError": "Vendor phone not found",
-            },
-          });
-          return;
-        }
-
-        const response = await sendVendorEnquiryWhatsapp({
-          mobile: normalizedVendorMobile,
-        });
-
-        if (response?.skipped) {
-          await Enquiry.findByIdAndUpdate(doc._id, {
-            $set: {
-              "meta.vendorWhatsappTemplate": "vendor_enquiry",
-              "meta.vendorWhatsappStatus": "skipped",
-              "meta.vendorWhatsappError": response.reason || "Skipped",
-            },
-          });
-          return;
-        }
-
-        await deductWhatsApp(String(vendorId), `enquiry:${doc._id}`);
-
-        const responseId =
-          response?.data?.message_id ||
-          response?.message_id ||
-          response?.id ||
-          "";
-
-        await Enquiry.findByIdAndUpdate(doc._id, {
-          $set: {
-            "meta.vendorWhatsappTemplate": "vendor_enquiry",
-            "meta.vendorWhatsappSentAt": new Date(),
-            "meta.vendorWhatsappStatus": "sent",
-            "meta.vendorWhatsappMessageId": responseId ? String(responseId) : "",
-            "meta.vendorWhatsappRecipient": normalizedVendorMobile,
-            "meta.vendorWhatsappError": "",
-          },
-        });
-      } catch (sendError) {
-        console.error('Vendor enquiry WhatsApp send failed:', sendError?.message || sendError);
-        await Enquiry.findByIdAndUpdate(doc._id, {
-          $set: {
-            "meta.vendorWhatsappTemplate": "vendor_enquiry",
-            "meta.vendorWhatsappStatus": "failed",
-            "meta.vendorWhatsappError": String(sendError?.message || sendError || "Unknown error"),
-          },
-        }).catch(() => {});
-      }
-    });
+    const doc = await createEnquiryAndNotify(payload);
 
     return res.status(201).json(doc);
   } catch (err) {

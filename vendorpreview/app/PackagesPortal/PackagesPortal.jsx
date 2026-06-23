@@ -388,8 +388,15 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [modalPrice, setModalPrice] = useState("");
+  const [modalMrp, setModalMrp] = useState("");
+  const [modalDiscountPercent, setModalDiscountPercent] = useState("");
   const [modalTerms, setModalTerms] = useState("");
   const [modalImageUrl, setModalImageUrl] = useState("");
+  const [modalItemCode, setModalItemCode] = useState("");
+  const [modalUnitLabel, setModalUnitLabel] = useState("");
+  const [modalMinQty, setModalMinQty] = useState("1");
+  const [modalStepQty, setModalStepQty] = useState("1");
+  const [modalIsOrderable, setModalIsOrderable] = useState(true);
   const [uploadingEditServiceImage, setUploadingEditServiceImage] = useState(false);
   const [selectedTerms, setSelectedTerms] = useState([]);
   const [showSectionEditModal, setShowSectionEditModal] = useState(false);
@@ -407,10 +414,17 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
   const [addNodeName, setAddNodeName] = useState("");
   const [addNodeCustomType, setAddNodeCustomType] = useState("service_item");
   const [addNodePrice, setAddNodePrice] = useState("");
+  const [addNodeMrp, setAddNodeMrp] = useState("");
+  const [addNodeDiscountPercent, setAddNodeDiscountPercent] = useState("");
   const [addNodeTerms, setAddNodeTerms] = useState("");
   const [addNodePackagesIncludes, setAddNodePackagesIncludes] = useState("");
   const [addNodeOfferText, setAddNodeOfferText] = useState("");
   const [addNodeImageUrl, setAddNodeImageUrl] = useState("");
+  const [addNodeItemCode, setAddNodeItemCode] = useState("");
+  const [addNodeUnitLabel, setAddNodeUnitLabel] = useState("");
+  const [addNodeMinQty, setAddNodeMinQty] = useState("1");
+  const [addNodeStepQty, setAddNodeStepQty] = useState("1");
+  const [addNodeIsOrderable, setAddNodeIsOrderable] = useState(true);
   const [uploadingAddNodeImage, setUploadingAddNodeImage] = useState(false);
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
   const [editingCategoryNode, setEditingCategoryNode] = useState(null);
@@ -1313,10 +1327,17 @@ async function updateService(service, status) {
     setAddNodeCustomType("service_item");
     setAddNodeName("");
     setAddNodePrice("");
+    setAddNodeMrp("");
+    setAddNodeDiscountPercent("");
     setAddNodeTerms("");
     setAddNodePackagesIncludes("");
     setAddNodeOfferText("");
     setAddNodeImageUrl("");
+    setAddNodeItemCode("");
+    setAddNodeUnitLabel("");
+    setAddNodeMinQty("1");
+    setAddNodeStepQty("1");
+    setAddNodeIsOrderable(true);
     setShowAddNodeModal(true);
   }
 
@@ -1389,6 +1410,14 @@ async function updateService(service, status) {
           addNodeType === "service" && addTypeConfig.supportsPrice
             ? (String(addNodePrice || "").trim() === "" ? null : Number(addNodePrice))
             : null,
+        mrp:
+          addNodeType === "service" && addTypeConfig.customType === "service_item"
+            ? (String(addNodeMrp || "").trim() === "" ? null : Number(addNodeMrp))
+            : null,
+        discountPercent:
+          addNodeType === "service" && addTypeConfig.customType === "service_item"
+            ? (String(addNodeDiscountPercent || "").trim() === "" ? null : Number(addNodeDiscountPercent))
+            : null,
         terms:
           addNodeType === "service" && addTypeConfig.supportsTerms
             ? addNodeTerms.trim()
@@ -1401,6 +1430,26 @@ async function updateService(service, status) {
           addNodeType === "service" && addTypeConfig.customType === "offer"
             ? addNodeOfferText.trim()
             : "",
+        itemCode:
+          addNodeType === "service" && addTypeConfig.customType === "service_item"
+            ? addNodeItemCode.trim()
+            : "",
+        unitLabel:
+          addNodeType === "service" && addTypeConfig.customType === "service_item"
+            ? addNodeUnitLabel.trim()
+            : "",
+        minQty:
+          addNodeType === "service" && addTypeConfig.customType === "service_item"
+            ? addNodeMinQty
+            : 1,
+        stepQty:
+          addNodeType === "service" && addTypeConfig.customType === "service_item"
+            ? addNodeStepQty
+            : 1,
+        isOrderable:
+          addNodeType === "service" && addTypeConfig.customType === "service_item"
+            ? addNodeIsOrderable
+            : true,
         imageUrl: addNodeImageUrl,
       });
 
@@ -1955,10 +2004,17 @@ async function updateService(service, status) {
                           setEditCategoryName(service.name || "");
                           setModalCustomType(itemType);
                           setModalPrice(service.price || "");
+                          setModalMrp(service.mrp || "");
+                          setModalDiscountPercent(service.discountPercent || "");
                           setModalTerms(service.terms || "");
                           setModalPackagesIncludes(service.packagesIncludes || "");
                           setModalImageUrl(service.imageUrl || "");
                           setModalOfferText(service.offerText || "");
+                          setModalItemCode(service.itemCode || "");
+                          setModalUnitLabel(service.unitLabel || "");
+                          setModalMinQty(String(service.minQty || 1));
+                          setModalStepQty(String(service.stepQty || 1));
+                          setModalIsOrderable(service.isOrderable !== false);
 
                           const masterTerms = findTermsInCategoryTree(
                             categoryTree,
@@ -2001,10 +2057,17 @@ async function updateService(service, status) {
                           setEditCategoryName(service.name || "");
                           setModalCustomType(itemType);
                           setModalPrice(service.price || "");
+                          setModalMrp(service.mrp || "");
+                          setModalDiscountPercent(service.discountPercent || "");
                           setModalTerms(service.terms || "");
                           setModalPackagesIncludes(service.packagesIncludes || "");
                           setModalImageUrl(service.imageUrl || "");
                           setModalOfferText(service.offerText || "");
+                          setModalItemCode(service.itemCode || "");
+                          setModalUnitLabel(service.unitLabel || "");
+                          setModalMinQty(String(service.minQty || 1));
+                          setModalStepQty(String(service.stepQty || 1));
+                          setModalIsOrderable(service.isOrderable !== false);
                           setAllTerms([]);
                           setSelectedTerms([]);
                           setShowEditModal(true);
@@ -2148,6 +2211,82 @@ async function updateService(service, status) {
                   </>
                 ) : null}
 
+                {selfManagedEditTypeConfig.customType === "service_item" ? (
+                  <>
+                    <div className="commerce-field-grid">
+                      <div>
+                        <label className="modal-label">Item Code</label>
+                        <input
+                          className="price-input"
+                          value={modalItemCode}
+                          onChange={e => setModalItemCode(e.target.value)}
+                          placeholder="Example: GND-001"
+                        />
+                      </div>
+                      <div>
+                        <label className="modal-label">Unit Label</label>
+                        <input
+                          className="price-input"
+                          value={modalUnitLabel}
+                          onChange={e => setModalUnitLabel(e.target.value)}
+                          placeholder="Example: box, pcs, pack"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="commerce-field-grid">
+                      <div>
+                        <label className="modal-label">MRP</label>
+                        <input
+                          className="price-input"
+                          value={modalMrp}
+                          onChange={e => setModalMrp(e.target.value)}
+                          placeholder="Enter MRP"
+                        />
+                      </div>
+                      <div>
+                        <label className="modal-label">Discount %</label>
+                        <input
+                          className="price-input"
+                          value={modalDiscountPercent}
+                          onChange={e => setModalDiscountPercent(e.target.value)}
+                          placeholder="Enter discount percentage"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="commerce-field-grid">
+                      <div>
+                        <label className="modal-label">Min Qty</label>
+                        <input
+                          className="price-input"
+                          value={modalMinQty}
+                          onChange={e => setModalMinQty(e.target.value)}
+                          placeholder="1"
+                        />
+                      </div>
+                      <div>
+                        <label className="modal-label">Step Qty</label>
+                        <input
+                          className="price-input"
+                          value={modalStepQty}
+                          onChange={e => setModalStepQty(e.target.value)}
+                          placeholder="1"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="commerce-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={modalIsOrderable}
+                        onChange={e => setModalIsOrderable(e.target.checked)}
+                      />
+                      <span>Allow this item to be ordered</span>
+                    </label>
+                  </>
+                ) : null}
+
                 {selfManagedEditTypeConfig.supportsTerms ? (
                   <>
                     <label className="modal-label">Terms (give multiple terms with a comma separator)</label>
@@ -2271,6 +2410,14 @@ async function updateService(service, status) {
                 const nextPrice =
                   String(modalPrice || "").trim() === "" ? null : Number(modalPrice);
                 editingService.price = nextPrice;
+                editingService.mrp =
+                  selfManagedEditTypeConfig.customType === "service_item"
+                    ? (String(modalMrp || "").trim() === "" ? null : Number(modalMrp))
+                    : null;
+                editingService.discountPercent =
+                  selfManagedEditTypeConfig.customType === "service_item"
+                    ? (String(modalDiscountPercent || "").trim() === "" ? null : Number(modalDiscountPercent))
+                    : null;
                 editingService.name = editCategoryName;
                 editingService.pricingStatus = "Active";
                 editingService.terms = isSelfManagedVendor
@@ -2284,11 +2431,24 @@ async function updateService(service, status) {
                   ? (selfManagedEditTypeConfig.customType === "offer" ? modalOfferText.trim() : "")
                   : modalOfferText;
                 editingService.customType = isSelfManagedVendor ? modalCustomType : editingService.customType;
+                editingService.itemCode = selfManagedEditTypeConfig.customType === "service_item" ? modalItemCode.trim() : "";
+                editingService.unitLabel = selfManagedEditTypeConfig.customType === "service_item" ? modalUnitLabel.trim() : "";
+                editingService.minQty = selfManagedEditTypeConfig.customType === "service_item" ? Number(modalMinQty || 1) : 1;
+                editingService.stepQty = selfManagedEditTypeConfig.customType === "service_item" ? Number(modalStepQty || 1) : 1;
+                editingService.isOrderable = selfManagedEditTypeConfig.customType === "service_item" ? modalIsOrderable : true;
                 if (isSelfManagedVendor) {
                   await updateSelfManagedNode(editingService._id, {
                     name: editCategoryName,
                     customType: modalCustomType,
                     price: nextPrice,
+                    mrp:
+                      selfManagedEditTypeConfig.customType === "service_item"
+                        ? (String(modalMrp || "").trim() === "" ? null : Number(modalMrp))
+                        : null,
+                    discountPercent:
+                      selfManagedEditTypeConfig.customType === "service_item"
+                        ? (String(modalDiscountPercent || "").trim() === "" ? null : Number(modalDiscountPercent))
+                        : null,
                     pricingStatus: editingService.pricingStatus || "Active",
                     terms: selfManagedEditTypeConfig.supportsTerms ? modalTerms.trim() : "",
                     packagesIncludes: selfManagedEditTypeConfig.supportsPackagesIncludes
@@ -2297,6 +2457,11 @@ async function updateService(service, status) {
                     offerText: selfManagedEditTypeConfig.customType === "offer"
                       ? modalOfferText.trim()
                       : "",
+                    itemCode: selfManagedEditTypeConfig.customType === "service_item" ? modalItemCode.trim() : "",
+                    unitLabel: selfManagedEditTypeConfig.customType === "service_item" ? modalUnitLabel.trim() : "",
+                    minQty: selfManagedEditTypeConfig.customType === "service_item" ? modalMinQty : 1,
+                    stepQty: selfManagedEditTypeConfig.customType === "service_item" ? modalStepQty : 1,
+                    isOrderable: selfManagedEditTypeConfig.customType === "service_item" ? modalIsOrderable : true,
                     imageUrl: modalImageUrl || "",
                   });
                   setRootNodes(nodes =>
@@ -2304,6 +2469,14 @@ async function updateService(service, status) {
                       name: editCategoryName,
                       customType: modalCustomType,
                       price: nextPrice,
+                      mrp:
+                        selfManagedEditTypeConfig.customType === "service_item"
+                          ? (String(modalMrp || "").trim() === "" ? null : Number(modalMrp))
+                          : null,
+                      discountPercent:
+                        selfManagedEditTypeConfig.customType === "service_item"
+                          ? (String(modalDiscountPercent || "").trim() === "" ? null : Number(modalDiscountPercent))
+                          : null,
                       terms: selfManagedEditTypeConfig.supportsTerms ? modalTerms.trim() : "",
                       packagesIncludes: selfManagedEditTypeConfig.supportsPackagesIncludes
                         ? modalPackagesIncludes.trim()
@@ -2311,6 +2484,11 @@ async function updateService(service, status) {
                       offerText: selfManagedEditTypeConfig.customType === "offer"
                         ? modalOfferText.trim()
                         : "",
+                      itemCode: selfManagedEditTypeConfig.customType === "service_item" ? modalItemCode.trim() : "",
+                      unitLabel: selfManagedEditTypeConfig.customType === "service_item" ? modalUnitLabel.trim() : "",
+                      minQty: selfManagedEditTypeConfig.customType === "service_item" ? Number(modalMinQty || 1) : 1,
+                      stepQty: selfManagedEditTypeConfig.customType === "service_item" ? Number(modalStepQty || 1) : 1,
+                      isOrderable: selfManagedEditTypeConfig.customType === "service_item" ? modalIsOrderable : true,
                       imageUrl: modalImageUrl,
                     })
                   );
@@ -2319,6 +2497,14 @@ async function updateService(service, status) {
                       name: editCategoryName,
                       customType: modalCustomType,
                       price: nextPrice,
+                      mrp:
+                        selfManagedEditTypeConfig.customType === "service_item"
+                          ? (String(modalMrp || "").trim() === "" ? null : Number(modalMrp))
+                          : null,
+                      discountPercent:
+                        selfManagedEditTypeConfig.customType === "service_item"
+                          ? (String(modalDiscountPercent || "").trim() === "" ? null : Number(modalDiscountPercent))
+                          : null,
                       terms: selfManagedEditTypeConfig.supportsTerms ? modalTerms.trim() : "",
                       packagesIncludes: selfManagedEditTypeConfig.supportsPackagesIncludes
                         ? modalPackagesIncludes.trim()
@@ -2326,6 +2512,11 @@ async function updateService(service, status) {
                       offerText: selfManagedEditTypeConfig.customType === "offer"
                         ? modalOfferText.trim()
                         : "",
+                      itemCode: selfManagedEditTypeConfig.customType === "service_item" ? modalItemCode.trim() : "",
+                      unitLabel: selfManagedEditTypeConfig.customType === "service_item" ? modalUnitLabel.trim() : "",
+                      minQty: selfManagedEditTypeConfig.customType === "service_item" ? Number(modalMinQty || 1) : 1,
+                      stepQty: selfManagedEditTypeConfig.customType === "service_item" ? Number(modalStepQty || 1) : 1,
+                      isOrderable: selfManagedEditTypeConfig.customType === "service_item" ? modalIsOrderable : true,
                       imageUrl: modalImageUrl,
                     })
                   );
@@ -2638,6 +2829,82 @@ async function updateService(service, status) {
                   onChange={e => setAddNodePrice(e.target.value)}
                   placeholder="Enter price"
                 />
+                  </>
+                ) : null}
+
+                {selfManagedAddTypeConfig.customType === "service_item" ? (
+                  <>
+                    <div className="commerce-field-grid">
+                      <div>
+                        <label className="modal-label">Item Code</label>
+                        <input
+                          className="price-input"
+                          value={addNodeItemCode}
+                          onChange={e => setAddNodeItemCode(e.target.value)}
+                          placeholder="Example: GND-001"
+                        />
+                      </div>
+                      <div>
+                        <label className="modal-label">Unit Label</label>
+                        <input
+                          className="price-input"
+                          value={addNodeUnitLabel}
+                          onChange={e => setAddNodeUnitLabel(e.target.value)}
+                          placeholder="Example: box, pcs, pack"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="commerce-field-grid">
+                      <div>
+                        <label className="modal-label">MRP</label>
+                        <input
+                          className="price-input"
+                          value={addNodeMrp}
+                          onChange={e => setAddNodeMrp(e.target.value)}
+                          placeholder="Enter MRP"
+                        />
+                      </div>
+                      <div>
+                        <label className="modal-label">Discount %</label>
+                        <input
+                          className="price-input"
+                          value={addNodeDiscountPercent}
+                          onChange={e => setAddNodeDiscountPercent(e.target.value)}
+                          placeholder="Enter discount percentage"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="commerce-field-grid">
+                      <div>
+                        <label className="modal-label">Min Qty</label>
+                        <input
+                          className="price-input"
+                          value={addNodeMinQty}
+                          onChange={e => setAddNodeMinQty(e.target.value)}
+                          placeholder="1"
+                        />
+                      </div>
+                      <div>
+                        <label className="modal-label">Step Qty</label>
+                        <input
+                          className="price-input"
+                          value={addNodeStepQty}
+                          onChange={e => setAddNodeStepQty(e.target.value)}
+                          placeholder="1"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="commerce-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={addNodeIsOrderable}
+                        onChange={e => setAddNodeIsOrderable(e.target.checked)}
+                      />
+                      <span>Allow this item to be ordered</span>
+                    </label>
                   </>
                 ) : null}
 

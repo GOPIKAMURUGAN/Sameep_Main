@@ -13,6 +13,7 @@ import TemplateSelectionModal from "../../Profile/TemplateSelectionModal";
 import WhyUsModal from "../../Profile/WhyUsModal";
 import AboutFounderModal from "../../Profile/AboutFounderModal";
 import ShowcaseSectionModal from "../../Profile/ShowcaseSectionModal";
+import PaymentSettingsModal from "../../Profile/PaymentSettingsModal";
 
 function ProfileDashboard({
   vendorInfo,
@@ -20,6 +21,10 @@ function ProfileDashboard({
   onBack,
   onOpenServices,
 }) {
+  const formatTemplateName = (value) =>
+    String(value || "system default")
+      .replace(/[-_]/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
   const { vendorInfo: contextVendorInfo, setVendorInfo } = useVendor();
   const [activePanel, setActivePanel] = useState("home");
   const [selectedSocial, setSelectedSocial] = useState(null);
@@ -32,6 +37,7 @@ function ProfileDashboard({
   const [showFounderAbout, setShowFounderAbout] = useState(false);
   const [showShowcaseSection, setShowShowcaseSection] = useState(false);
   const [showTemplateSelection, setShowTemplateSelection] = useState(false);
+  const [showPaymentSettings, setShowPaymentSettings] = useState(false);
   const [hoursVendor, setHoursVendor] = useState(null);
   const [loadingVendor, setLoadingVendor] = useState(false);
   const currentVendorInfo = contextVendorInfo || vendorInfo;
@@ -167,6 +173,7 @@ const cardHandlers = {
   founderAbout: () => setShowFounderAbout(true),
   showcaseSection: () => setShowShowcaseSection(true),
   websiteTemplate: () => setShowTemplateSelection(true),
+  paymentSettings: () => setShowPaymentSettings(true),
   gallery: () => openService("gallery"),
   locations: () => setShowHomeLocation(true),
   targetedLocations: () => setShowBusinessLocations(true),
@@ -202,8 +209,17 @@ const cardHandlers = {
     {
       key: "websiteTemplate",
       title: "Website Template",
-      description: `Choose the default preview template. Currently set to ${String(currentVendorInfo?.selectedTemplateKey || "system default").replace(/[-_]/g, " ")}.`,
+      description: `Choose the default preview template. Currently set to ${formatTemplateName(currentVendorInfo?.selectedTemplateKey)}.`,
     },
+    ...(String(currentVendorInfo?.selectedTemplateKey || "").trim().toLowerCase() === "ecommerce"
+      ? [
+          {
+            key: "paymentSettings",
+            title: "Payment Settings",
+            description: "Configure vendor-specific Razorpay credentials for ecommerce checkout.",
+          },
+        ]
+      : []),
     {
       key: "social-panel",
       title: "My Social Handles",
@@ -360,6 +376,14 @@ const cardHandlers = {
           initialNurseryColorScheme={currentVendorInfo?.nurseryColorScheme || ""}
           initialModernColorScheme={currentVendorInfo?.modernColorScheme || ""}
           onClose={() => setShowTemplateSelection(false)}
+        />
+      )}
+
+      {showPaymentSettings && (
+        <PaymentSettingsModal
+          vendorId={vendorId}
+          businessName={currentVendorInfo?.businessName || ""}
+          onClose={() => setShowPaymentSettings(false)}
         />
       )}
 

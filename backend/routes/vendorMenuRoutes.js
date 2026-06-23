@@ -36,6 +36,21 @@ function sanitizeNumber(value = "") {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function sanitizePositiveInteger(value, fallback = 1) {
+  const parsed = sanitizeNumber(value);
+  if (parsed == null) return fallback;
+  const rounded = Math.floor(parsed);
+  return rounded >= 1 ? rounded : fallback;
+}
+
+function sanitizeDiscountPercent(value) {
+  const parsed = sanitizeNumber(value);
+  if (parsed == null) return null;
+  if (parsed < 0) return 0;
+  if (parsed > 100) return 100;
+  return parsed;
+}
+
 function normalizePricingSource(pricingSource, menuSourceType) {
   const nextPricingSource =
     pricingSource === "self_managed" ? "self_managed" : "standard";
@@ -80,6 +95,8 @@ function buildTree(nodes = []) {
       imageUrl: node.imageUrl || "",
       iconUrl: node.iconUrl || "",
       price: node.price ?? null,
+      mrp: node.mrp ?? null,
+      discountPercent: node.discountPercent ?? null,
       pricingStatus: node.pricingStatus || "Inactive",
       visibleToUser: node.visibleToUser ?? true,
       visibleToVendor: node.visibleToVendor ?? true,
@@ -88,6 +105,11 @@ function buildTree(nodes = []) {
       offerText: node.offerText || "",
       customType: normalizeCustomType(node.customType),
       inventoryLabelName: node.inventoryLabelName || "",
+      itemCode: node.itemCode || "",
+      unitLabel: node.unitLabel || "",
+      minQty: Number(node.minQty || 1) || 1,
+      stepQty: Number(node.stepQty || 1) || 1,
+      isOrderable: node.isOrderable !== false,
       parentSelectorLabel: node.parentSelectorLabel || "",
       sequence: node.sequence ?? 0,
       enableFreeText: node.enableFreeText ?? false,
@@ -234,10 +256,17 @@ async function saveParsedMenuItems({
         pricingStatus: isLeaf ? "Active" : "Inactive",
         visibleToUser: true,
         visibleToVendor: true,
+        mrp: null,
+        discountPercent: null,
         terms: "",
         packagesIncludes: "",
         offerText: "",
         inventoryLabelName: "",
+        itemCode: "",
+        unitLabel: "",
+        minQty: 1,
+        stepQty: 1,
+        isOrderable: true,
         parentSelectorLabel: "",
         sequence: sequenceCounter,
         enableFreeText: false,
@@ -295,9 +324,16 @@ function applyCustomTypeFields(payload = {}, customType, isLeaf) {
 
   if (!isLeaf) {
     next.price = null;
+    next.mrp = null;
+    next.discountPercent = null;
     next.terms = "";
     next.packagesIncludes = "";
     next.offerText = "";
+    next.itemCode = "";
+    next.unitLabel = "";
+    next.minQty = 1;
+    next.stepQty = 1;
+    next.isOrderable = true;
     return next;
   }
 
@@ -326,6 +362,8 @@ function serializeNode(node) {
     level: node.level,
     isLeaf: node.isLeaf,
     price: node.price,
+    mrp: node.mrp ?? null,
+    discountPercent: node.discountPercent ?? null,
     pricingStatus: node.pricingStatus,
     visibleToUser: node.visibleToUser,
     visibleToVendor: node.visibleToVendor,
@@ -334,6 +372,11 @@ function serializeNode(node) {
     offerText: node.offerText,
     customType: normalizeCustomType(node.customType),
     inventoryLabelName: node.inventoryLabelName,
+    itemCode: node.itemCode || "",
+    unitLabel: node.unitLabel || "",
+    minQty: Number(node.minQty || 1) || 1,
+    stepQty: Number(node.stepQty || 1) || 1,
+    isOrderable: node.isOrderable !== false,
     parentSelectorLabel: node.parentSelectorLabel,
     sequence: node.sequence,
     enableFreeText: node.enableFreeText,
@@ -422,6 +465,8 @@ router.get("/:vendorId/flat", async (req, res) => {
         level: node.level,
         isLeaf: node.isLeaf,
         price: node.price,
+        mrp: node.mrp ?? null,
+        discountPercent: node.discountPercent ?? null,
         pricingStatus: node.pricingStatus,
         visibleToUser: node.visibleToUser,
         visibleToVendor: node.visibleToVendor,
@@ -430,6 +475,11 @@ router.get("/:vendorId/flat", async (req, res) => {
         offerText: node.offerText,
         customType: normalizeCustomType(node.customType),
         inventoryLabelName: node.inventoryLabelName,
+        itemCode: node.itemCode || "",
+        unitLabel: node.unitLabel || "",
+        minQty: Number(node.minQty || 1) || 1,
+        stepQty: Number(node.stepQty || 1) || 1,
+        isOrderable: node.isOrderable !== false,
         parentSelectorLabel: node.parentSelectorLabel,
         sequence: node.sequence,
         enableFreeText: node.enableFreeText,
@@ -657,6 +707,7 @@ router.post("/:vendorId/nodes", requireVendorParamWriteAccess(), async (req, res
     const level = parentNode ? Number(parentNode.level || 0) + 1 : 1;
     const isLeaf = nodeType === "service";
     const price = isLeaf ? sanitizeNumber(req.body?.price) : null;
+    const mrp = isLeaf ? sanitizeNumber(req.body?.mrp) : null;
     const customType = isLeaf ? normalizeCustomType(req.body?.customType) : "";
 
     const createPayload = applyCustomTypeFields({
@@ -666,6 +717,8 @@ router.post("/:vendorId/nodes", requireVendorParamWriteAccess(), async (req, res
       level,
       isLeaf,
       price,
+      mrp,
+      discountPercent: isLeaf ? sanitizeDiscountPercent(req.body?.discountPercent) : null,
       pricingStatus: isLeaf ? "Active" : "Inactive",
       visibleToUser: true,
       visibleToVendor: true,
@@ -675,6 +728,11 @@ router.post("/:vendorId/nodes", requireVendorParamWriteAccess(), async (req, res
       offerText: typeof req.body?.offerText === "string" ? req.body.offerText : "",
       customType,
       inventoryLabelName: "",
+      itemCode: normalizeOptionalString(req.body?.itemCode),
+      unitLabel: normalizeOptionalString(req.body?.unitLabel),
+      minQty: isLeaf ? sanitizePositiveInteger(req.body?.minQty, 1) : 1,
+      stepQty: isLeaf ? sanitizePositiveInteger(req.body?.stepQty, 1) : 1,
+      isOrderable: req.body?.isOrderable !== undefined ? Boolean(req.body.isOrderable) : true,
       parentSelectorLabel: "",
       sequence: Number(lastSibling?.sequence || 0) + 1,
       enableFreeText: false,
@@ -744,6 +802,20 @@ router.patch("/:vendorId/nodes/:nodeId", requireVendorParamWriteAccess(), async 
       updates.price = parsedPrice;
     }
 
+    if (req.body?.mrp !== undefined) {
+      updates.mrp =
+        req.body.mrp === null || req.body.mrp === ""
+          ? null
+          : sanitizeNumber(req.body.mrp);
+    }
+
+    if (req.body?.discountPercent !== undefined) {
+      updates.discountPercent =
+        req.body.discountPercent === null || req.body.discountPercent === ""
+          ? null
+          : sanitizeDiscountPercent(req.body.discountPercent);
+    }
+
     if (typeof req.body?.pricingStatus === "string") {
       const status = normalizeOptionalString(req.body.pricingStatus);
       if (["Active", "Inactive", "Archive"].includes(status)) {
@@ -765,6 +837,26 @@ router.patch("/:vendorId/nodes/:nodeId", requireVendorParamWriteAccess(), async 
 
     if (typeof req.body?.customType === "string") {
       updates.customType = normalizeCustomType(req.body.customType);
+    }
+
+    if (typeof req.body?.itemCode === "string") {
+      updates.itemCode = req.body.itemCode.trim();
+    }
+
+    if (typeof req.body?.unitLabel === "string") {
+      updates.unitLabel = req.body.unitLabel.trim();
+    }
+
+    if (req.body?.minQty !== undefined) {
+      updates.minQty = sanitizePositiveInteger(req.body.minQty, 1);
+    }
+
+    if (req.body?.stepQty !== undefined) {
+      updates.stepQty = sanitizePositiveInteger(req.body.stepQty, 1);
+    }
+
+    if (req.body?.isOrderable !== undefined) {
+      updates.isOrderable = Boolean(req.body.isOrderable);
     }
 
     if (typeof req.body?.imageUrl === "string") {

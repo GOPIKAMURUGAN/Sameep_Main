@@ -28,6 +28,28 @@ import {
   splitDateTimeValue,
 } from "../utils/enquiryFlow";
 
+function loadRazorpayCheckoutScript() {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  if (window.Razorpay) return Promise.resolve(true);
+
+  return new Promise((resolve) => {
+    const existing = document.querySelector('script[data-razorpay-checkout="true"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(Boolean(window.Razorpay)), { once: true });
+      existing.addEventListener("error", () => resolve(false), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.dataset.razorpayCheckout = "true";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 function buildDefaultFallbackFields() {
   return [
     { name: "Name", fieldType: "text", required: true, enabled: true },
@@ -36,10 +58,20 @@ function buildDefaultFallbackFields() {
   ];
 }
 
-export default function ContactSection() {
+export default function ContactSection({
+  mode = "full",
+  showCartSummary = true,
+  sectionId = "contact",
+  hideHeader = false,
+  title,
+  subtitle,
+  submitLabel,
+  onSubmitSuccess,
+} = {}) {
   const { vendorInfo } = useVendor() || {};
   const formRef = useRef(null);
   const firstInputRef = useRef(null);
+  const isInlineMode = mode === "inline";
 
   const rootCategoryId =
     vendorInfo?.categoryId ||
@@ -70,6 +102,13 @@ export default function ContactSection() {
   const [selectedServiceInterest, setSelectedServiceInterest] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [paymentConfig, setPaymentConfig] = useState({
+    paymentEnabled: false,
+    provider: "",
+    keyId: "",
+    accountName: "",
+    mode: "test",
+  });
 
   useEffect(() => {
     if (!rootCategoryId) return;
@@ -134,7 +173,16 @@ export default function ContactSection() {
 
   const enquiryConfig = categoryData?.enquiryConfig || null;
   const isEnquiryFlowEnabled = Boolean(enquiryConfig?.enabled);
-  const enquiryTypeLabel = getEnquiryTypeLabel(enquiryConfig?.enquiryType);
+  const selectedTemplateKey = String(vendorInfo?.selectedTemplateKey || "").trim().toLowerCase();
+  const isEcommerceTemplate = selectedTemplateKey === "ecommerce";
+  const isRazorpayCheckoutEnabled =
+    isEcommerceTemplate &&
+    paymentConfig.paymentEnabled &&
+    paymentConfig.provider === "razorpay" &&
+    Boolean(String(paymentConfig.keyId || "").trim());
+  const effectiveEnquiryType =
+    String(enquiryConfig?.enquiryType || "").trim() || (isEcommerceTemplate ? "order_request" : "");
+  const enquiryTypeLabel = getEnquiryTypeLabel(effectiveEnquiryType);
   const supportedEnquiryFields = useMemo(() => {
     if (isEnquiryFlowEnabled) {
       return (Array.isArray(enquiryConfig?.fields) ? enquiryConfig.fields : [])
@@ -157,15 +205,23 @@ export default function ContactSection() {
       ? selectedServiceInterest
       : serviceInterestOptions[0]?.value || "";
   const effectiveCartItems = useMemo(() => {
+    if (isEcommerceTemplate) return normalizedCartItems;
     if (!requiresCartSelection) return normalizedCartItems;
     if (!activeServiceInterest) return normalizedCartItems;
     return normalizedCartItems.filter((item) => item.cartKey === activeServiceInterest);
-  }, [activeServiceInterest, normalizedCartItems, requiresCartSelection]);
+  }, [activeServiceInterest, isEcommerceTemplate, normalizedCartItems, requiresCartSelection]);
   const cartSummary = useMemo(() => {
     return effectiveCartItems
       .map((item) => `${item.label} x${item.qty}${item.total > 0 ? ` • ${formatCurrency(item.total)}` : ""}`)
       .join(", ");
   }, [effectiveCartItems]);
+  const cartMrpTotal = useMemo(() => {
+    return normalizedCartItems.reduce((sum, item) => {
+      const referencePrice = Number(item?.mrp) > 0 ? Number(item.mrp) : Number(item?.price || 0);
+      return sum + referencePrice * (Number(item?.qty || 0) || 1);
+    }, 0);
+  }, [normalizedCartItems]);
+  const cartDiscountTotal = Math.max(cartMrpTotal - (Number(cartState?.cartTotal || 0) || 0), 0);
 
   useEffect(() => {
     setFormValues((prev) => {
@@ -176,6 +232,59 @@ export default function ContactSection() {
       return next;
     });
   }, [supportedEnquiryFields]);
+
+  useEffect(() => {
+    if (!isEcommerceTemplate || !vendorId) {
+      setPaymentConfig({
+        paymentEnabled: false,
+        provider: "",
+        keyId: "",
+        accountName: "",
+        mode: "test",
+      });
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadPaymentConfig() {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/vendor-payment-config/${vendorId}`,
+          { cache: "no-store" }
+        );
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || cancelled) return;
+
+        const config = data?.config || {};
+        setPaymentConfig({
+          paymentEnabled: Boolean(config.paymentEnabled),
+          provider: String(config.provider || ""),
+          keyId: String(config?.razorpay?.keyId || ""),
+          accountName: String(config?.razorpay?.accountName || ""),
+          mode: String(config?.razorpay?.mode || "test"),
+        });
+      } catch (error) {
+        console.error("Payment config fetch failed", error);
+        if (!cancelled) {
+          setPaymentConfig({
+            paymentEnabled: false,
+            provider: "",
+            keyId: "",
+            accountName: "",
+            mode: "test",
+          });
+        }
+      }
+    }
+
+    loadPaymentConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEcommerceTemplate, vendorId]);
 
   const phoneField = useMemo(
     () => supportedEnquiryFields.find((field) => isLikelyPhoneField(field)),
@@ -198,6 +307,32 @@ export default function ContactSection() {
     }));
   };
 
+  const resetFormAfterSuccess = () => {
+    setFormValues(
+      supportedEnquiryFields.reduce((acc, field) => {
+        acc[field.name] = "";
+        return acc;
+      }, {})
+    );
+    setSelectedServiceInterest("");
+
+    if (isEcommerceTemplate && typeof window !== "undefined") {
+      const nextCartState = {
+        vendorId: String(vendorId || ""),
+        rootCategoryId: String(rootCategoryId || ""),
+        cartItems: [],
+        cartTotal: 0,
+      };
+
+      window.__ynotCartState = nextCartState;
+      window.dispatchEvent(
+        new CustomEvent(CART_UPDATED_EVENT, {
+          detail: nextCartState,
+        })
+      );
+    }
+  };
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -211,7 +346,7 @@ export default function ContactSection() {
       return;
     }
 
-    if (requiresCartSelection && !activeServiceInterest && normalizedCartItems.length > 0) {
+    if (!isEcommerceTemplate && requiresCartSelection && !activeServiceInterest && normalizedCartItems.length > 0) {
       setFeedback("Please choose the service interest from your selected items.");
       return;
     }
@@ -263,7 +398,7 @@ export default function ContactSection() {
       aggregateCategoryPath[0] ||
       effectiveCartItems[0]?.categoryPath?.[0] ||
       categoryData?.name ||
-      "classic-preview";
+      (isEcommerceTemplate ? "ecommerce-preview" : "classic-preview");
     const selectedInterestItem = normalizedCartItems.find(
       (item) => item.cartKey === activeServiceInterest
     );
@@ -286,10 +421,16 @@ export default function ContactSection() {
       price: totalPrice > 0 ? totalPrice : null,
       terms: "",
       meta: {
-        template: "classic-preview",
-        enquiryType: String(enquiryConfig?.enquiryType || "").trim(),
-        serviceInterest: activeServiceInterest || "",
-        serviceInterestLabel: selectedInterestItem ? getCartHierarchyLabel(selectedInterestItem) : "",
+        template: isEcommerceTemplate ? "ecommerce-preview" : "classic-preview",
+        enquiryType: effectiveEnquiryType,
+        checkoutProvider: isRazorpayCheckoutEnabled ? "razorpay" : "",
+        serviceInterest: isEcommerceTemplate ? "" : activeServiceInterest || "",
+        serviceInterestLabel:
+          isEcommerceTemplate
+            ? effectiveCartItems.map((item) => getCartHierarchyLabel(item)).join(", ")
+            : selectedInterestItem
+              ? getCartHierarchyLabel(selectedInterestItem)
+              : "",
         cartQty: totalQty,
         cartLineCount: effectiveCartItems.length,
         cartItems: effectiveCartItems,
@@ -301,6 +442,145 @@ export default function ContactSection() {
       setIsSubmitting(true);
       setFeedback("");
 
+      if (isRazorpayCheckoutEnabled && isEcommerceTemplate) {
+        const orderResponse = await fetch(`${API_BASE_URL}/api/payments/razorpay/order`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            currency: "INR",
+            notes: {
+              categoryId: String(rootCategoryId),
+              enquiryType: effectiveEnquiryType,
+            },
+            ...payload,
+          }),
+        });
+
+        const orderData = await orderResponse.json().catch(() => ({}));
+        if (!orderResponse.ok) {
+          setFeedback(orderData?.message || "Payment could not be started.");
+          return;
+        }
+
+        const scriptLoaded = await loadRazorpayCheckoutScript();
+        if (!scriptLoaded || !window.Razorpay) {
+          setFeedback("Razorpay checkout could not be loaded.");
+          return;
+        }
+
+        const checkoutAttemptId = String(orderData?.order?.checkoutAttemptId || "");
+        if (!checkoutAttemptId) {
+          setFeedback("Payment session could not be created.");
+          return;
+        }
+
+        const preferredNameField = supportedEnquiryFields.find((field) => {
+          const label = getEnquiryFieldLabel(field).toLowerCase();
+          return label.includes("name");
+        });
+        const preferredEmailField = supportedEnquiryFields.find((field) => {
+          return getEnquiryInputType(field?.fieldType) === "email";
+        });
+
+        const checkout = new window.Razorpay({
+          key: String(orderData?.order?.keyId || paymentConfig.keyId || ""),
+          amount: Number(orderData?.order?.amount || 0),
+          currency: String(orderData?.order?.currency || "INR"),
+          name:
+            String(paymentConfig.accountName || "").trim() ||
+            String(orderData?.order?.vendorName || vendorInfo?.businessName || "YNOT"),
+          description: `Order ${checkoutAttemptId}`,
+          order_id: String(orderData?.order?.razorpayOrderId || ""),
+          prefill: {
+            name: preferredNameField ? String(formValues[preferredNameField.name] || "").trim() : "",
+            contact: phoneValue,
+            email: preferredEmailField ? String(formValues[preferredEmailField.name] || "").trim() : "",
+          },
+          notes: {
+            checkout_attempt_id: checkoutAttemptId,
+            vendor_id: String(vendorId),
+          },
+          theme: {
+            color: "#e53935",
+          },
+          modal: {
+            ondismiss: async () => {
+              try {
+                await fetch(`${API_BASE_URL}/api/payments/razorpay/cancel`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    vendorId: String(vendorId),
+                    checkoutAttemptId,
+                    reason: "Payment checkout closed by customer",
+                  }),
+                });
+              } catch (cancelError) {
+                console.error("Failed to mark cancelled payment attempt", cancelError);
+              }
+              setFeedback("Payment was cancelled. The order is not confirmed until payment succeeds.");
+            },
+          },
+          handler: async (razorpayResponse) => {
+            try {
+              setIsSubmitting(true);
+              const verifyResponse = await fetch(`${API_BASE_URL}/api/payments/razorpay/verify`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  vendorId: String(vendorId),
+                  checkoutAttemptId,
+                  razorpay_order_id: razorpayResponse?.razorpay_order_id || "",
+                  razorpay_payment_id: razorpayResponse?.razorpay_payment_id || "",
+                  razorpay_signature: razorpayResponse?.razorpay_signature || "",
+                }),
+              });
+
+              const verifyData = await verifyResponse.json().catch(() => ({}));
+              if (!verifyResponse.ok) {
+                setFeedback(verifyData?.message || "Payment verification failed.");
+                return;
+              }
+
+              setFeedback("Order and payment submitted successfully.");
+              trackVendorPreviewEvent(
+                API_BASE_URL,
+                buildVendorPreviewAnalyticsPayload({
+                  vendorId,
+                  eventType: "enquiry_submit",
+                  meta: {
+                    sourceLabel: "ecommerce_paid_order",
+                    utmContent: String(rootCategoryId || ""),
+                  },
+                })
+              );
+              resetFormAfterSuccess();
+              if (typeof onSubmitSuccess === "function") {
+                onSubmitSuccess({
+                  enquiry: verifyData?.enquiry || null,
+                  payment: verifyData,
+                });
+              }
+            } catch (verifyError) {
+              console.error("Razorpay verification failed", verifyError);
+              setFeedback("Payment was captured, but verification failed. Please contact the vendor.");
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+        });
+
+        checkout.open();
+        setIsSubmitting(false);
+        return;
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/enquiries`, {
         method: "POST",
         headers: {
@@ -311,32 +591,29 @@ export default function ContactSection() {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setFeedback(data?.message || "Failed to submit enquiry.");
+        setFeedback(data?.message || `Failed to submit ${isEcommerceTemplate ? "order" : "enquiry"}.`);
         return;
       }
 
-      setFeedback("Enquiry submitted successfully.");
+      setFeedback(`${isEcommerceTemplate ? "Order" : "Enquiry"} submitted successfully.`);
       trackVendorPreviewEvent(
         API_BASE_URL,
         buildVendorPreviewAnalyticsPayload({
           vendorId,
           eventType: "enquiry_submit",
           meta: {
-            sourceLabel: String(enquiryConfig?.enquiryType || "service_enquiry") || "service_enquiry",
+            sourceLabel: effectiveEnquiryType || "service_enquiry",
             utmContent: String(rootCategoryId || ""),
           },
         })
       );
-      setFormValues(
-        supportedEnquiryFields.reduce((acc, field) => {
-          acc[field.name] = "";
-          return acc;
-        }, {})
-      );
-      setSelectedServiceInterest("");
+      resetFormAfterSuccess();
+      if (typeof onSubmitSuccess === "function") {
+        onSubmitSuccess(data);
+      }
     } catch (error) {
       console.error("Enquiry submission failed", error);
-      setFeedback("Failed to submit enquiry.");
+      setFeedback(`Failed to submit ${isEcommerceTemplate ? "order" : "enquiry"}.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -344,12 +621,213 @@ export default function ContactSection() {
 
   if (!vendorInfo) return null;
 
+  const resolvedTitle = title || enquiryTypeLabel;
+  const resolvedSubtitle =
+    subtitle ||
+    `Share your details and we will review your ${isEcommerceTemplate ? "order" : "enquiry"} shortly.`;
+  const resolvedSubmitLabel =
+    submitLabel ||
+    (isEcommerceTemplate
+      ? (isRazorpayCheckoutEnabled ? "Proceed to Payment" : "Place Order")
+      : enquiryTypeLabel);
+
+  const formMarkup = (
+    <form ref={formRef} className={`contact-form-card${isInlineMode ? " contact-form-card--inline" : ""}`} onSubmit={handleSubmit}>
+      {showCartSummary && normalizedCartItems.length > 0 ? (
+        <div className={`contact-cart-card ${isEcommerceTemplate ? "contact-cart-card--ecommerce" : ""}`}>
+          <div className="contact-cart-head">
+            <h3>{isEcommerceTemplate ? "Order Summary" : "Selected Items"}</h3>
+            <span>{formatCurrency(cartState?.cartTotal || 0)}</span>
+          </div>
+          <div className="contact-cart-list">
+            {normalizedCartItems.map((item) => (
+              <div key={item.cartKey} className="contact-cart-row">
+                <div className="contact-cart-row-copy">
+                  <strong>{item.label}</strong>
+                  <span>
+                    Qty {item.qty}
+                    {item.itemCode ? ` • ${item.itemCode}` : ""}
+                    {item.unitLabel ? ` • ${item.unitLabel}` : ""}
+                  </span>
+                  {isEcommerceTemplate && (Number(item.mrp) > 0 || Number(item.discountPercent) > 0) ? (
+                    <small>
+                      {Number(item.mrp) > 0 ? `MRP ${formatCurrency(item.mrp)}` : ""}
+                      {Number(item.mrp) > 0 && Number(item.discountPercent) > 0 ? " • " : ""}
+                      {Number(item.discountPercent) > 0 ? `${Number(item.discountPercent)}% off` : ""}
+                    </small>
+                  ) : null}
+                </div>
+                <div className="contact-cart-row-total">{formatCurrency(item.total)}</div>
+              </div>
+            ))}
+          </div>
+          {isEcommerceTemplate ? (
+            <div className="contact-order-totals">
+              <div className="contact-order-totals-row">
+                <span>Total MRP</span>
+                <strong>{formatCurrency(cartMrpTotal)}</strong>
+              </div>
+              <div className="contact-order-totals-row">
+                <span>Discount</span>
+                <strong>- {formatCurrency(cartDiscountTotal)}</strong>
+              </div>
+              <div className="contact-order-totals-row is-total">
+                <span>Net Pay</span>
+                <strong>{formatCurrency(cartState?.cartTotal || 0)}</strong>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {requiresCartSelection && normalizedCartItems.length > 0 && !isInlineMode ? (
+        <select
+          className="contact-select"
+          value={activeServiceInterest}
+          onChange={(event) => setSelectedServiceInterest(event.target.value)}
+        >
+          <option value="">{isEcommerceTemplate ? "Select order item" : "Select service interest"}</option>
+          {serviceInterestOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      ) : null}
+
+      {supportedEnquiryFields.map((field, index) => {
+        const inputType = getEnquiryInputType(field?.fieldType);
+        const isDateTimeField = inputType === "datetime-local";
+        const dateTimeValue = splitDateTimeValue(formValues[field.name] || "");
+        const dateAwareTimeSlots = isDateTimeField
+          ? getTimeSlotOptionsForDate(businessHours, dateTimeValue.date)
+          : [];
+        const hasAvailableDateSlots = dateAwareTimeSlots.length > 0;
+        const commonProps = {
+          value: formValues[field.name] || "",
+          onChange: (event) => handleFieldChange(field, event.target.value),
+          placeholder: getEnquiryFieldPlaceholder(field),
+          required: Boolean(field?.required),
+          inputMode: getEnquiryInputMode(field),
+        };
+
+        if (inputType === "textarea") {
+          return (
+            <textarea
+              key={field.name}
+              ref={index === 0 ? firstInputRef : undefined}
+              {...commonProps}
+            />
+          );
+        }
+
+        const shouldUseTextarea =
+          inputType === "text" &&
+          String(getEnquiryFieldLabel(field)).toLowerCase().includes("message");
+
+        if (shouldUseTextarea) {
+          return (
+            <textarea
+              key={field.name}
+              ref={index === 0 ? firstInputRef : undefined}
+              {...commonProps}
+            />
+          );
+        }
+
+        if (isDateTimeField) {
+          return (
+            <div key={field.name} className="contact-datetime-group">
+              <div className="contact-date-wrap">
+                <input
+                  ref={index === 0 ? firstInputRef : undefined}
+                  type="date"
+                  value={dateTimeValue.date}
+                  onChange={(event) =>
+                    setFormValues((prev) => ({
+                      ...prev,
+                      [field.name]: mergeDateTimeValue(
+                        event.target.value,
+                        ""
+                      ),
+                    }))
+                  }
+                  required={Boolean(field?.required)}
+                />
+              </div>
+              <select
+                className="contact-select"
+                value={dateTimeValue.time}
+                onChange={(event) =>
+                  setFormValues((prev) => ({
+                    ...prev,
+                    [field.name]: mergeDateTimeValue(
+                      dateTimeValue.date,
+                      event.target.value
+                    ),
+                  }))
+                }
+                disabled={Boolean(dateTimeValue.date) && !hasAvailableDateSlots}
+              >
+                <option value="">
+                  {Boolean(dateTimeValue.date) && !hasAvailableDateSlots
+                    ? "No slots available"
+                    : "Select time"}
+                </option>
+                {dateAwareTimeSlots.map((slot) => (
+                  <option key={`${field.name}-${slot.value}`} value={slot.value}>
+                    {slot.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        }
+
+        return (
+          <input
+            key={field.name}
+            ref={index === 0 ? firstInputRef : undefined}
+            type={inputType}
+            {...commonProps}
+          />
+        );
+      })}
+
+      {feedback ? (
+        <div className={`contact-feedback ${feedback.includes("successfully") ? "success" : "error"}`}>
+          {feedback}
+        </div>
+      ) : null}
+
+      <button
+        className="send-btn"
+        type="submit"
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? "Submitting..." : resolvedSubmitLabel}
+      </button>
+    </form>
+  );
+
+  if (isInlineMode) {
+    return (
+      <div id={sectionId} className="contact-inline-section">
+        {hideHeader ? null : (
+          <>
+            <h3 className="contact-inline-title">{resolvedTitle}</h3>
+            {resolvedSubtitle ? <p className="contact-inline-subtitle">{resolvedSubtitle}</p> : null}
+          </>
+        )}
+        {formMarkup}
+      </div>
+    );
+  }
+
   return (
-    <section id="contact" className="contact-section">
-      <h2 className="contact-title">{enquiryTypeLabel}</h2>
-      <p className="contact-subtitle">
-        Share your details and we will review your enquiry shortly.
-      </p>
+    <section id={sectionId} className="contact-section">
+      {hideHeader ? null : <h2 className="contact-title">{resolvedTitle}</h2>}
+      {hideHeader ? null : <p className="contact-subtitle">{resolvedSubtitle}</p>}
 
       <div className="contact-grid">
         <div className="contact-left">
@@ -449,155 +927,7 @@ export default function ContactSection() {
         </div>
 
         <div className="contact-right">
-          <form ref={formRef} className="contact-form-card" onSubmit={handleSubmit}>
-            {normalizedCartItems.length > 0 ? (
-              <div className="contact-cart-card">
-                <div className="contact-cart-head">
-                  <h3>Selected Items</h3>
-                  <span>{formatCurrency(cartState?.cartTotal || 0)}</span>
-                </div>
-                <div className="contact-cart-list">
-                  {normalizedCartItems.map((item) => (
-                    <div key={item.cartKey} className="contact-cart-row">
-                      <div className="contact-cart-row-copy">
-                        <strong>{item.label}</strong>
-                        <span>Qty {item.qty}</span>
-                      </div>
-                      <div className="contact-cart-row-total">{formatCurrency(item.total)}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {requiresCartSelection && normalizedCartItems.length > 0 ? (
-              <select
-                className="contact-select"
-                value={activeServiceInterest}
-                onChange={(event) => setSelectedServiceInterest(event.target.value)}
-              >
-                <option value="">Select service interest</option>
-                {serviceInterestOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            ) : null}
-
-            {supportedEnquiryFields.map((field, index) => {
-              const inputType = getEnquiryInputType(field?.fieldType);
-              const isDateTimeField = inputType === "datetime-local";
-              const dateTimeValue = splitDateTimeValue(formValues[field.name] || "");
-              const dateAwareTimeSlots = isDateTimeField
-                ? getTimeSlotOptionsForDate(businessHours, dateTimeValue.date)
-                : [];
-              const hasAvailableDateSlots = dateAwareTimeSlots.length > 0;
-              const commonProps = {
-                value: formValues[field.name] || "",
-                onChange: (event) => handleFieldChange(field, event.target.value),
-                placeholder: getEnquiryFieldPlaceholder(field),
-                required: Boolean(field?.required),
-                inputMode: getEnquiryInputMode(field),
-              };
-
-              if (inputType === "textarea") {
-                return (
-                  <textarea
-                    key={field.name}
-                    ref={index === 0 ? firstInputRef : undefined}
-                    {...commonProps}
-                  />
-                );
-              }
-
-              const shouldUseTextarea =
-                inputType === "text" &&
-                String(getEnquiryFieldLabel(field)).toLowerCase().includes("message");
-
-              if (shouldUseTextarea) {
-                return (
-                  <textarea
-                    key={field.name}
-                    ref={index === 0 ? firstInputRef : undefined}
-                    {...commonProps}
-                  />
-                );
-              }
-
-              if (isDateTimeField) {
-                return (
-                  <div key={field.name} className="contact-datetime-group">
-                    <div className="contact-date-wrap">
-                      <input
-                        ref={index === 0 ? firstInputRef : undefined}
-                        type="date"
-                        value={dateTimeValue.date}
-                        onChange={(event) =>
-                          setFormValues((prev) => ({
-                            ...prev,
-                            [field.name]: mergeDateTimeValue(
-                              event.target.value,
-                              ""
-                            ),
-                          }))
-                        }
-                        required={Boolean(field?.required)}
-                      />
-                    </div>
-                    <select
-                      className="contact-select"
-                      value={dateTimeValue.time}
-                      onChange={(event) =>
-                        setFormValues((prev) => ({
-                          ...prev,
-                          [field.name]: mergeDateTimeValue(
-                            dateTimeValue.date,
-                            event.target.value
-                          ),
-                        }))
-                      }
-                      disabled={Boolean(dateTimeValue.date) && !hasAvailableDateSlots}
-                    >
-                      <option value="">
-                        {Boolean(dateTimeValue.date) && !hasAvailableDateSlots
-                          ? "No slots available"
-                          : "Select time"}
-                      </option>
-                      {dateAwareTimeSlots.map((slot) => (
-                        <option key={`${field.name}-${slot.value}`} value={slot.value}>
-                          {slot.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              }
-
-              return (
-                <input
-                  key={field.name}
-                  ref={index === 0 ? firstInputRef : undefined}
-                  type={inputType}
-                  {...commonProps}
-                />
-              );
-            })}
-
-            {feedback ? (
-              <div className={`contact-feedback ${feedback.includes("successfully") ? "success" : "error"}`}>
-                {feedback}
-              </div>
-            ) : null}
-
-            <button
-              className="send-btn"
-              type="submit"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Submitting..." : enquiryTypeLabel}
-            </button>
-          </form>
+          {formMarkup}
         </div>
       </div>
     </section>

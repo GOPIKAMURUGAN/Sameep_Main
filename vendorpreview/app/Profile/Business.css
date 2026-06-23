@@ -797,3 +797,56 @@ select::-webkit-scrollbar-thumb:hover {
 }
 
 }
+
+.payment-settings-loading{
+  padding:24px 0;
+  color:rgba(255,255,255,.72);
+  font-size:14px;
+  font-weight:600;
+}
+
+.payment-settings-modal{
+  max-height:min(90vh,920px);
+}
+
+.payment-settings-body{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  padding-right:6px;
+  margin-right:-6px;
+  padding-bottom:8px;
+}
+
+.payment-settings-form{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.payment-settings-toggle{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid rgba(245,217,122,.18);
+  background:rgba(255,255,255,.03);
+  color:#f5e2a4;
+  font-size:14px;
+  font-weight:700;
+}
+
+.payment-settings-toggle input{
+  width:16px;
+  height:16px;
+  margin:0;
+  accent-color:#f5d97a;
+}
+
+.payment-settings-modal .popup-footer{
+  position:static;
+  margin-top:18px;
+  background:none;
+  flex-shrink:0;
+}

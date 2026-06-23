@@ -359,6 +359,13 @@ export function normalizeCartItems(cartItems) {
       qty,
       price: unitPrice,
       total,
+      mrp: item?.mrp == null || item?.mrp === "" ? null : Number(item.mrp) || null,
+      discountPercent:
+        item?.discountPercent == null || item?.discountPercent === ""
+          ? null
+          : Number(item.discountPercent) || null,
+      itemCode: String(item?.itemCode || "").trim(),
+      unitLabel: String(item?.unitLabel || "").trim(),
       categoryPath: categoryPath.map((segment) => String(segment || "").trim()).filter(Boolean),
       categoryPathIds: (Array.isArray(item?.categoryPathIds) ? item.categoryPathIds : [])
         .map((id) => String(id || "").trim())

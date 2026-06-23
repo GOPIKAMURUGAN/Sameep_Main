@@ -13,6 +13,22 @@ const EnquirySchema = new mongoose.Schema({
   price: { type: Number, default: null },
   terms: { type: String, default: '' },
   meta: { type: Object, default: {} },
+  payment: {
+    type: {
+      provider: { type: String, default: "" },
+      status: { type: String, default: "" },
+      amount: { type: Number, default: null },
+      currency: { type: String, default: "INR" },
+      ynotOrderId: { type: String, default: "" },
+      razorpayOrderId: { type: String, default: "" },
+      razorpayPaymentId: { type: String, default: "" },
+      razorpaySignature: { type: String, default: "" },
+      paidAt: { type: Date, default: null },
+      lastError: { type: String, default: "" },
+      notes: { type: Object, default: {} },
+    },
+    default: {},
+  },
   // current workflow status for this enquiry (label is per-category configurable)
   status: { type: String, default: '' },
   // full history of status changes for analytics

@@ -117,7 +117,7 @@ export default function TemplateSelectionModal({
   initialModernColorScheme = "",
   onClose,
 }) {
-  const { setVendorInfo } = useVendor();
+  const { vendorInfo, setVendorInfo } = useVendor();
   const [templates, setTemplates] = useState([]);
   const [selectedTemplateKey, setSelectedTemplateKey] = useState(initialTemplateKey || "");
   const [nurseryColorScheme, setNurseryColorScheme] = useState(
@@ -168,12 +168,20 @@ export default function TemplateSelectionModal({
     );
   }, [templates, initialTemplateKey]);
 
+  const effectivePricingSource = String(vendorInfo?.pricingSource || "").trim().toLowerCase();
+  const isSelfManagedPricing = effectivePricingSource === "self_managed";
   const showNurseryColorScheme = selectedTemplateKey === "nurseries";
   const showModernColorScheme = selectedTemplateKey === "modern";
+  const showEcommerceCompatibilityNote = selectedTemplateKey === "ecommerce";
 
   const handleSave = async () => {
     if (!vendorId) {
       alert("Vendor ID missing");
+      return;
+    }
+
+    if (selectedTemplateKey === "ecommerce" && !isSelfManagedPricing) {
+      alert("Ecommerce Catalog works with My Menu. Switch Dashboard > Prices to My Menu first, then save this template.");
       return;
     }
 
@@ -243,13 +251,48 @@ export default function TemplateSelectionModal({
               >
                 <option value="">Use System Default</option>
                 {visibleTemplates.map((template) => (
-                  <option key={template.key} value={template.key}>
+                  <option
+                    key={template.key}
+                    value={template.key}
+                    disabled={template.key === "ecommerce" && !isSelfManagedPricing}
+                  >
                     {template.name || prettyTemplateLabel(template.key)}
                   </option>
                 ))}
               </select>
             )}
           </div>
+
+          {showEcommerceCompatibilityNote ? (
+            <div className="branding-contact-section">
+              <label className="branding-label">Template Compatibility</label>
+              <div
+                style={{
+                  background: isSelfManagedPricing ? "rgba(54, 179, 126, 0.12)" : "rgba(245, 166, 35, 0.12)",
+                  border: isSelfManagedPricing
+                    ? "1px solid rgba(54, 179, 126, 0.35)"
+                    : "1px solid rgba(245, 166, 35, 0.35)",
+                  borderRadius: 12,
+                  color: "#fffaf0",
+                  padding: 14,
+                  lineHeight: 1.6,
+                  fontSize: 14,
+                }}
+              >
+                {isSelfManagedPricing ? (
+                  <>
+                    Ecommerce Catalog is ready for this vendor because pricing source is set to My Menu.
+                    It will render active priced items from the self-managed menu.
+                  </>
+                ) : (
+                  <>
+                    Ecommerce Catalog needs My Menu pricing source. This vendor is still on Standard Menu,
+                    so the product catalog would not behave correctly yet.
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
 
           {showNurseryColorScheme ? (
             <div className="branding-contact-section">
@@ -388,6 +431,8 @@ export default function TemplateSelectionModal({
                       selectedTemplateKey === template.key
                         ? "rgba(245, 217, 122, 0.08)"
                         : "rgba(255,255,255,0.04)",
+                    opacity:
+                      template.key === "ecommerce" && !isSelfManagedPricing ? 0.65 : 1,
                   }}
                 >
                   <div style={{ color: "#f8de91", fontWeight: 700 }}>
@@ -401,6 +446,11 @@ export default function TemplateSelectionModal({
                   {template.previewHint ? (
                     <div style={{ color: "rgba(255,250,236,0.58)", marginTop: 6, fontSize: 12 }}>
                       {template.previewHint}
+                    </div>
+                  ) : null}
+                  {template.key === "ecommerce" ? (
+                    <div style={{ color: "rgba(255,250,236,0.72)", marginTop: 8, fontSize: 12 }}>
+                      Requires My Menu with active priced items.
                     </div>
                   ) : null}
                 </div>
