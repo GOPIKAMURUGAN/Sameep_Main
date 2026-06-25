@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ENQUIRY_OPEN_EVENT } from "../../utils/enquiryFlow";
 import ContactSection from "../../Contact/Contact";
 import { API_BASE_URL } from "../../../config";
+import { SOCIAL_ICONS } from "../../Icons/SocialIcons";
 import "./EcommercePreviewTemplate.css";
 
 function formatCurrency(value) {
@@ -23,6 +24,60 @@ function toAnchor(label) {
     .trim()
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-");
+}
+
+function normalizeSocialKey(label) {
+  return String(label || "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+function getSocialHref(key, value) {
+  if (!value) return "#";
+  if (value.startsWith("http")) return value;
+  if (key === "email") return `mailto:${value}`;
+  if (key === "whatsapp") return `https://wa.me/${String(value).replace(/\D/g, "")}`;
+  return `https://${key}.com/${value}`;
+}
+
+function getSocialLabel(key) {
+  switch (key) {
+    case "instagram":
+      return "Instagram";
+    case "facebook":
+      return "Facebook";
+    case "youtube":
+      return "YouTube";
+    case "linkedin":
+      return "LinkedIn";
+    case "whatsapp":
+      return "WhatsApp";
+    case "email":
+      return "Email";
+    case "website":
+      return "Website";
+    case "x":
+      return "X";
+    default:
+      return key.charAt(0).toUpperCase() + key.slice(1);
+  }
+}
+
+function getMapsHref(vendorInfo, heroTagline) {
+  const googleMapsUrl = vendorInfo?.googlePlace?.mapsUrl;
+  if (!googleMapsUrl) return "";
+
+  let placeId = "";
+  if (googleMapsUrl.startsWith("place_id:")) {
+    placeId = googleMapsUrl.replace("place_id:", "");
+  } else if (googleMapsUrl.includes("place_id:")) {
+    placeId = googleMapsUrl.split("place_id:")[1];
+  }
+
+  if (!placeId) return googleMapsUrl;
+
+  const queryName = encodeURIComponent(heroTagline || vendorInfo?.businessName || "");
+  return `https://www.google.com/maps/search/?api=1&query=${queryName}&query_place_id=${placeId}`;
 }
 
 function scrollToElementById(id) {
@@ -171,6 +226,9 @@ export default function EcommercePreviewTemplate({
 }) {
   const [showCartDetails, setShowCartDetails] = useState(false);
   const [showCheckoutForm, setShowCheckoutForm] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
   const [paymentConfig, setPaymentConfig] = useState({
     paymentEnabled: false,
     provider: "",
@@ -178,6 +236,45 @@ export default function EcommercePreviewTemplate({
   });
   const sections = useMemo(() => buildSections(menuTree), [menuTree]);
   const phoneNumbers = useMemo(() => normalizePhones(vendorInfo), [vendorInfo]);
+  const businessHours = useMemo(() => {
+    const hours = vendorInfo?.businessHours || vendorInfo?.hours || [];
+    return Array.isArray(hours)
+      ? hours.filter((entry) => String(entry?.day || entry?.hours || "").trim())
+      : [];
+  }, [vendorInfo]);
+  const locationAddress = String(vendorInfo?.location?.address || "").trim();
+  const locationLat = Number(vendorInfo?.location?.lat);
+  const locationLng = Number(vendorInfo?.location?.lng);
+  const hasEmbeddedMap = Number.isFinite(locationLat) && Number.isFinite(locationLng);
+  const mapsHref = useMemo(() => getMapsHref(vendorInfo, heroTagline), [heroTagline, vendorInfo]);
+  const socialEntries = useMemo(() => {
+    const socialLinks = vendorInfo?.socialLinks || {};
+
+    const mapped = Object.entries(socialLinks)
+      .map(([key, rawValue]) => {
+        const normalizedKey = normalizeSocialKey(key);
+        const value = String(rawValue || "").trim();
+        if (!normalizedKey || !value) return null;
+        return {
+          key: normalizedKey,
+          value,
+          href: getSocialHref(normalizedKey, value),
+          label: getSocialLabel(normalizedKey),
+        };
+      })
+      .filter(Boolean);
+
+    if (!mapped.some((entry) => entry.key === "whatsapp") && phoneNumbers.length > 0) {
+      mapped.push({
+        key: "whatsapp",
+        value: phoneNumbers[0],
+        href: getSocialHref("whatsapp", phoneNumbers[0]),
+        label: "WhatsApp",
+      });
+    }
+
+    return mapped;
+  }, [phoneNumbers, vendorInfo]);
   const vendorId =
     vendorInfo?.vendorId ||
     vendorInfo?._id ||
@@ -213,6 +310,51 @@ export default function EcommercePreviewTemplate({
     [cartItems]
   );
   const cartDiscountTotal = Math.max(cartMrpTotal - Number(cartTotal || 0), 0);
+  const normalizedCatalogSearch = String(catalogSearch || "").trim().toLowerCase();
+  const filteredSections = useMemo(() => {
+    if (!normalizedCatalogSearch) return sections;
+
+    return sections
+      .map((section) => {
+        const sectionMatches = String(section.title || "").toLowerCase().includes(normalizedCatalogSearch);
+        const filteredItems = section.items.filter((item) => {
+          const haystack = [
+            item.name,
+            item.subtitle,
+            item.itemCode,
+            item.unitLabel,
+          ]
+            .map((value) => String(value || "").toLowerCase())
+            .join(" ");
+
+          return haystack.includes(normalizedCatalogSearch);
+        });
+
+        if (sectionMatches) {
+          return section;
+        }
+
+        if (filteredItems.length > 0) {
+          return {
+            ...section,
+            itemCount: filteredItems.length,
+            items: filteredItems,
+          };
+        }
+
+        return null;
+      })
+      .filter(Boolean);
+  }, [normalizedCatalogSearch, sections]);
+  const visibleSectionChips = useMemo(() => sections.slice(0, 6), [sections]);
+  const hiddenSectionChips = useMemo(() => sections.slice(6), [sections]);
+  const filteredCategoryOptions = useMemo(() => {
+    const normalizedCategorySearch = String(categorySearch || "").trim().toLowerCase();
+    if (!normalizedCategorySearch) return hiddenSectionChips;
+    return hiddenSectionChips.filter((section) =>
+      String(section.title || "").toLowerCase().includes(normalizedCategorySearch)
+    );
+  }, [categorySearch, hiddenSectionChips]);
   const detailedCartItems = useMemo(
     () =>
       (Array.isArray(cartItems) ? cartItems : []).map((item, index) => {
@@ -299,6 +441,12 @@ export default function EcommercePreviewTemplate({
       window.dispatchEvent(new CustomEvent(ENQUIRY_OPEN_EVENT, { detail: { source: "ecommerce-template" } }));
     }
     scrollToElementById("ecommerce-contact");
+  };
+
+  const handleSelectCatalogSection = (anchor) => {
+    setShowCategoryPicker(false);
+    setCategorySearch("");
+    scrollToElementById(anchor);
   };
 
   return (
@@ -406,16 +554,67 @@ export default function EcommercePreviewTemplate({
 
       <section id="ecommerce-catalog" className="ecommerce-catalog">
         <div className="ecommerce-catalog-heading">
-          <div>
+          <div className="ecommerce-catalog-heading-copy">
             <h2>Product Catalog</h2>
             <p>Enter quantities below. Totals update instantly.</p>
           </div>
-          <div className="ecommerce-section-pills">
-            {sections.map((section) => (
-              <button key={section.id} type="button" onClick={() => scrollToElementById(section.anchor)}>
-                {section.title}
-              </button>
-            ))}
+          <div className="ecommerce-catalog-toolbar">
+            <div className="ecommerce-catalog-search">
+              <input
+                type="text"
+                value={catalogSearch}
+                onChange={(event) => setCatalogSearch(event.target.value)}
+                placeholder="Search products or categories"
+                aria-label="Search products or categories"
+              />
+            </div>
+            <div className="ecommerce-catalog-nav">
+              <div className="ecommerce-section-pills">
+                {visibleSectionChips.map((section) => (
+                  <button key={section.id} type="button" onClick={() => scrollToElementById(section.anchor)}>
+                    {section.title}
+                  </button>
+                ))}
+              </div>
+              {hiddenSectionChips.length > 0 ? (
+                <div className="ecommerce-category-picker">
+                  <button
+                    type="button"
+                    className="ecommerce-category-picker-toggle"
+                    onClick={() => setShowCategoryPicker((current) => !current)}
+                  >
+                    More
+                  </button>
+                  {showCategoryPicker ? (
+                    <div className="ecommerce-category-picker-menu">
+                      <input
+                        type="text"
+                        value={categorySearch}
+                        onChange={(event) => setCategorySearch(event.target.value)}
+                        placeholder="Search categories"
+                        aria-label="Search categories"
+                      />
+                      <div className="ecommerce-category-picker-list">
+                        {filteredCategoryOptions.length > 0 ? (
+                          filteredCategoryOptions.map((section) => (
+                            <button
+                              key={section.id}
+                              type="button"
+                              onClick={() => handleSelectCatalogSection(section.anchor)}
+                            >
+                              <span>{section.title}</span>
+                              <small>{section.itemCount} items</small>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="ecommerce-category-picker-empty">No matching categories</div>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -425,7 +624,13 @@ export default function EcommercePreviewTemplate({
           </div>
         ) : null}
 
-        {sections.map((section) => (
+        {sections.length > 0 && filteredSections.length === 0 ? (
+          <div className="ecommerce-empty-state">
+            No products matched your search.
+          </div>
+        ) : null}
+
+        {filteredSections.map((section) => (
           <div key={section.id} id={section.anchor} className="ecommerce-section-card">
             <div className="ecommerce-section-header">
               <h3>{section.title}</h3>
@@ -579,22 +784,88 @@ export default function EcommercePreviewTemplate({
 
       <section id="ecommerce-summary" className="ecommerce-bottom-grid">
         <div className="ecommerce-note-card">
-          <h3>Order Notes</h3>
-          <p>
-            {isRazorpayCheckoutEnabled
-              ? "All prices shown here use the vendor's current My Menu pricing. Order confirmation and delivery follow the existing Sameep flow, and payment will be collected during checkout."
-              : "All prices shown here use the vendor's current My Menu pricing. Order confirmation and delivery follow the existing Sameep flow, and payment will be collected offline by the vendor after the order is placed."}
-          </p>
-          <p>
-            {vendorInfo?.location?.address || "Location details will be shared by the vendor after order confirmation."}
-          </p>
-          <div className="ecommerce-contact-pills">
-            {phoneNumbers.map((phone) => (
-              <a key={phone} href={`tel:${phone}`}>
-                {phone}
-              </a>
-            ))}
-            {vendorInfo?.email ? <a href={`mailto:${vendorInfo.email}`}>{vendorInfo.email}</a> : null}
+          <h3>Business Details</h3>
+          <div className="ecommerce-business-grid">
+            <div className="ecommerce-business-block">
+              <span className="ecommerce-business-label">Location</span>
+              <p>{locationAddress || "Location details are not available yet."}</p>
+              {mapsHref ? (
+                <a
+                  href={mapsHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ecommerce-map-link"
+                >
+                  View Map
+                </a>
+              ) : null}
+              {hasEmbeddedMap ? (
+                <div className="ecommerce-map-frame">
+                  <iframe
+                    title="Business map"
+                    width="100%"
+                    height="180"
+                    loading="lazy"
+                    src={`https://www.google.com/maps?q=${locationLat},${locationLng}&z=15&output=embed`}
+                  />
+                </div>
+              ) : null}
+            </div>
+
+            <div className="ecommerce-business-block">
+              <span className="ecommerce-business-label">Business Hours</span>
+              {businessHours.length > 0 ? (
+                <ul className="ecommerce-business-hours">
+                  {businessHours.map((entry, index) => (
+                    <li key={entry?._id || `${entry?.day || "day"}-${index}`}>
+                      <span>{entry?.day || "Day"}</span>
+                      <span>{entry?.hours || "Closed"}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>Business hours are not available yet.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="ecommerce-business-secondary">
+            <div className="ecommerce-business-block">
+              <span className="ecommerce-business-label">Contact Numbers</span>
+              <div className="ecommerce-contact-pills ecommerce-contact-pills--compact">
+                {phoneNumbers.map((phone, index) => (
+                  <a key={phone} href={`tel:${phone}`}>
+                    {index === 0 ? "Primary" : `Alt ${index}`} • {phone}
+                  </a>
+                ))}
+                {vendorInfo?.email ? <a href={`mailto:${vendorInfo.email}`}>{vendorInfo.email}</a> : null}
+              </div>
+            </div>
+
+            {socialEntries.length > 0 ? (
+              <div className="ecommerce-social-section">
+                <span className="ecommerce-business-label">Social Handles</span>
+                <div className="ecommerce-social-icons" aria-label="Social handles">
+                  {socialEntries.map((entry) => (
+                    (() => {
+                      const Icon = SOCIAL_ICONS[entry.key];
+                      return (
+                        <a
+                          key={`${entry.key}-${entry.value}`}
+                          href={entry.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={entry.label}
+                          title={entry.label}
+                        >
+                          {Icon ? <Icon /> : <span>{entry.label}</span>}
+                        </a>
+                      );
+                    })()
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
