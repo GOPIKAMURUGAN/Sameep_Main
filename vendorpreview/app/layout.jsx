@@ -1,18 +1,70 @@
 import { Geist, Geist_Mono } from "next/font/google";
-import { headers } from "next/headers";
 import "./globals.css";
 import BootstrapClient from "./BootstrapClient";
 import VendorClientShell from "./VendorClientShell";
 import { VendorProvider } from "./context/VendorContext";
+import { resolveVendorRequestContext } from "./utils/vendorRequestContext.server";
+import {
+  buildVendorDescription,
+  buildVendorSchema,
+  buildVendorTitle,
+  getVendorPrimaryImage,
+} from "./utils/vendorSeo";
 
-export const metadata = {
-  title: "",
-  icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-    apple: "/favicon.svg",
-  },
+const sharedIcons = {
+  icon: "/favicon.svg",
+  shortcut: "/favicon.svg",
+  apple: "/favicon.svg",
 };
+
+export async function generateMetadata() {
+  const { vendorContext, pageUrl, isIndexable } = await resolveVendorRequestContext();
+
+  if (!vendorContext) {
+    return {
+      title: "Ynot Vendor Preview",
+      description: "Explore local business profiles on Ynot.",
+      icons: sharedIcons,
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const title = buildVendorTitle(vendorContext);
+  const description = buildVendorDescription(vendorContext);
+  const image = getVendorPrimaryImage(vendorContext) || "/favicon.svg";
+
+  return {
+    title,
+    description,
+    icons: sharedIcons,
+    alternates: isIndexable && pageUrl ? { canonical: pageUrl } : undefined,
+    openGraph: {
+      title,
+      description,
+      url: pageUrl || undefined,
+      type: "website",
+      images: image ? [{ url: image }] : undefined,
+    },
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title,
+      description,
+      images: image ? [image] : undefined,
+    },
+    robots: isIndexable
+      ? {
+          index: true,
+          follow: true,
+        }
+      : {
+          index: false,
+          follow: false,
+        },
+  };
+}
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,52 +77,19 @@ const geistMono = Geist_Mono({
 });
 
 export default async function RootLayout({ children }) {
-  const headerList = await headers();
-  const host = headerList.get("host") || "";
-
-  const parts = host.split(".");
-  const subdomain = parts.length > 1 ? parts[0] : null;
-
-  let vendorContext = null;
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-  // ===== SUBDOMAIN =====
-  if (subdomain && subdomain !== "localhost") {
-    try {
-      const res = await fetch(
-        `${base}/api/vendor/by-subdomain/${subdomain}`,
-        { cache: "no-store" }
-      );
-      if (res.ok) vendorContext = await res.json();
-    } catch (e) {
-      console.error("Subdomain resolve failed", e);
-    }
-  }
-
-  // ===== PREVIEW =====
-  if (!vendorContext) {
-    try {
-      const referer = headerList.get("referer") || "";
-      const url = new URL(referer || "http://dummy");
-      const vendorId = url.searchParams.get("vendorId");
-
-      if (vendorId) {
-        const res = await fetch(
-          `${base}/api/dummy-vendors/${vendorId}`,
-          { cache: "no-store" }
-        );
-        if (res.ok) vendorContext = await res.json();
-      }
-    } catch (e) {
-      console.error("Preview resolve failed", e);
-    }
-  }
-
-  console.log("SSR vendorContext:", vendorContext);
+  const { vendorContext, pageUrl } = await resolveVendorRequestContext();
+  const seoSchema = buildVendorSchema(vendorContext, pageUrl);
 
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {seoSchema ? (
+          <script
+            type="application/ld+json"
+            suppressHydrationWarning
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(seoSchema) }}
+          />
+        ) : null}
         <VendorProvider vendor={vendorContext}>
           <BootstrapClient />
           <VendorClientShell>

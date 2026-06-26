@@ -2144,10 +2144,6 @@ function ExploreContent({ onReady, onOpenServices }) {
           : [treeData];
         const categoryObj = categoryTree[0] || null;
         setCategory(categoryObj);
-        setVendorInfo(prev => ({
-          ...prev,
-          categoryData: categoryObj
-        }));
         const imageMap = buildImageMapFromTree(categoryTree);
         const nameMap = buildNameMapFromTree(categoryTree);
         const packagesMap = buildPackagesMapFromTree(categoryTree);
@@ -2197,7 +2193,8 @@ function ExploreContent({ onReady, onOpenServices }) {
             : extractHeroImages(categoryTree, mergedPricingTree)
         );
 
-        setMenuTree(filterActiveMenuTree(mergedPricingTree));
+        const activeMenuTree = filterActiveMenuTree(mergedPricingTree);
+        setMenuTree(activeMenuTree);
 
         const converted = convertFromTree(
           mergedPricingTree,
@@ -2208,6 +2205,11 @@ function ExploreContent({ onReady, onOpenServices }) {
         ).filter(Boolean);
         // ✅ Always push "Offers" section to bottom
         setFinalCategories(converted);
+        setVendorInfo(prev => ({
+          ...prev,
+          categoryData: categoryObj,
+          previewSeoData: buildPreviewSeoData(activeMenuTree, converted, categoryObj)
+        }));
         setDataLoaded(true);
 
       } catch (e) {
@@ -2995,6 +2997,209 @@ function ExploreContent({ onReady, onOpenServices }) {
 
       return acc;
     }, []);
+  };
+
+  const collectPreviewSeoItemNames = (nodes, names = []) => {
+    if (!Array.isArray(nodes)) return names;
+
+    nodes.forEach((node) => {
+      if (!node || typeof node !== "object") return;
+
+      if (node.isLeaf) {
+        const itemName = String(
+          node.displayName ||
+            node.title ||
+            node.name ||
+            node.label ||
+            ""
+        ).trim();
+        if (itemName) names.push(itemName);
+        return;
+      }
+
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        collectPreviewSeoItemNames(node.children, names);
+      }
+    });
+
+    return names;
+  };
+
+  const collectPreviewSeoPathPhrases = (nodes, phrases = [], ancestors = []) => {
+    if (!Array.isArray(nodes)) return phrases;
+
+    nodes.forEach((node) => {
+      if (!node || typeof node !== "object") return;
+
+      const label = String(
+        node.displayName ||
+          node.title ||
+          node.name ||
+          node.label ||
+          ""
+      ).trim();
+      const nextAncestors = label ? [...ancestors, label] : ancestors;
+      const children = Array.isArray(node.children) ? node.children : [];
+
+      if (node.isLeaf) {
+        const parts = nextAncestors.filter(Boolean);
+        if (parts.length > 0) {
+          phrases.push(parts.join(" "));
+        }
+        return;
+      }
+
+      if (children.length > 0) {
+        collectPreviewSeoPathPhrases(children, phrases, nextAncestors);
+      }
+    });
+
+    return phrases;
+  };
+
+  const buildSectionSeoPhrase = (parts) => {
+    const rawParts = Array.isArray(parts)
+      ? parts
+          .map((part) => String(part || "").trim())
+          .filter(Boolean)
+      : [];
+
+    if (rawParts.length === 0) return "";
+
+    const genericRoots = new Set([
+      "packages",
+      "package",
+      "offers",
+      "offer",
+      "services",
+      "service",
+      "products",
+      "product",
+      "menu",
+    ]);
+
+    const deduped = [];
+    const seen = new Set();
+
+    rawParts.forEach((part, index) => {
+      const key = part.toLowerCase();
+      if (index === 0 && rawParts.length > 1 && genericRoots.has(key)) {
+        return;
+      }
+      if (seen.has(key)) return;
+      seen.add(key);
+      deduped.push(part);
+    });
+
+    return deduped.join(" ");
+  };
+
+  const collectPreviewSeoPhrasesFromSections = (sections = [], phrases = []) => {
+    if (!Array.isArray(sections)) return phrases;
+
+    sections.forEach((section) => {
+      const sectionName = String(section?.sectionName || "").trim();
+      const cards = Array.isArray(section?.cards) ? section.cards : [];
+
+      cards.forEach((card) => {
+        const cardTitle = String(card?.title || "").trim();
+        const options = Array.isArray(card?.options) ? card.options : [];
+
+        if (card?.simple || options.length === 0) {
+          const phrase = buildSectionSeoPhrase([sectionName, cardTitle]);
+          if (phrase) phrases.push(phrase);
+          return;
+        }
+
+        options.forEach((option) => {
+          const optionLabel = String(option?.label || "").trim();
+          const subOptions = Array.isArray(option?.subOptions) ? option.subOptions : [];
+
+          if (subOptions.length === 0) {
+            const phrase = buildSectionSeoPhrase([sectionName, cardTitle, optionLabel]);
+            if (phrase) phrases.push(phrase);
+            return;
+          }
+
+          subOptions.forEach((subOption) => {
+            const subLabel = String(subOption?.label || "").trim();
+            const subSubOptions = Array.isArray(subOption?.subSubOptions)
+              ? subOption.subSubOptions
+              : [];
+
+            if (subSubOptions.length === 0) {
+              const phrase = buildSectionSeoPhrase([
+                sectionName,
+                cardTitle,
+                optionLabel,
+                subLabel,
+              ]);
+              if (phrase) phrases.push(phrase);
+              return;
+            }
+
+            subSubOptions.forEach((subSubOption) => {
+              const subSubLabel = String(subSubOption?.label || "").trim();
+              const phrase = buildSectionSeoPhrase([
+                sectionName,
+                cardTitle,
+                optionLabel,
+                subLabel,
+                subSubLabel,
+              ]);
+              if (phrase) phrases.push(phrase);
+            });
+          });
+        });
+      });
+    });
+
+    return phrases;
+  };
+
+  const collectPreviewSeoGroupNames = (nodes, names = []) => {
+    if (!Array.isArray(nodes)) return names;
+
+    nodes.forEach((node) => {
+      if (!node || typeof node !== "object") return;
+
+      const children = Array.isArray(node.children) ? node.children : [];
+      if (children.length > 0) {
+        const groupName = String(
+          node.displayName ||
+            node.title ||
+            node.name ||
+            node.label ||
+            ""
+        ).trim();
+        if (groupName) names.push(groupName);
+        collectPreviewSeoGroupNames(children, names);
+      }
+    });
+
+    return names;
+  };
+
+  const buildPreviewSeoData = (activeMenuTree, convertedSections, categoryObj) => {
+    const sectionTitles = Array.isArray(convertedSections)
+      ? convertedSections
+          .map((section) => String(section?.sectionName || "").trim())
+          .filter(Boolean)
+      : [];
+    const phraseNames = [
+      ...collectPreviewSeoPhrasesFromSections(convertedSections, []),
+      ...collectPreviewSeoPathPhrases(activeMenuTree, []),
+    ];
+    const groupNames = collectPreviewSeoGroupNames(activeMenuTree, []);
+    const itemNames = collectPreviewSeoItemNames(activeMenuTree, []);
+
+    return {
+      categoryName: String(categoryObj?.name || "").trim(),
+      phraseNames: Array.from(new Set(phraseNames)).slice(0, 60),
+      groupNames: Array.from(new Set(groupNames)),
+      sectionTitles: Array.from(new Set(sectionTitles)),
+      itemNames: Array.from(new Set(itemNames)).slice(0, 40),
+    };
   };
 
   const filterMenuNodes = (nodes, query) => {
