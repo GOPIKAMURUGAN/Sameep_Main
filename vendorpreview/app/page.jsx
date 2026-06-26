@@ -12,7 +12,6 @@ import Contact from "./Contact/Contact";
 import Load from "./Load/Load";
 import Portal from "./Portal/Portal";
 import ScrollToTop from "./components/ScrollToTop";
-import SeoContentSection from "./components/SeoContentSection";
 import {
   buildVendorPreviewPageViewPayload,
   shouldTrackVendorPageViewOnce,
@@ -184,7 +183,6 @@ if (!sessionAllowed) {
 {!isImmersiveTemplate ? <Root /> : null}
 {!isImmersiveTemplate ? <About /> : null}
 {!isImmersiveTemplate ? <Contact /> : null}
-<SeoContentSection />
 
 
 <ScrollToTop />

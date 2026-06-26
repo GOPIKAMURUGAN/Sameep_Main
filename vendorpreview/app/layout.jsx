@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import BootstrapClient from "./BootstrapClient";
 import VendorClientShell from "./VendorClientShell";
+import ServerSeoContentSection from "./components/ServerSeoContentSection";
 import { VendorProvider } from "./context/VendorContext";
 import { resolveVendorRequestContext } from "./utils/vendorRequestContext.server";
 import {
@@ -35,10 +36,14 @@ export async function generateMetadata() {
   const title = buildVendorTitle(vendorContext);
   const description = buildVendorDescription(vendorContext);
   const image = getVendorPrimaryImage(vendorContext) || "/favicon.svg";
+  const metadataBase = pageUrl ? new URL(pageUrl) : undefined;
+  const resolvedImage =
+    image && metadataBase && !/^https?:\/\//i.test(image) ? new URL(image, metadataBase).toString() : image;
 
   return {
     title,
     description,
+    metadataBase,
     icons: sharedIcons,
     alternates: isIndexable && pageUrl ? { canonical: pageUrl } : undefined,
     openGraph: {
@@ -46,13 +51,13 @@ export async function generateMetadata() {
       description,
       url: pageUrl || undefined,
       type: "website",
-      images: image ? [{ url: image }] : undefined,
+      images: resolvedImage ? [{ url: resolvedImage }] : undefined,
     },
     twitter: {
-      card: image ? "summary_large_image" : "summary",
+      card: resolvedImage ? "summary_large_image" : "summary",
       title,
       description,
-      images: image ? [image] : undefined,
+      images: resolvedImage ? [resolvedImage] : undefined,
     },
     robots: isIndexable
       ? {
@@ -94,6 +99,7 @@ export default async function RootLayout({ children }) {
           <BootstrapClient />
           <VendorClientShell>
             {children}
+            <ServerSeoContentSection vendorInfo={vendorContext} />
           </VendorClientShell>
         </VendorProvider>
       </body>

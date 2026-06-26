@@ -26,9 +26,9 @@ export default function RootsSection({ about }) {
           <h3 className="roots-tag">OUR STORY</h3>
 
           {about.heading && (
-            <h1 className="roots-title">
+            <h2 className="roots-title">
               {about.heading}
-            </h1>
+            </h2>
           )}
 
           {about.mainText && (
