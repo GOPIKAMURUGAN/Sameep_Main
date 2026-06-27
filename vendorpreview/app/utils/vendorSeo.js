@@ -2,6 +2,32 @@ export function cleanText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function safeClone(value) {
+  if (typeof globalThis !== "undefined" && typeof globalThis.structuredClone === "function") {
+    return globalThis.structuredClone(value);
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    if (Array.isArray(value)) {
+      return value.map((item) => safeClone(item));
+    }
+
+    if (value && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, entryValue]) => [key, safeClone(entryValue)])
+      );
+    }
+
+    return value;
+  }
+}
+
+function getNodeLabel(node) {
+  return cleanText(node?.displayName || node?.title || node?.name || node?.label || "");
+}
+
 export function uniqueStrings(values = []) {
   const seen = new Set();
   return values
@@ -13,6 +39,26 @@ export function uniqueStrings(values = []) {
       seen.add(key);
       return true;
     });
+}
+
+function normalizeMenuNodes(nodes) {
+  if (Array.isArray(nodes)) return nodes;
+  if (nodes && typeof nodes === "object") return [nodes];
+  return [];
+}
+
+function buildNameMapFromTree(nodes) {
+  const map = {};
+
+  function walk(node) {
+    if (node?.id && node?.name) {
+      map[node.id] = cleanText(node.name);
+    }
+    node?.children?.forEach(walk);
+  }
+
+  normalizeMenuNodes(nodes).forEach(walk);
+  return map;
 }
 
 function normalizeSocialKey(label) {
@@ -168,6 +214,519 @@ function normalizeSeoPhrase(value) {
   return cleanText(unique.join(" "));
 }
 
+function buildSectionSeoPhrase(parts) {
+  const rawParts = Array.isArray(parts)
+    ? parts
+        .map((part) => cleanText(part))
+        .filter(Boolean)
+    : [];
+
+  if (rawParts.length === 0) return "";
+
+  const genericRoots = new Set([
+    "packages",
+    "package",
+    "offers",
+    "offer",
+    "services",
+    "service",
+    "products",
+    "product",
+    "menu",
+  ]);
+
+  const deduped = [];
+  const seen = new Set();
+
+  rawParts.forEach((part, index) => {
+    const normalized = part.toLowerCase();
+    if (index === 0 && rawParts.length > 1 && genericRoots.has(normalized)) return;
+    if (seen.has(normalized)) return;
+    seen.add(normalized);
+    deduped.push(part);
+  });
+
+  return deduped.join(" ");
+}
+
+function collectPreviewSeoItemNames(nodes, names = []) {
+  normalizeMenuNodes(nodes).forEach((node) => {
+    if (!node || typeof node !== "object") return;
+
+    if (node.isLeaf) {
+      const itemName = getNodeLabel(node);
+      if (itemName) names.push(itemName);
+      return;
+    }
+
+    if (Array.isArray(node.children) && node.children.length > 0) {
+      collectPreviewSeoItemNames(node.children, names);
+    }
+  });
+
+  return names;
+}
+
+function collectPreviewSeoGroupNames(nodes, names = []) {
+  normalizeMenuNodes(nodes).forEach((node) => {
+    if (!node || typeof node !== "object") return;
+
+    const children = Array.isArray(node.children) ? node.children : [];
+    if (children.length > 0) {
+      const groupName = getNodeLabel(node);
+      if (groupName) names.push(groupName);
+      collectPreviewSeoGroupNames(children, names);
+    }
+  });
+
+  return names;
+}
+
+function collectPreviewSeoPathPhrases(nodes, phrases = [], ancestors = []) {
+  normalizeMenuNodes(nodes).forEach((node) => {
+    if (!node || typeof node !== "object") return;
+
+    const label = getNodeLabel(node);
+    const nextAncestors = label ? [...ancestors, label] : ancestors;
+    const children = Array.isArray(node.children) ? node.children : [];
+
+    if (node.isLeaf) {
+      const phrase = buildSectionSeoPhrase(nextAncestors);
+      if (phrase) phrases.push(phrase);
+      return;
+    }
+
+    if (children.length > 0) {
+      collectPreviewSeoPathPhrases(children, phrases, nextAncestors);
+    }
+  });
+
+  return phrases;
+}
+
+function collectPreviewSeoNodePhrases(nodes, phrases = [], ancestors = []) {
+  normalizeMenuNodes(nodes).forEach((node) => {
+    if (!node || typeof node !== "object") return;
+
+    const label = getNodeLabel(node);
+    const nextAncestors = label ? [...ancestors, label] : ancestors;
+    const children = Array.isArray(node.children) ? node.children : [];
+
+    if (nextAncestors.length >= 2) {
+      const phrase = buildSectionSeoPhrase(nextAncestors);
+      if (phrase) phrases.push(phrase);
+    }
+
+    if (children.length > 0) {
+      collectPreviewSeoNodePhrases(children, phrases, nextAncestors);
+    }
+  });
+
+  return phrases;
+}
+
+function collectPreviewSeoPhrasesFromSections(sections = [], phrases = []) {
+  if (!Array.isArray(sections)) return phrases;
+
+  sections.forEach((section) => {
+    const sectionName = cleanText(section?.sectionName);
+    const cards = Array.isArray(section?.cards) ? section.cards : [];
+
+    cards.forEach((card) => {
+      const cardTitle = cleanText(card?.title);
+      const options = Array.isArray(card?.options) ? card.options : [];
+
+      if (card?.simple || options.length === 0) {
+        const phrase = buildSectionSeoPhrase([sectionName, cardTitle]);
+        if (phrase) phrases.push(phrase);
+        return;
+      }
+
+      options.forEach((option) => {
+        const optionLabel = cleanText(option?.label);
+        const subOptions = Array.isArray(option?.subOptions) ? option.subOptions : [];
+
+        if (subOptions.length === 0) {
+          const phrase = buildSectionSeoPhrase([sectionName, cardTitle, optionLabel]);
+          if (phrase) phrases.push(phrase);
+          return;
+        }
+
+        subOptions.forEach((subOption) => {
+          const subLabel = cleanText(subOption?.label);
+          const subSubOptions = Array.isArray(subOption?.subSubOptions) ? subOption.subSubOptions : [];
+
+          if (subSubOptions.length === 0) {
+            const phrase = buildSectionSeoPhrase([sectionName, cardTitle, optionLabel, subLabel]);
+            if (phrase) phrases.push(phrase);
+            return;
+          }
+
+          subSubOptions.forEach((subSubOption) => {
+            const subSubLabel = cleanText(subSubOption?.label);
+            const phrase = buildSectionSeoPhrase([
+              sectionName,
+              cardTitle,
+              optionLabel,
+              subLabel,
+              subSubLabel,
+            ]);
+            if (phrase) phrases.push(phrase);
+          });
+        });
+      });
+    });
+  });
+
+  return phrases;
+}
+
+function collectPreviewSeoCardTitles(sections = [], titles = []) {
+  if (!Array.isArray(sections)) return titles;
+
+  sections.forEach((section) => {
+    const cards = Array.isArray(section?.cards) ? section.cards : [];
+    cards.forEach((card) => {
+      const title = cleanText(card?.title);
+      if (title) titles.push(title);
+    });
+  });
+
+  return titles;
+}
+
+function buildPreviewSeoData(activeMenuTree, convertedSections, categoryObj) {
+  const normalizedTree = normalizeMenuNodes(activeMenuTree);
+  const sectionTitles = Array.isArray(convertedSections)
+    ? uniqueStrings([
+        ...convertedSections.map((section) => cleanText(section?.sectionName)).filter(Boolean),
+        ...collectPreviewSeoCardTitles(convertedSections, []),
+      ])
+    : normalizedTree.map((node) => getNodeLabel(node)).filter(Boolean);
+  const phraseNames = uniqueStrings([
+    ...collectPreviewSeoPhrasesFromSections(convertedSections, []),
+    ...collectPreviewSeoNodePhrases(normalizedTree, []),
+    ...collectPreviewSeoPathPhrases(normalizedTree, []),
+  ]).slice(0, 60);
+
+  return {
+    categoryName: cleanText(categoryObj?.name),
+    phraseNames,
+    groupNames: uniqueStrings(collectPreviewSeoGroupNames(normalizedTree, [])),
+    sectionTitles: uniqueStrings(sectionTitles),
+    itemNames: uniqueStrings(collectPreviewSeoItemNames(normalizedTree, [])).slice(0, 40),
+  };
+}
+
+export function buildPreviewSeoDataFromTree(activeMenuTree, categoryObj) {
+  return buildPreviewSeoData(activeMenuTree, [], categoryObj);
+}
+
+function buildSeoSectionsFromPricingTree(tree, nameMap) {
+  const getName = (node) => cleanText(node?.name || nameMap?.[node?.categoryId] || "");
+
+  const result = (Array.isArray(tree) ? tree : [])
+    .map((level0) => {
+      const children = Array.isArray(level0?.children) ? level0.children : [];
+
+      if (level0?.isLeaf && level0?.pricingStatus === "Active") {
+        return {
+          sectionName: getName(level0),
+          cards: [
+            {
+              title: getName(level0),
+              options: [],
+              simple: true,
+            },
+          ],
+        };
+      }
+
+      const activeLeaves = children.filter((child) => child?.isLeaf && child?.pricingStatus === "Active");
+      const allChildrenAreLeaves = children.length > 0 && children.every((child) => child?.isLeaf);
+
+      if (activeLeaves.length > 1 && allChildrenAreLeaves) {
+        return {
+          sectionName: getName(level0),
+          cards: [
+            {
+              title: getName(level0),
+              simple: false,
+              options: activeLeaves.map((child) => ({
+                label: getName(child),
+                subOptions: [],
+              })),
+            },
+          ],
+        };
+      }
+
+      const cards = children
+        .map((level1) => {
+          if (level1?.isLeaf && level1?.pricingStatus === "Active") {
+            return {
+              title: getName(level1),
+              options: [],
+              simple: true,
+            };
+          }
+
+          const options = [];
+
+          (Array.isArray(level1?.children) ? level1.children : []).forEach((level2) => {
+            if (level2?.isLeaf && level2?.pricingStatus === "Active") {
+              options.push({
+                label: getName(level2),
+                subOptions: [],
+              });
+              return;
+            }
+
+            if (Array.isArray(level2?.children) && level2.children.length > 0) {
+              const subOptions = level2.children
+                .map((level3) => {
+                  if (level3?.isLeaf && level3?.pricingStatus === "Active") {
+                    return {
+                      label: getName(level3),
+                    };
+                  }
+
+                  if (Array.isArray(level3?.children) && level3.children.length > 0) {
+                    const subSubOptions = level3.children
+                      .filter((child) => child?.isLeaf && child?.pricingStatus === "Active")
+                      .map((child) => ({
+                        label: getName(child),
+                      }));
+
+                    if (subSubOptions.length > 0) {
+                      return {
+                        label: getName(level3),
+                        subSubOptions,
+                      };
+                    }
+                  }
+
+                  return null;
+                })
+                .filter(Boolean);
+
+              if (subOptions.length > 0) {
+                options.push({
+                  label: getName(level2),
+                  subOptions,
+                });
+              }
+            }
+          });
+
+          if (!options.length) return null;
+
+          return {
+            title: getName(level1),
+            options,
+            simple: false,
+          };
+        })
+        .filter(Boolean);
+
+      if (!cards.length) return null;
+
+      return {
+        sectionName: getName(level0),
+        cards,
+      };
+    })
+    .filter((section) => section?.sectionName && section?.cards?.length);
+
+  return result;
+}
+
+function cloneCustomPackageNode(node) {
+  return {
+    _id: node?._id,
+    id: node?._id,
+    vendorCustomPackageId: node?._id,
+    name: cleanText(node?.name),
+    imageUrl: cleanText(node?.imageUrl),
+    packagesIncludes: cleanText(node?.packagesIncludes),
+    terms: cleanText(node?.terms),
+    offerText: cleanText(node?.offerText),
+    pricingStatus: cleanText(node?.pricingStatus) || "Active",
+    isLeaf: node?.isLeaf !== false,
+    price: node?.isLeaf === false ? null : Number(node?.price) || 0,
+    sequence: Number.isFinite(Number(node?.sequence)) ? Number(node.sequence) : 0,
+    sourceType: "custom_package",
+    children: Array.isArray(node?.children) ? node.children.map(cloneCustomPackageNode) : [],
+  };
+}
+
+function normalizePreviewPricingTree(nodes = []) {
+  return (Array.isArray(nodes) ? nodes : []).map((node) => {
+    const normalizedId = node?.categoryId || node?.id || node?._id || null;
+    return {
+      ...node,
+      _id: node?._id || normalizedId,
+      id: node?.id || normalizedId,
+      categoryId: normalizedId,
+      children: normalizePreviewPricingTree(node?.children || []),
+    };
+  });
+}
+
+function mergeCustomPackagesIntoPricingTree(pricingTree, customTree, nameMap, rootCategoryId) {
+  const clonedTree = Array.isArray(pricingTree) ? safeClone(pricingTree) : [];
+  const packagesTargets = new Map();
+  const standardTargets = new Map();
+
+  const getEffectiveCustomType = (value) => {
+    const normalized = cleanText(value).toLowerCase();
+    if (normalized === "service_item" || normalized === "offer") return normalized;
+    return "package";
+  };
+
+  const ensureCustomMergeContainer = (targetNode) => {
+    if (!targetNode || targetNode.isLeaf !== true) return targetNode;
+
+    const existingChildren = Array.isArray(targetNode.children) ? targetNode.children : [];
+    const originalLeafId = String(
+      targetNode._id || targetNode.id || targetNode.categoryId || `leaf-${Date.now()}`
+    );
+    const originalLeafNode = {
+      ...safeClone(targetNode),
+      _id: `${originalLeafId}-base`,
+      id: `${originalLeafId}-base`,
+      children: [],
+    };
+
+    targetNode.isLeaf = false;
+    targetNode.price = null;
+    targetNode.children = [originalLeafNode, ...existingChildren];
+    return targetNode;
+  };
+
+  function walkStandard(nodes, parentNode = null) {
+    (nodes || []).forEach((node) => {
+      const standardKey =
+        node?.categoryId || node?._id ? `standard:${String(node.categoryId || node._id)}` : null;
+      if (standardKey) {
+        standardTargets.set(standardKey, node);
+      }
+
+      const resolvedName = nameMap?.[node?.categoryId] || node?.name || "";
+      if (cleanText(resolvedName).toLowerCase() === "packages") {
+        const key =
+          parentNode?.categoryId || parentNode?._id
+            ? `standard:${String(parentNode.categoryId || parentNode._id)}`
+            : `root:${String(rootCategoryId)}`;
+        packagesTargets.set(key, node);
+      }
+
+      if (Array.isArray(node?.children) && node.children.length > 0) {
+        walkStandard(node.children, node);
+      }
+    });
+  }
+
+  walkStandard(clonedTree, null);
+
+  (customTree || []).forEach((customNode) => {
+    if (!customNode || customNode.parentNodeType === "custom_package") return;
+
+    let targetKey = null;
+    const effectiveCustomType = getEffectiveCustomType(customNode.customType);
+
+    if (customNode.parentNodeType === "root") {
+      targetKey = `root:${String(rootCategoryId)}`;
+    } else if (
+      (customNode.parentNodeType === "standard_subcategory" ||
+        customNode.parentNodeType === "standard_category") &&
+      customNode.parentNodeId
+    ) {
+      targetKey = `standard:${String(customNode.parentNodeId)}`;
+    }
+
+    if (!targetKey) return;
+
+    let targetNode = null;
+    if (effectiveCustomType === "package") {
+      targetNode = standardTargets.get(targetKey) || packagesTargets.get(targetKey);
+    } else {
+      targetNode = standardTargets.get(targetKey);
+    }
+    if (!targetNode) return;
+
+    if (targetNode.isLeaf === true) {
+      targetNode = ensureCustomMergeContainer(targetNode);
+    }
+
+    if (!Array.isArray(targetNode.children)) {
+      targetNode.children = [];
+    }
+
+    targetNode.children.push(cloneCustomPackageNode(customNode));
+  });
+
+  return clonedTree;
+}
+
+function filterActiveMenuTree(nodes) {
+  if (!Array.isArray(nodes)) return [];
+
+  return nodes.reduce((acc, node) => {
+    if (!node || typeof node !== "object") return acc;
+
+    const children = Array.isArray(node.children) ? node.children : [];
+    const filteredChildren = filterActiveMenuTree(children);
+    const isActiveLeaf =
+      node.isLeaf && node.pricingStatus === "Active" && node.price !== undefined && node.price !== null;
+
+    if (isActiveLeaf) {
+      acc.push({
+        ...node,
+        children: [],
+      });
+      return acc;
+    }
+
+    if (filteredChildren.length > 0) {
+      acc.push({
+        ...node,
+        children: filteredChildren,
+      });
+    }
+
+    return acc;
+  }, []);
+}
+
+export function buildPreviewSeoDataFromPricing({
+  pricingTree,
+  customPackagesTree,
+  categoryTree,
+  categoryObj,
+  rootCategoryId,
+  pricingSource,
+}) {
+  const normalizedPricingTree = normalizePreviewPricingTree(
+    pricingSource === "self_managed" ? pricingTree?.children || [] : pricingTree?.tree || []
+  );
+
+  const nameMap = buildNameMapFromTree(categoryTree);
+  const mergedPricingTree =
+    pricingSource === "self_managed"
+      ? normalizedPricingTree
+      : mergeCustomPackagesIntoPricingTree(
+          normalizedPricingTree,
+          customPackagesTree || [],
+          nameMap,
+          rootCategoryId
+        );
+  const activeMenuTree = filterActiveMenuTree(mergedPricingTree);
+  const convertedSections = buildSeoSectionsFromPricingTree(mergedPricingTree, nameMap);
+
+  return buildPreviewSeoData(activeMenuTree, convertedSections, categoryObj);
+}
+
 function scoreServiceName(value, source) {
   const normalized = normalizeSeoPhrase(value);
   const lower = normalized.toLowerCase();
@@ -235,6 +794,7 @@ export function getVendorServiceNames(vendor) {
 
   const selected = [];
   const seen = new Set();
+  const maxServices = 20;
 
   const pushCandidate = (candidate) => {
     if (!candidate?.value) return false;
@@ -248,22 +808,27 @@ export function getVendorServiceNames(vendor) {
   const consumeBucket = (bucket, limit) => {
     let added = 0;
     for (const candidate of bucket) {
-      if (added >= limit || selected.length >= 12) break;
+      if (added >= limit || selected.length >= maxServices) break;
       if (pushCandidate(candidate)) {
         added += 1;
       }
     }
   };
 
-  // Start with meaningful parent groups so important buckets like
-  // "Boarding" or "Dressings" are not crowded out by many child combinations.
-  consumeBucket(sourceBuckets.group, 4);
-  consumeBucket(sourceBuckets.phrase, 5);
-  consumeBucket(sourceBuckets.section, 2);
-  consumeBucket(sourceBuckets.item, 1);
+  // Start with major user-facing service families from the profile so
+  // broad but important offerings like "Elder Care" are always represented.
+  consumeBucket(sourceBuckets.section, 8);
+
+  // Then keep meaningful service groups visible before drilling into many
+  // near-duplicate long-tail variations from a single family.
+  consumeBucket(sourceBuckets.group, 6);
+
+  // Fill the remaining slots with specific SEO phrases and leaf items.
+  consumeBucket(sourceBuckets.phrase, 10);
+  consumeBucket(sourceBuckets.item, 4);
 
   for (const candidate of scoredCandidates) {
-    if (selected.length >= 12) break;
+    if (selected.length >= maxServices) break;
     pushCandidate(candidate);
   }
 
@@ -305,7 +870,12 @@ export function buildVendorDescription(vendor) {
   let description = cleanText(introParts.join(" "));
 
   if (services.length > 0) {
-    description += `. Popular offerings include ${services.join(", ")}`;
+    const primarySearchAreas = uniqueStrings([primaryLocality, city, ...targetAreas]).slice(0, 3);
+    if (primarySearchAreas.length > 0) {
+      description += `. Popular offerings include ${services.join(", ")} in ${primarySearchAreas.join(", ")}`;
+    } else {
+      description += `. Popular offerings include ${services.join(", ")}`;
+    }
   }
 
   if (targetAreas.length > 0) {

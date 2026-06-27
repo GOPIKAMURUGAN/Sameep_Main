@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { headers } from "next/headers";
+import { buildPreviewSeoDataFromPricing, buildPreviewSeoDataFromTree } from "./vendorSeo";
 
 function isLocalHost(host) {
   return /(^|\.)localhost(?::\d+)?$/i.test(host) || /^127\.0\.0\.1(?::\d+)?$/i.test(host);
@@ -18,9 +19,13 @@ function getSubdomain(host) {
 }
 
 async function fetchJson(url) {
-  const response = await fetch(url, { cache: "no-store" });
-  if (!response.ok) return null;
-  return response.json();
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return null;
+  }
 }
 
 export const resolveVendorRequestContext = cache(async function resolveVendorRequestContext() {
@@ -55,6 +60,71 @@ export const resolveVendorRequestContext = cache(async function resolveVendorReq
       }
     } catch {
       previewVendorId = "";
+    }
+  }
+
+  const vendorId = String(vendorContext?.vendorId || vendorContext?._id || "").trim();
+  const categoryId = String(
+    vendorContext?.categoryId || vendorContext?.category?._id || vendorContext?.rootCategoryId || ""
+  ).trim();
+
+  if (base && vendorContext && vendorId && categoryId) {
+    const pricingSource = String(vendorContext?.pricingSource || "").trim().toLowerCase();
+    const pricingApi =
+      pricingSource === "self_managed"
+        ? `${base}/api/vendor-menu/${vendorId}/tree`
+        : `${base}/api/vendor-price-nodes/tree?vendorId=${vendorId}&rootCategoryId=${categoryId}`;
+    const categoryApi = `${base}/api/categories/tree?rootCategoryId=${categoryId}`;
+    const customPackagesApi = `${base}/api/vendor-custom-packages?vendorId=${vendorId}&rootCategoryId=${categoryId}`;
+
+    const [pricingContext, categoryTreeData, customPackagesContext] = await Promise.all([
+      fetchJson(pricingApi),
+      fetchJson(categoryApi),
+      pricingSource === "self_managed" ? Promise.resolve({ success: true, data: [] }) : fetchJson(customPackagesApi),
+    ]);
+
+    if (pricingContext && categoryTreeData) {
+      const categoryTree = Array.isArray(categoryTreeData) ? categoryTreeData : [categoryTreeData];
+      const categoryObj = categoryTree[0] || null;
+      const nextVendorContext = { ...vendorContext };
+
+      if (categoryObj && !nextVendorContext.categoryData) {
+        nextVendorContext.categoryData = categoryObj;
+      }
+
+      if (!nextVendorContext.previewSeoData) {
+        nextVendorContext.previewSeoData = buildPreviewSeoDataFromPricing({
+          pricingTree: pricingContext,
+          customPackagesTree: customPackagesContext?.data || [],
+          categoryTree,
+          categoryObj,
+          rootCategoryId: categoryId,
+          pricingSource,
+        });
+      }
+
+      vendorContext = nextVendorContext;
+    } else {
+      const inventoryContext = await fetchJson(
+        `${base}/api/dummy-vendors/${vendorId}/categories/${categoryId}/inventory/active`
+      );
+
+      if (inventoryContext?.category || inventoryContext?.categories) {
+        const nextVendorContext = { ...vendorContext };
+
+        if (inventoryContext.category && !nextVendorContext.categoryData) {
+          nextVendorContext.categoryData = inventoryContext.category;
+        }
+
+        if (!nextVendorContext.previewSeoData && inventoryContext.categories) {
+          nextVendorContext.previewSeoData = buildPreviewSeoDataFromTree(
+            inventoryContext.categories,
+            inventoryContext.category
+          );
+        }
+
+        vendorContext = nextVendorContext;
+      }
     }
   }
 

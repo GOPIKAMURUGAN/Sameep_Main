@@ -22,6 +22,8 @@ export default function SeoContentSection() {
 
   const hasServices = model.serviceNames.length > 0;
   const hasAreas = model.audienceAreas.length > 0;
+  const visibleServices = model.serviceNames.slice(0, 12);
+  const visibleAreas = model.audienceAreas.slice(0, 3);
 
   if (!hasServices && !hasAreas && !model.intro) return null;
 
@@ -39,11 +41,14 @@ export default function SeoContentSection() {
                 <h3>{contentLabel}</h3>
                 <p>
                   {model.businessName}
-                  {model.city ? ` in ${model.city}` : ""}
-                  {hasServices ? ` offers ${formatList(model.serviceNames.slice(0, 8))}.` : "."}
+                  {hasServices
+                    ? ` offers the following popular ${isEcommerceTemplate ? "products" : "services"}${
+                        visibleAreas.length > 0 ? ` in ${formatList(visibleAreas)}` : ""
+                      }.`
+                    : "."}
                 </p>
                 <ul>
-                  {model.serviceNames.slice(0, 8).map((item) => (
+                  {visibleServices.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
