@@ -258,6 +258,47 @@ function AdminEnquiryViewer({
   selectedStatusFilter,
   setSelectedStatusFilter,
 }) {
+  const getItemHierarchyLabel = (item) => {
+    const pathSource = Array.isArray(item?.categoryPath)
+      ? item.categoryPath
+      : Array.isArray(item?.nodePath)
+        ? item.nodePath
+        : [];
+    const path = pathSource
+      .map((segment) => String(segment || "").trim())
+      .filter(Boolean);
+
+    if (path.length > 0) {
+      return path.join(" - ");
+    }
+
+    return String(item?.label || item?.name || item?.serviceName || "").trim();
+  };
+
+  const getEnquiryServiceLabel = (enq) => {
+    const cartItems = Array.isArray(enq?.meta?.cartItems) ? enq.meta.cartItems : [];
+    const cartLabels = cartItems.map(getItemHierarchyLabel).filter(Boolean);
+    if (cartLabels.length > 0) {
+      return cartLabels.join(", ");
+    }
+
+    const inventoryNames = Array.isArray(enq?.attributes?.inventoryNames)
+      ? enq.attributes.inventoryNames.map((item) => String(item || "").trim()).filter(Boolean)
+      : [];
+    if (inventoryNames.length > 0) {
+      return inventoryNames.join(", ");
+    }
+
+    const categoryPath = Array.isArray(enq?.categoryPath)
+      ? enq.categoryPath.map((segment) => String(segment || "").trim()).filter(Boolean)
+      : [];
+    if (categoryPath.length > 0) {
+      return categoryPath.join(" - ");
+    }
+
+    return String(enq?.serviceName || "").trim() || "-";
+  };
+
   const cfgList = Array.isArray(enquiryStatusConfig) ? enquiryStatusConfig : [];
 
   // Build unique vendor labels for dropdown
@@ -336,20 +377,11 @@ function AdminEnquiryViewer({
             </thead>
             <tbody>
               {filteredEnquiries.map((enq) => {
-                const catPath = Array.isArray(enq.categoryPath) ? enq.categoryPath.join(" / ") : "";
                 const attrsObj = enq.attributes && typeof enq.attributes === "object" ? enq.attributes : {};
                 const attrsText = typeof attrsObj.inventoryName === "string" && attrsObj.inventoryName.trim()
                   ? attrsObj.inventoryName.trim()
                   : "-";
-                const serviceLabel = (() => {
-                  if (catPath && catPath.trim()) {
-                    const segs = catPath.split("/").map((s) => s.trim()).filter(Boolean);
-                    if (segs.length >= 3) return `${segs[1]} - ${segs.slice(2).join(" / ")}`;
-                    if (segs.length === 2) return `${segs[0]} - ${segs[1]}`;
-                    return segs[0];
-                  }
-                  return enq.serviceName || "-";
-                })();
+                const serviceLabel = getEnquiryServiceLabel(enq);
                 const rawStatus = enq && enq.status != null ? String(enq.status).trim() : "";
                 const statusLabel = statusToLabel.get(rawStatus) || rawStatus || "-";
                 return (

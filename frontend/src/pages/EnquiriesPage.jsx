@@ -2,6 +2,47 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import API_BASE_URL from "../config";
 
+function getItemHierarchyLabel(item) {
+  const pathSource = Array.isArray(item?.categoryPath)
+    ? item.categoryPath
+    : Array.isArray(item?.nodePath)
+      ? item.nodePath
+      : [];
+  const path = pathSource
+    .map((segment) => String(segment || "").trim())
+    .filter(Boolean);
+
+  if (path.length > 0) {
+    return path.join(" - ");
+  }
+
+  return String(item?.label || item?.name || item?.serviceName || "").trim();
+}
+
+function getEnquiryServiceLabel(enquiry) {
+  const cartItems = Array.isArray(enquiry?.meta?.cartItems) ? enquiry.meta.cartItems : [];
+  const cartLabels = cartItems.map(getItemHierarchyLabel).filter(Boolean);
+  if (cartLabels.length > 0) {
+    return cartLabels.join(", ");
+  }
+
+  const inventoryNames = Array.isArray(enquiry?.attributes?.inventoryNames)
+    ? enquiry.attributes.inventoryNames.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+  if (inventoryNames.length > 0) {
+    return inventoryNames.join(", ");
+  }
+
+  const categoryPath = Array.isArray(enquiry?.categoryPath)
+    ? enquiry.categoryPath.map((segment) => String(segment || "").trim()).filter(Boolean)
+    : [];
+  if (categoryPath.length > 0) {
+    return categoryPath.join(" - ");
+  }
+
+  return String(enquiry?.serviceName || "").trim() || "-";
+}
+
 function EnquiriesPage() {
   const [enquiries, setEnquiries] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -96,7 +137,6 @@ function EnquiriesPage() {
                 const dt = enq.createdAt ? new Date(enq.createdAt) : null;
                 const timeStr = dt ? dt.toLocaleString() : "-";
                 const phone = enq.phone || enq.customerId || "-";
-                const catPath = Array.isArray(enq.categoryPath) ? enq.categoryPath.join(" / ") : "";
                 const attrsObj = enq.attributes && typeof enq.attributes === "object" ? enq.attributes : {};
                 // Attributes: show only the inventory label name (inventoryName) if present, else '-'
                 const attrsText =
@@ -105,24 +145,7 @@ function EnquiriesPage() {
                     : "-";
 
                 const priceStr = enq.price == null ? "-" : String(enq.price);
-                const serviceLabel = (() => {
-                  if (catPath && catPath.trim()) {
-                    const segs = catPath
-                      .split("/")
-                      .map((s) => s.trim())
-                      .filter(Boolean);
-                    if (segs.length >= 3) {
-                      const left = segs[1];
-                      const right = segs.slice(2).join(" / ");
-                      return `${left} - ${right}`;
-                    }
-                    if (segs.length === 2) {
-                      return `${segs[0]} - ${segs[1]}`;
-                    }
-                    return segs[0];
-                  }
-                  return enq.serviceName || "-";
-                })();
+                const serviceLabel = getEnquiryServiceLabel(enq);
 
                 return (
                   <tr key={enq._id || `${enq.vendorId}-${enq.categoryId}-${enq.createdAt}`}>

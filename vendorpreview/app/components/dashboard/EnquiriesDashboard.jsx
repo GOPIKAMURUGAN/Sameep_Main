@@ -129,10 +129,54 @@ function formatDetailValue(key, value) {
   return text;
 }
 
+function getCartItemDisplayName(item) {
+  const path = Array.isArray(item?.categoryPath) ? item.categoryPath : Array.isArray(item?.nodePath) ? item.nodePath : [];
+  const normalizedPath = path.map((segment) => String(segment || "").trim()).filter(Boolean);
+  const hierarchyLabel = normalizedPath.length > 0 ? normalizedPath.join(" - ") : "";
+  const itemLabel = String(item?.label || "").trim();
+  const name = String(item?.name || item?.serviceName || "").trim();
+  const unitLabel = String(item?.unitLabel || "").trim();
+
+  if (hierarchyLabel) return hierarchyLabel;
+  if (itemLabel) return itemLabel;
+
+  if (name && unitLabel && !name.toLowerCase().includes(unitLabel.toLowerCase())) {
+    return `${name} - ${unitLabel}`;
+  }
+
+  if (name) return name;
+
+  return "Service";
+}
+
+function getEnquiryDisplayTitle(enquiry, fallbackLabel = "Enquiry") {
+  const metaItems = Array.isArray(enquiry?.meta?.cartItems) ? enquiry.meta.cartItems : [];
+  if (metaItems.length > 0) {
+    const firstItemName = getCartItemDisplayName(metaItems[0]);
+    return metaItems.length > 1 ? `${firstItemName} +${metaItems.length - 1} more` : firstItemName;
+  }
+
+  return String(enquiry?.serviceName || fallbackLabel).trim() || fallbackLabel;
+}
+
+function getCartItemMetaLine(item) {
+  const itemCode = String(item?.itemCode || "").trim();
+  const unitLabel = String(item?.unitLabel || "").trim();
+  const displayName = getCartItemDisplayName(item).toLowerCase();
+  const parts = [];
+
+  if (itemCode) parts.push(itemCode);
+  if (unitLabel && !displayName.includes(unitLabel.toLowerCase())) {
+    parts.push(unitLabel);
+  }
+
+  return parts.join(" • ");
+}
+
 function getServiceSummary(enquiry) {
   const metaItems = Array.isArray(enquiry?.meta?.cartItems) ? enquiry.meta.cartItems : [];
   if (metaItems.length > 0) {
-    return metaItems.map((item) => item.label || item.name || "Service").join(", ");
+    return metaItems.map((item) => getCartItemDisplayName(item)).join(", ");
   }
 
   const inventoryNames = Array.isArray(enquiry?.attributes?.inventoryNames)
@@ -149,6 +193,49 @@ function getServiceSummary(enquiry) {
   if (categoryPath) return categoryPath;
 
   return String(enquiry?.serviceName || "").trim() || "Service enquiry";
+}
+
+function getCartItemDiscountAmount(item) {
+  const qty = Number(item?.qty || 0) || 1;
+  const unitPrice = Number(item?.price || 0) || 0;
+  const mrp = Number(item?.mrp || 0) || 0;
+  const grossTotal = mrp > 0 ? mrp * qty : unitPrice * qty;
+  const netTotal = Number(item?.total || 0) || unitPrice * qty;
+
+  return Math.max(grossTotal - netTotal, 0);
+}
+
+function getCartItemMrpTotal(item) {
+  const qty = Number(item?.qty || 0) || 1;
+  const unitPrice = Number(item?.price || 0) || 0;
+  const mrp = Number(item?.mrp || 0) || 0;
+  return (mrp > 0 ? mrp : unitPrice) * qty;
+}
+
+function getEnquiryDiscountAmount(enquiry) {
+  const metaItems = Array.isArray(enquiry?.meta?.cartItems) ? enquiry.meta.cartItems : [];
+  if (metaItems.length > 0) {
+    return metaItems.reduce((sum, item) => sum + getCartItemDiscountAmount(item), 0);
+  }
+
+  return 0;
+}
+
+function getEnquiryMrpAmount(enquiry) {
+  const metaItems = Array.isArray(enquiry?.meta?.cartItems) ? enquiry.meta.cartItems : [];
+  if (metaItems.length > 0) {
+    return metaItems.reduce((sum, item) => {
+      const qty = Number(item?.qty || 0) || 1;
+      const unitPrice = Number(item?.price || 0) || 0;
+      const mrp = Number(item?.mrp || 0) || 0;
+      const grossTotal = mrp > 0 ? mrp * qty : unitPrice * qty;
+      return sum + grossTotal;
+    }, 0);
+  }
+
+  const netAmount = Number(enquiry?.price || 0) || 0;
+  const discountAmount = getEnquiryDiscountAmount(enquiry);
+  return netAmount + discountAmount;
 }
 
 function getAttributeRows(enquiry) {
@@ -239,6 +326,7 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
   const [error, setError] = useState("");
   const [enquiries, setEnquiries] = useState([]);
   const [selectedEnquiryId, setSelectedEnquiryId] = useState("");
+  const [mobileDetailEnquiryId, setMobileDetailEnquiryId] = useState("");
   const [updatingStatusId, setUpdatingStatusId] = useState("");
 
   useEffect(() => {
@@ -339,19 +427,196 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
   }, [activeEnquiries, selectedEnquiryId]);
 
   const selectedEnquiry = activeEnquiries.find((item) => item?._id === selectedEnquiryId) || null;
-  const selectedPhone = getEnquiryPhone(selectedEnquiry);
-  const selectedIsOrderLike = isOrderLikeEnquiry(selectedEnquiry, vendorInfo?.selectedTemplateKey || "");
-  const selectedUsesRazorpay = isRazorpayManagedOrder(selectedEnquiry);
-  const detailRows = selectedEnquiry ? getAttributeRows(selectedEnquiry) : [];
-  const cartItems = Array.isArray(selectedEnquiry?.meta?.cartItems)
-    ? selectedEnquiry.meta.cartItems
-    : [];
-  const selectedStatus = selectedIsOrderLike && selectedUsesRazorpay
-    ? getPaymentStatusLabel(selectedEnquiry?.payment?.status) || getStatusLabel(selectedEnquiry?.status)
-    : getStatusLabel(selectedEnquiry?.status);
-  const selectedWhatsappStatus = getWhatsappStatusLabel(selectedEnquiry?.meta?.vendorWhatsappStatus);
-  const selectedWhatsappTone = normalizeWhatsappStatus(selectedEnquiry?.meta?.vendorWhatsappStatus);
-  const selectedWhatsappError = String(selectedEnquiry?.meta?.vendorWhatsappError || "").trim();
+  const mobileDetailEnquiry =
+    activeEnquiries.find((item) => item?._id === mobileDetailEnquiryId) || null;
+
+  function renderEnquiryDetail(enquiry, options = {}) {
+    if (!enquiry) {
+      return (
+        <div className="enquiries-dashboard-empty">
+          {copy.selectPrompt}
+        </div>
+      );
+    }
+
+    const phone = getEnquiryPhone(enquiry);
+    const isOrderLike = isOrderLikeEnquiry(enquiry, vendorInfo?.selectedTemplateKey || "");
+    const usesRazorpay = isRazorpayManagedOrder(enquiry);
+    const detailRowsForEnquiry = getAttributeRows(enquiry);
+    const cartItemsForEnquiry = Array.isArray(enquiry?.meta?.cartItems)
+      ? enquiry.meta.cartItems
+      : [];
+    const statusLabel =
+      isOrderLike && usesRazorpay
+        ? getPaymentStatusLabel(enquiry?.payment?.status) || getStatusLabel(enquiry?.status)
+        : getStatusLabel(enquiry?.status);
+    const whatsappStatus = getWhatsappStatusLabel(enquiry?.meta?.vendorWhatsappStatus);
+    const whatsappTone = normalizeWhatsappStatus(enquiry?.meta?.vendorWhatsappStatus);
+    const whatsappError = String(enquiry?.meta?.vendorWhatsappError || "").trim();
+    const orderValue = Number(enquiry?.price || 0) || 0;
+    const discountAmount = getEnquiryDiscountAmount(enquiry);
+    const mrpAmount = getEnquiryMrpAmount(enquiry);
+
+    return (
+      <>
+        <div className="enquiries-dashboard-detail-top">
+          <div>
+            <div className="enquiries-dashboard-detail-title">
+              {getEnquiryDisplayTitle(enquiry, copy.singular)}
+            </div>
+            <div className="enquiries-dashboard-detail-date">
+              {formatDateTime(enquiry?.createdAt)}
+            </div>
+          </div>
+
+          <div className="enquiries-dashboard-detail-top-actions">
+            {options.showClose ? (
+              <button
+                type="button"
+                className="enquiries-dashboard-detail-close"
+                onClick={options.onClose}
+              >
+                Close
+              </button>
+            ) : null}
+
+            {phone ? (
+              <a
+                className="enquiries-dashboard-call-btn"
+                href={`tel:${phone}`}
+              >
+                {copy.customerCall}
+              </a>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="enquiries-dashboard-meta-grid">
+          <div className="enquiries-dashboard-meta-card">
+            <span>Customer</span>
+            <strong>{phone || "Not available"}</strong>
+          </div>
+          {isOrderLike ? (
+            <div className="enquiries-dashboard-meta-card">
+              <span>Total MRP</span>
+              <strong>{formatAmount(mrpAmount)}</strong>
+            </div>
+          ) : (
+            <div className="enquiries-dashboard-meta-card">
+              <span>{copy.totalValue}</span>
+              <strong>{formatAmount(enquiry?.price)}</strong>
+            </div>
+          )}
+          {isOrderLike ? (
+            <div className="enquiries-dashboard-meta-card">
+              <span>Discount Given</span>
+              <strong>{discountAmount > 0 ? formatAmount(discountAmount) : "Rs 0"}</strong>
+            </div>
+          ) : null}
+          <div className="enquiries-dashboard-meta-card">
+            <span>{isOrderLike ? "Net Payable" : copy.totalValue}</span>
+            <strong>{formatAmount(orderValue)}</strong>
+          </div>
+          <div className="enquiries-dashboard-meta-card">
+            <span>Status</span>
+            <strong>
+              <span className={`enquiries-dashboard-status-badge is-${
+                isOrderLike && usesRazorpay
+                  ? normalizePaymentStatus(enquiry?.payment?.status) || normalizeStatus(enquiry?.status)
+                  : normalizeStatus(enquiry?.status)
+              }`}>
+                {statusLabel}
+              </span>
+              {!isOrderLike && updatingStatusId === enquiry?._id ? (
+                <span className="enquiries-dashboard-status-note">Updating...</span>
+              ) : null}
+            </strong>
+          </div>
+          <div className="enquiries-dashboard-meta-card">
+            <span>Vendor WhatsApp</span>
+            <strong>
+              <span className={`enquiries-dashboard-status-badge is-${whatsappTone}`}>
+                {whatsappStatus}
+              </span>
+              {whatsappError ? (
+                <span className="enquiries-dashboard-status-note">
+                  {whatsappError}
+                </span>
+              ) : null}
+            </strong>
+          </div>
+        </div>
+
+        <div className="enquiries-dashboard-section">
+          <div className="enquiries-dashboard-section-title">{copy.requestedSection}</div>
+          {cartItemsForEnquiry.length > 0 ? (
+            <div className="enquiries-dashboard-services">
+              {cartItemsForEnquiry.map((item, index) => (
+                <div
+                  key={`${item?.cartKey || item?.itemId || item?.name || index}-${index}`}
+                  className="enquiries-dashboard-service-row"
+                >
+                  <div className="enquiries-dashboard-service-copy">
+                    <strong>{getCartItemDisplayName(item) || (isOrderMode ? "Item" : "Service")}</strong>
+                    <span>
+                      Qty {Number(item?.qty || 0) || 1}
+                      {getCartItemMetaLine(item) ? ` • ${getCartItemMetaLine(item)}` : ""}
+                    </span>
+                    {isOrderMode && (Number(item?.mrp) > 0 || Number(item?.discountPercent) > 0 || getCartItemDiscountAmount(item) > 0) ? (
+                      <div className="enquiries-dashboard-service-tags">
+                        {Number(item?.mrp) > 0 ? (
+                          <span className="enquiries-dashboard-service-tag">
+                            MRP {formatCompactAmount(getCartItemMrpTotal(item))}
+                          </span>
+                        ) : null}
+                        {Number(item?.discountPercent) > 0 ? (
+                          <span className="enquiries-dashboard-service-tag">
+                            {Number(item.discountPercent)}% off
+                          </span>
+                        ) : null}
+                        {getCartItemDiscountAmount(item) > 0 ? (
+                          <span className="enquiries-dashboard-service-tag">
+                            Discount {formatCompactAmount(getCartItemDiscountAmount(item))}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                  <span className="enquiries-dashboard-service-price">
+                    {formatAmount(item?.total || item?.price)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="enquiries-dashboard-copy">
+              {getServiceSummary(enquiry)}
+            </div>
+          )}
+        </div>
+
+        <div className="enquiries-dashboard-section">
+          <div className="enquiries-dashboard-section-title">{copy.detailsSection}</div>
+          {detailRowsForEnquiry.length > 0 ? (
+            <div className="enquiries-dashboard-details-grid">
+              {detailRowsForEnquiry.map(([key, value]) => (
+                <div key={key} className="enquiries-dashboard-detail-card">
+                  <span>{key}</span>
+                  <strong>
+                    {formatDetailValue(key, value)}
+                  </strong>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="enquiries-dashboard-copy">
+              {copy.emptyDetails}
+            </div>
+          )}
+        </div>
+      </>
+    );
+  }
 
   useEffect(() => {
     const enquiryId = selectedEnquiry?._id;
@@ -442,17 +707,25 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
                     : normalizeStatus(enquiry?.status);
                 const whatsappStatusLabel = getWhatsappStatusLabel(enquiry?.meta?.vendorWhatsappStatus);
                 const whatsappStatusTone = normalizeWhatsappStatus(enquiry?.meta?.vendorWhatsappStatus);
+                const selectEnquiry = () => setSelectedEnquiryId(enquiry?._id || "");
 
                 return (
-                  <button
+                  <div
                     key={enquiry?._id || `${phone}-${enquiry?.createdAt}`}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     className={`enquiries-dashboard-row ${isActive ? "is-active" : ""} is-${statusTone}`}
-                    onClick={() => setSelectedEnquiryId(enquiry?._id || "")}
+                    onClick={selectEnquiry}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        selectEnquiry();
+                      }
+                    }}
                   >
                     <div className="enquiries-dashboard-row-top">
                       <span className="enquiries-dashboard-row-title">
-                        {String(enquiry?.serviceName || copy.singular).trim() || copy.singular}
+                        {getEnquiryDisplayTitle(enquiry, copy.singular)}
                       </span>
                       <div className="enquiries-dashboard-row-meta">
                         <span className={`enquiries-dashboard-status-badge is-${statusTone}`}>
@@ -474,145 +747,49 @@ export default function EnquiriesDashboard({ vendorId, categoryId }) {
                     <div className="enquiries-dashboard-row-summary">
                       {getServiceSummary(enquiry)}
                     </div>
-                  </button>
+                    <div className="enquiries-dashboard-row-actions">
+                      <button
+                        type="button"
+                        className="enquiries-dashboard-view-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          selectEnquiry();
+                          setMobileDetailEnquiryId(enquiry?._id || "");
+                        }}
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>
 
             <div className="enquiries-dashboard-detail">
-              {selectedEnquiry ? (
-                <>
-                  <div className="enquiries-dashboard-detail-top">
-                    <div>
-                      <div className="enquiries-dashboard-detail-title">
-                        {String(selectedEnquiry?.serviceName || copy.singular).trim() || copy.singular}
-                      </div>
-                      <div className="enquiries-dashboard-detail-date">
-                        {formatDateTime(selectedEnquiry?.createdAt)}
-                      </div>
-                    </div>
-
-                    {selectedPhone ? (
-                      <a
-                        className="enquiries-dashboard-call-btn"
-                        href={`tel:${selectedPhone}`}
-                      >
-                        {copy.customerCall}
-                      </a>
-                    ) : null}
-                  </div>
-
-                  <div className="enquiries-dashboard-meta-grid">
-                    <div className="enquiries-dashboard-meta-card">
-                      <span>Customer</span>
-                      <strong>{selectedPhone || "Not available"}</strong>
-                    </div>
-                    <div className="enquiries-dashboard-meta-card">
-                      <span>{copy.totalValue}</span>
-                      <strong>{formatAmount(selectedEnquiry?.price)}</strong>
-                    </div>
-                    <div className="enquiries-dashboard-meta-card">
-                      <span>Status</span>
-                      <strong>
-                        <span className={`enquiries-dashboard-status-badge is-${
-                          selectedIsOrderLike && selectedUsesRazorpay
-                            ? normalizePaymentStatus(selectedEnquiry?.payment?.status) || normalizeStatus(selectedEnquiry?.status)
-                            : normalizeStatus(selectedEnquiry?.status)
-                        }`}>
-                          {selectedStatus}
-                        </span>
-                        {!selectedIsOrderLike && updatingStatusId === selectedEnquiry?._id ? (
-                          <span className="enquiries-dashboard-status-note">Updating...</span>
-                        ) : null}
-                      </strong>
-                    </div>
-                    <div className="enquiries-dashboard-meta-card">
-                      <span>Vendor WhatsApp</span>
-                      <strong>
-                        <span className={`enquiries-dashboard-status-badge is-${selectedWhatsappTone}`}>
-                          {selectedWhatsappStatus}
-                        </span>
-                        {selectedWhatsappError ? (
-                          <span className="enquiries-dashboard-status-note">
-                            {selectedWhatsappError}
-                          </span>
-                        ) : null}
-                      </strong>
-                    </div>
-                  </div>
-
-                  <div className="enquiries-dashboard-section">
-                    <div className="enquiries-dashboard-section-title">{copy.requestedSection}</div>
-                    {cartItems.length > 0 ? (
-                      <div className="enquiries-dashboard-services">
-                        {cartItems.map((item, index) => (
-                          <div
-                            key={`${item?.cartKey || item?.itemId || item?.name || index}-${index}`}
-                            className="enquiries-dashboard-service-row"
-                          >
-                            <div className="enquiries-dashboard-service-copy">
-                              <strong>{item?.label || item?.name || (isOrderMode ? "Item" : "Service")}</strong>
-                              <span>
-                                Qty {Number(item?.qty || 0) || 1}
-                                {item?.itemCode ? ` • ${String(item.itemCode).trim()}` : ""}
-                                {item?.unitLabel ? ` • ${String(item.unitLabel).trim()}` : ""}
-                              </span>
-                              {isOrderMode && (Number(item?.mrp) > 0 || Number(item?.discountPercent) > 0) ? (
-                                <div className="enquiries-dashboard-service-tags">
-                                  {Number(item?.mrp) > 0 ? (
-                                    <span className="enquiries-dashboard-service-tag">
-                                      MRP {formatCompactAmount(item.mrp)}
-                                    </span>
-                                  ) : null}
-                                  {Number(item?.discountPercent) > 0 ? (
-                                    <span className="enquiries-dashboard-service-tag">
-                                      {Number(item.discountPercent)}% off
-                                    </span>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                            </div>
-                            <span className="enquiries-dashboard-service-price">
-                              {formatAmount(item?.total || item?.price)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="enquiries-dashboard-copy">
-                        {getServiceSummary(selectedEnquiry)}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="enquiries-dashboard-section">
-                    <div className="enquiries-dashboard-section-title">{copy.detailsSection}</div>
-                    {detailRows.length > 0 ? (
-                      <div className="enquiries-dashboard-details-grid">
-                        {detailRows.map(([key, value]) => (
-                          <div key={key} className="enquiries-dashboard-detail-card">
-                            <span>{key}</span>
-                            <strong>
-                              {formatDetailValue(key, value)}
-                            </strong>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="enquiries-dashboard-copy">
-                        {copy.emptyDetails}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="enquiries-dashboard-empty">
-                  {copy.selectPrompt}
-                </div>
-              )}
+              {renderEnquiryDetail(selectedEnquiry)}
             </div>
           </div>
         )
+      ) : null}
+
+      {mobileDetailEnquiry ? (
+        <div
+          className="enquiries-dashboard-mobile-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${copy.singular} details`}
+          onClick={() => setMobileDetailEnquiryId("")}
+        >
+          <div
+            className="enquiries-dashboard-mobile-sheet"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {renderEnquiryDetail(mobileDetailEnquiry, {
+              showClose: true,
+              onClose: () => setMobileDetailEnquiryId(""),
+            })}
+          </div>
+        </div>
       ) : null}
     </div>
   );

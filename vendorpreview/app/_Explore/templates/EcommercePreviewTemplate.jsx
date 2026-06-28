@@ -133,19 +133,40 @@ function getResolvedPricing(node) {
 function collectLeafItems(nodes, pathNames = [], inheritedImageUrl = "") {
   const items = [];
 
+  const buildDisplayInfo = (path) => {
+    const normalizedPath = (Array.isArray(path) ? path : [])
+      .map((segment) => String(segment || "").trim())
+      .filter(Boolean);
+
+    if (normalizedPath.length === 0) {
+      return { name: "Item", subtitle: "" };
+    }
+
+    if (normalizedPath.length === 1) {
+      return { name: normalizedPath[0], subtitle: "" };
+    }
+
+    return {
+      name: normalizedPath.slice(-2).join(" - "),
+      subtitle: normalizedPath.length > 2 ? normalizedPath.slice(0, -2).join(" / ") : "",
+    };
+  };
+
   (Array.isArray(nodes) ? nodes : []).forEach((node, index) => {
     if (!node) return;
 
     const currentPath = [...pathNames, node.name].filter(Boolean);
     const hasChildren = Array.isArray(node.children) && node.children.length > 0;
     const resolvedImageUrl = String(node.imageUrl || inheritedImageUrl || "").trim();
+    const displayInfo = buildDisplayInfo(currentPath);
 
     if (node.isLeaf && node.price !== null && node.price !== undefined) {
-      const subtitle = currentPath.slice(0, -1).join(" / ");
       const pricing = getResolvedPricing(node);
       const rawNode = {
         ...node,
-        subtitle,
+        subtitle: displayInfo.subtitle,
+        displayName: displayInfo.name,
+        nodePath: currentPath,
         imageUrl: resolvedImageUrl,
         price: pricing.netPrice,
         mrp: pricing.mrp,
@@ -155,10 +176,11 @@ function collectLeafItems(nodes, pathNames = [], inheritedImageUrl = "") {
       items.push({
         id: node.id || node._id || `${currentPath.join("-")}-${index}`,
         cartKey: node.id || node._id || `${currentPath.join("-")}-${index}`,
-        name: node.name || "Item",
-        subtitle,
+        name: displayInfo.name,
+        subtitle: displayInfo.subtitle,
         itemCode: node.itemCode || "",
         unitLabel: node.unitLabel || "",
+        nodePath: currentPath,
         imageUrl: resolvedImageUrl,
         price: pricing.netPrice,
         mrp: pricing.mrp,
@@ -869,7 +891,7 @@ export default function EcommercePreviewTemplate({
           </div>
         </div>
 
-        <aside className="ecommerce-order-card">
+        <aside id="ecommerce-order-summary" className="ecommerce-order-card">
           <h3>Order Summary</h3>
           <div className="ecommerce-order-line">
             <span>Total Amount (MRP)</span>
@@ -954,6 +976,21 @@ export default function EcommercePreviewTemplate({
           </button>
         </aside>
       </section>
+
+      {cartItems?.length > 0 ? (
+        <button
+          type="button"
+          className="ecommerce-floating-cart-button"
+          onClick={() => scrollToElementById("ecommerce-order-summary")}
+          aria-label={`Go to cart summary with ${cartItems.length} item${cartItems.length === 1 ? "" : "s"}`}
+        >
+          <span className="ecommerce-floating-cart-count">{cartItems.length}</span>
+          <span className="ecommerce-floating-cart-copy">
+            <strong>Cart</strong>
+            <small>{formatCurrency(cartTotal)}</small>
+          </span>
+        </button>
+      ) : null}
 
     </div>
   );

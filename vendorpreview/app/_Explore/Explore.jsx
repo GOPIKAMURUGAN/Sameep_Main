@@ -2533,6 +2533,11 @@ function ExploreContent({ onReady, onOpenServices }) {
       const itemId = node._id || node.id || node.categoryId;
       const cartKey = node.cartKey || itemId;
       const categoryId = node.categoryId || node._id || node.id;
+      const safeNodePath = Array.isArray(nodePath) && nodePath.length > 0
+        ? nodePath
+        : Array.isArray(node.nodePath)
+          ? node.nodePath
+          : [];
       const minQty = Math.max(1, Number(node.minQty) || 1);
       const stepQty = Math.max(1, Number(node.stepQty) || 1);
       const existing = prev.find(i => (i.cartKey || i.itemId) === cartKey);
@@ -2551,7 +2556,7 @@ function ExploreContent({ onReady, onOpenServices }) {
           itemId,
           categoryId,
 
-          name: node.name,
+          name: node.displayName || node.name,
           subtitle: node.subtitle || "",
           price: node.price,
           mrp: node.mrp ?? null,
@@ -2569,7 +2574,7 @@ function ExploreContent({ onReady, onOpenServices }) {
 
           parentId: node.parentId || null,
           rootCategoryId: rootCategoryId || node.rootCategoryId || null,
-          nodePath,
+          nodePath: safeNodePath,
           categoryPathIds: safePathIds.length ? safePathIds : [categoryId],
         },
       ];
