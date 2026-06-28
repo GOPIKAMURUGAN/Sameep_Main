@@ -33,7 +33,13 @@ export default function ProfileSocialHandles({
     label.toLowerCase().replace(/\s+/g, "");
 
   const normalizeWhatsappNumber = (value) =>
-    String(value || "").replace(/\D/g, "");
+    (() => {
+      const digits = String(value || "").replace(/\D/g, "");
+      if (!digits) return "";
+      if (digits.length === 10) return `91${digits}`;
+      if (digits.length === 11 && digits.startsWith("0")) return `91${digits.slice(1)}`;
+      return digits;
+    })();
 
   const normalizeSocialUrl = (value, key) => {
     const trimmedValue = value.trim();

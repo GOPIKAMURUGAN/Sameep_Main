@@ -32,6 +32,10 @@ export default function Header() {
   useSessionGuard();
 
   const { vendorInfo } = useVendor();
+  const classicThemeKey =
+    String(vendorInfo?.classicColorScheme || "blackgold").trim().toLowerCase() || "blackgold";
+  const selectedTemplateKey =
+    String(vendorInfo?.selectedTemplateKey || "").trim().toLowerCase();
 
   const rootCategoryId =
     vendorInfo?.categoryId ||
@@ -47,6 +51,8 @@ export default function Header() {
   const [galleryReadOnly, setGalleryReadOnly] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
+  const showHeaderLogout =
+    hasSession && vendorInfo && selectedTemplateKey !== "classic";
   // --------------------------------------------------
   // 🔹 Load category for Header (fallback-safe)
   // --------------------------------------------------
@@ -208,7 +214,7 @@ if (vendorId) {
 
   return (
     <>
-      <nav className="navbar navbar-expand-lg bg-body-tertiary custom-navbar">
+      <nav className={`navbar navbar-expand-lg bg-body-tertiary custom-navbar theme-${classicThemeKey}`}>
         <div className="container-fluid">
           <a className="navbar-brand fw-bold" href="#home">
             {logoUrl ? (
@@ -261,7 +267,7 @@ if (vendorId) {
                 </button>
               </li>
 
-            {hasSession && vendorInfo && (
+            {showHeaderLogout && (
                 <li className="nav-item">
                   <button
                     className="logout-icon-btn"

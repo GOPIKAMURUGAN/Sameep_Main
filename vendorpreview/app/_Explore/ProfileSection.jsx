@@ -65,7 +65,13 @@ function toLink(value, key) {
   if (key === "email") return `mailto:${value}`;
   if (key === "whatsapp") {
     const digits = String(value).replace(/\D/g, "");
-    return digits ? `https://wa.me/${digits}` : "#";
+    const normalized =
+      digits.length === 10
+        ? `91${digits}`
+        : digits.length === 11 && digits.startsWith("0")
+        ? `91${digits.slice(1)}`
+        : digits;
+    return normalized ? `https://wa.me/${normalized}` : "#";
   }
   return `https://${key}.com/${String(value).replace(/^@/, "")}`;
 }

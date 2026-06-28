@@ -109,12 +109,36 @@ const MODERN_LIGHT_COLOR_SCHEMES = [
   },
 ];
 
+const CLASSIC_COLOR_SCHEMES = [
+  {
+    key: "blackgold",
+    name: "Classic Black Gold",
+    preview: "linear-gradient(135deg, #0b0b0d 0%, #e6c37a 100%)",
+  },
+  {
+    key: "midnightgold",
+    name: "Midnight Blue Gold",
+    preview: "linear-gradient(135deg, #111c2f 0%, #d7b465 100%)",
+  },
+  {
+    key: "charcoalcopper",
+    name: "Charcoal Copper",
+    preview: "linear-gradient(135deg, #1c1c1f 0%, #c98554 100%)",
+  },
+  {
+    key: "blackchampagne",
+    name: "Black Champagne",
+    preview: "linear-gradient(135deg, #121214 0%, #dbc29a 100%)",
+  },
+];
+
 export default function TemplateSelectionModal({
   vendorId,
   businessName,
   initialTemplateKey = "",
   initialNurseryColorScheme = "",
   initialModernColorScheme = "",
+  initialClassicColorScheme = "",
   onClose,
 }) {
   const { vendorInfo, setVendorInfo } = useVendor();
@@ -125,6 +149,9 @@ export default function TemplateSelectionModal({
   );
   const [modernColorScheme, setModernColorScheme] = useState(
     initialModernColorScheme || "ivory"
+  );
+  const [classicColorScheme, setClassicColorScheme] = useState(
+    initialClassicColorScheme || "blackgold"
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -170,6 +197,7 @@ export default function TemplateSelectionModal({
 
   const effectivePricingSource = String(vendorInfo?.pricingSource || "").trim().toLowerCase();
   const isSelfManagedPricing = effectivePricingSource === "self_managed";
+  const showClassicColorScheme = selectedTemplateKey === "classic";
   const showNurseryColorScheme = selectedTemplateKey === "nurseries";
   const showModernColorScheme = selectedTemplateKey === "modern";
   const showEcommerceCompatibilityNote = selectedTemplateKey === "ecommerce";
@@ -202,6 +230,7 @@ export default function TemplateSelectionModal({
           selectedTemplateKey: selectedTemplateKey || "",
           nurseryColorScheme: nurseryColorScheme || "forest",
           modernColorScheme: modernColorScheme || "ivory",
+          classicColorScheme: classicColorScheme || "blackgold",
         }),
       });
       const data = await response.json();
@@ -216,6 +245,7 @@ export default function TemplateSelectionModal({
               selectedTemplateKey: data?.selectedTemplateKey || "",
               nurseryColorScheme: data?.nurseryColorScheme || nurseryColorScheme || "forest",
               modernColorScheme: data?.modernColorScheme || modernColorScheme || "ivory",
+              classicColorScheme: data?.classicColorScheme || classicColorScheme || "blackgold",
             }
           : prev
       );
@@ -290,6 +320,77 @@ export default function TemplateSelectionModal({
                     so the product catalog would not behave correctly yet.
                   </>
                 )}
+              </div>
+            </div>
+          ) : null}
+
+          {showClassicColorScheme ? (
+            <div className="branding-contact-section">
+              <label className="branding-label" htmlFor="classic-color-scheme-select">
+                Color Scheme
+              </label>
+              <select
+                id="classic-color-scheme-select"
+                className="branding-text-input"
+                value={classicColorScheme}
+                onChange={(event) => setClassicColorScheme(event.target.value)}
+              >
+                {CLASSIC_COLOR_SCHEMES.map((scheme) => (
+                  <option key={scheme.key} value={scheme.key}>
+                    {scheme.name}
+                  </option>
+                ))}
+              </select>
+
+              <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+                {CLASSIC_COLOR_SCHEMES.map((scheme) => {
+                  const active = classicColorScheme === scheme.key;
+                  return (
+                    <button
+                      key={scheme.key}
+                      type="button"
+                      onClick={() => setClassicColorScheme(scheme.key)}
+                      style={{
+                        alignItems: "center",
+                        background: active ? "rgba(245, 217, 122, 0.08)" : "rgba(255,255,255,0.04)",
+                        border: active
+                          ? "1px solid rgba(245, 217, 122, 0.7)"
+                          : "1px solid rgba(255,255,255,0.12)",
+                        borderRadius: 12,
+                        color: "#fffaf0",
+                        cursor: "pointer",
+                        display: "grid",
+                        gap: 12,
+                        gridTemplateColumns: "44px minmax(0, 1fr)",
+                        padding: 10,
+                        textAlign: "left",
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 12,
+                          background: scheme.preview,
+                          border: "1px solid rgba(255,255,255,0.16)",
+                          boxShadow: active ? "0 0 0 2px rgba(245, 217, 122, 0.28)" : "none",
+                        }}
+                      />
+                      <span style={{ display: "grid", gap: 4 }}>
+                        <strong style={{ fontSize: 15 }}>{scheme.name}</strong>
+                        <span style={{ color: "rgba(255,250,240,0.72)", fontSize: 13 }}>
+                          {scheme.key === "midnightgold"
+                            ? "Premium midnight blue with warm gold accents."
+                            : scheme.key === "charcoalcopper"
+                              ? "Deeper charcoal paired with rich copper highlights."
+                              : scheme.key === "blackchampagne"
+                                ? "Softer black with elegant champagne tones."
+                                : "Original black and gold luxury palette."}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ) : null}

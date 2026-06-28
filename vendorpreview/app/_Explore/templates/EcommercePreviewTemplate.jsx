@@ -36,7 +36,16 @@ function getSocialHref(key, value) {
   if (!value) return "#";
   if (value.startsWith("http")) return value;
   if (key === "email") return `mailto:${value}`;
-  if (key === "whatsapp") return `https://wa.me/${String(value).replace(/\D/g, "")}`;
+  if (key === "whatsapp") {
+    const digits = String(value).replace(/\D/g, "");
+    const normalized =
+      digits.length === 10
+        ? `91${digits}`
+        : digits.length === 11 && digits.startsWith("0")
+        ? `91${digits.slice(1)}`
+        : digits;
+    return normalized ? `https://wa.me/${normalized}` : "#";
+  }
   return `https://${key}.com/${value}`;
 }
 
@@ -61,6 +70,16 @@ function getSocialLabel(key) {
     default:
       return key.charAt(0).toUpperCase() + key.slice(1);
   }
+}
+
+function getPoweredByUrl() {
+  return (
+    process.env.NEXT_PUBLIC_VENDOR_PREVIEW_ROOT_URL ||
+    process.env.NEXT_PUBLIC_PREVIEW_BASE_URL ||
+    "http://localhost:4000"
+  )
+    .trim()
+    .replace(/\/$/, "");
 }
 
 function getMapsHref(vendorInfo, heroTagline) {
@@ -297,6 +316,7 @@ export default function EcommercePreviewTemplate({
 
     return mapped;
   }, [phoneNumbers, vendorInfo]);
+  const poweredByUrl = getPoweredByUrl();
   const vendorId =
     vendorInfo?.vendorId ||
     vendorInfo?._id ||
@@ -991,6 +1011,23 @@ export default function EcommercePreviewTemplate({
           </span>
         </button>
       ) : null}
+
+      <footer className="ecommerce-footer">
+        <div className="ecommerce-footer-copy">
+          <span>
+            © {new Date().getFullYear()} {vendorInfo?.businessName || "Business"} All Rights Reserved.
+          </span>
+        </div>
+        <a
+          className="ecommerce-footer-powered"
+          href={poweredByUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img src="/favicon.svg" alt="Ynot" className="ecommerce-footer-powered-logo" />
+          <span>Powered by Ynot</span>
+        </a>
+      </footer>
 
     </div>
   );

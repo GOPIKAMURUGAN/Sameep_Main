@@ -2,7 +2,84 @@
    HERO LAYOUT (Responsive Fix)
 ============================ */
 .hero {
+  --classic-bg: #0b0b0d;
+  --classic-surface: rgba(25, 25, 28, 0.65);
+  --classic-accent: #f5d97a;
+  --classic-accent-strong: #e6c37a;
+  --classic-accent-contrast: #111;
+  --classic-border: rgba(245, 217, 122, 0.32);
+  --classic-border-soft: rgba(245, 217, 122, 0.22);
+  --classic-text: #ffffff;
+  --classic-text-soft: rgba(255, 255, 255, 0.72);
+  --classic-hero-body: #d6c687;
+  --classic-hero-meta: #c9b372;
+  --classic-hero-stat: #f5d97a;
+  --classic-hero-chip-text: #f5d97a;
+  --classic-hero-chip-icon: #f5d97a;
+  --classic-heading-shadow: rgba(245, 217, 122, 0.45);
+  --classic-button-gradient: linear-gradient(135deg, #e6c37a, #d7b04f);
+  --classic-button-gradient-strong: linear-gradient(135deg, #fff4c7, #d2ae41 45%, #d2a941);
   min-height: 100vh;   /* guarantees full viewport */
+}
+
+.hero.theme-midnightgold {
+  --classic-bg: #0f1726;
+  --classic-surface: rgba(20, 29, 46, 0.7);
+  --classic-accent: #e5ca7a;
+  --classic-accent-strong: #d6b15e;
+  --classic-accent-contrast: #101723;
+  --classic-border: rgba(214, 177, 94, 0.34);
+  --classic-border-soft: rgba(214, 177, 94, 0.22);
+  --classic-text: #f7f8fb;
+  --classic-text-soft: rgba(236, 240, 248, 0.74);
+  --classic-hero-body: rgba(236, 240, 248, 0.74);
+  --classic-hero-meta: rgba(236, 240, 248, 0.74);
+  --classic-hero-stat: var(--classic-text);
+  --classic-hero-chip-text: var(--classic-text);
+  --classic-hero-chip-icon: var(--classic-accent);
+  --classic-heading-shadow: rgba(214, 177, 94, 0.4);
+  --classic-button-gradient: linear-gradient(135deg, #d6b15e, #b89043);
+  --classic-button-gradient-strong: linear-gradient(135deg, #f4e6b0, #d6b15e 45%, #b89043);
+}
+
+.hero.theme-charcoalcopper {
+  --classic-bg: #161618;
+  --classic-surface: rgba(32, 30, 31, 0.72);
+  --classic-accent: #d9a173;
+  --classic-accent-strong: #c98554;
+  --classic-accent-contrast: #1a1615;
+  --classic-border: rgba(201, 133, 84, 0.34);
+  --classic-border-soft: rgba(201, 133, 84, 0.22);
+  --classic-text: #fbf7f4;
+  --classic-text-soft: rgba(251, 247, 244, 0.74);
+  --classic-hero-body: rgba(251, 247, 244, 0.74);
+  --classic-hero-meta: rgba(251, 247, 244, 0.74);
+  --classic-hero-stat: var(--classic-text);
+  --classic-hero-chip-text: var(--classic-text);
+  --classic-hero-chip-icon: var(--classic-accent);
+  --classic-heading-shadow: rgba(201, 133, 84, 0.35);
+  --classic-button-gradient: linear-gradient(135deg, #d9a173, #b86f43);
+  --classic-button-gradient-strong: linear-gradient(135deg, #f0c7a0, #c98554 45%, #aa633b);
+}
+
+.hero.theme-blackchampagne {
+  --classic-bg: #101012;
+  --classic-surface: rgba(28, 28, 30, 0.7);
+  --classic-accent: #e6d0aa;
+  --classic-accent-strong: #d7b98d;
+  --classic-accent-contrast: #121214;
+  --classic-border: rgba(215, 185, 141, 0.34);
+  --classic-border-soft: rgba(215, 185, 141, 0.22);
+  --classic-text: #f7f3ec;
+  --classic-text-soft: rgba(247, 243, 236, 0.74);
+  --classic-hero-body: rgba(247, 243, 236, 0.74);
+  --classic-hero-meta: rgba(247, 243, 236, 0.74);
+  --classic-hero-stat: var(--classic-text);
+  --classic-hero-chip-text: var(--classic-text);
+  --classic-hero-chip-icon: var(--classic-accent);
+  --classic-heading-shadow: rgba(215, 185, 141, 0.32);
+  --classic-button-gradient: linear-gradient(135deg, #e6d0aa, #c9ab7e);
+  --classic-button-gradient-strong: linear-gradient(135deg, #f4ead7, #d7b98d 45%, #c19f70);
 }
 
 .hero {
@@ -10,7 +87,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 110px 7%;
-  background: #0B0B0D;
+  background: var(--classic-bg);
   gap: 40px;
 
   flex-wrap: wrap; /* ❤️ allows responsive stacking */
@@ -62,18 +139,19 @@
   font-size: clamp(32px, 6vw, 80px); /* responsive text */
   line-height: 1.1;
   font-weight: 900;
-  color: #F5D97A;
+  color: var(--classic-accent);
+  text-shadow: 0 0 24px var(--classic-heading-shadow);
 }
 
 .hero-left h1 span {
-  color: #FFD27D;
+  color: var(--classic-accent-strong);
 }
 
 .hero-text {
   margin: 20px 0 30px;
   font-size: clamp(16px, 2vw, 24px);
   line-height: 1.6;
-  color: #D6C687;
+  color: var(--classic-hero-body);
   max-width: 500px;
 }
 
@@ -89,14 +167,14 @@
 }
 
 .stat-item h2 {
-  color: #FFEB9A;
+  color: var(--classic-hero-stat);
   font-size: clamp(28px, 5vw, 50px);
   font-weight: 900;
 }
 
 .stat-item p {
   font-size: clamp(14px, 2vw, 18px);
-  color: #C9B372;
+  color: var(--classic-hero-meta);
 }
 
 .hero-service-modes {
@@ -105,7 +183,7 @@
 
 .hero-service-modes-label {
   margin-bottom: 10px;
-  color: #C9B372;
+  color: var(--classic-hero-meta);
   font-size: 15px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -123,9 +201,9 @@
   justify-content: center;
   padding: 10px 16px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 210, 125, 0.45);
-  background: rgba(255, 210, 125, 0.08);
-  color: #FFEB9A;
+  border: 1px solid var(--classic-border);
+  background: var(--classic-surface);
+  color: var(--classic-hero-chip-text);
   font-weight: 700;
 }
 
@@ -137,8 +215,8 @@
   height: 18px;
   margin-right: 8px;
   border-radius: 50%;
-  background: rgba(255, 235, 154, 0.18);
-  color: #FFEB9A;
+  background: var(--classic-border-soft);
+  color: var(--classic-hero-chip-icon);
   font-size: 12px;
   line-height: 1;
 }
@@ -190,8 +268,8 @@
 }
 
 .btn {
-  background: linear-gradient(135deg, #FFD27D, #E5B759)!important;
-  color: #0B0B0D;
+  background: var(--classic-button-gradient)!important;
+  color: var(--classic-accent-contrast);
   border: none;
 }
 
@@ -200,13 +278,13 @@
 /* Hover – same motion */
 .btn {
   transform: translateY(-2px);
-  box-shadow: 0 10px 30px rgba(255, 210, 125, 0.25);
+  box-shadow: 0 10px 30px var(--classic-border-soft);
 }
 
 /* Optional: outline hover fill */
 .btn{
-  background: linear-gradient(135deg, #FFD27D, #E5B759);
-  color: #0B0B0D;
+  background: var(--classic-button-gradient);
+  color: var(--classic-accent-contrast);
 }
 
 
@@ -228,7 +306,7 @@
   aspect-ratio: 16/10;
   object-fit: cover;
   border-radius: 28px;
-  border: 2px solid rgba(255, 215, 130, 0.4);
+  border: 2px solid var(--classic-border);
 
   transition: transform 0.6s ease, opacity 0.6s ease;
 }

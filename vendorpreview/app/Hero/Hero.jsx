@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { API_BASE_URL } from "../../config";
+import { useVendor } from "../context/VendorContext";
 import "./Hero.css";
 
 const HeroSection = ({
@@ -17,10 +18,13 @@ const HeroSection = ({
   onButton1Click,
   onButton2Click,
 }) => {
+  const { vendorInfo } = useVendor();
   const [index, setIndex] = useState(0);
   const [slide, setSlide] = useState(false);
   const [serviceModeLabel, setServiceModeLabel] = useState("Service Modes");
   const [trustQuestionLabels, setTrustQuestionLabels] = useState({});
+  const classicThemeKey =
+    String(vendorInfo?.classicColorScheme || "blackgold").trim().toLowerCase() || "blackgold";
 
   const prettifyLabel = (key) =>
     String(key || "")
@@ -168,7 +172,10 @@ const HeroSection = ({
   /* ================= UI ================= */
 
   return (
-    <section id="home" className={`hero ${hasHeroImages ? "" : "hero-no-image"}`}>
+    <section
+      id="home"
+      className={`hero theme-${classicThemeKey} ${hasHeroImages ? "" : "hero-no-image"}`}
+    >
       <div className="hero-left">
         <h1>{tagline}</h1>
 

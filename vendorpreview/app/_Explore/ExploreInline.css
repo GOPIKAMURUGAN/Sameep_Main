@@ -1557,9 +1557,9 @@
 .category-nav-btn {
   padding: 8px 16px;
   border-radius: 20px;
-  border: 1px solid #d4af37;
+  border: 1px solid var(--classic-border, #d4af37);
   background: transparent;
-  color: #d4af37;
+  color: var(--classic-accent, #d4af37);
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -1567,14 +1567,14 @@
 }
 
 .category-nav-btn:hover {
-  background: #d4af37;
-  color: #000;
+  background: var(--classic-accent-strong, #d4af37);
+  color: var(--classic-accent-contrast, #000);
 }
 
 .category-nav-btn.is-active {
-  background: #d4af37;
+  background: var(--classic-button-gradient, #d4af37);
   box-shadow: 0 0 16px rgba(212, 175, 55, 0.35);
-  color: #000;
+  color: var(--classic-accent-contrast, #000);
 }
 /* cashback card */
 

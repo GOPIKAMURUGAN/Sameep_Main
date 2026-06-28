@@ -699,6 +699,7 @@ router.get("/:vendorId/template", async (req, res) => {
       selectedTemplateKey,
       nurseryColorScheme: String(vendor.nurseryColorScheme || "").trim().toLowerCase(),
       modernColorScheme: String(vendor.modernColorScheme || "").trim().toLowerCase(),
+      classicColorScheme: String(vendor.classicColorScheme || "").trim().toLowerCase(),
       template,
     });
   } catch (err) {
@@ -718,6 +719,9 @@ router.put("/:vendorId/template", async (req, res) => {
     const modernColorScheme = String(req.body?.modernColorScheme || "")
       .trim()
       .toLowerCase();
+    const classicColorScheme = String(req.body?.classicColorScheme || "")
+      .trim()
+      .toLowerCase();
     const selectedTemplateKey = String(req.body?.selectedTemplateKey || "")
       .trim()
       .toLowerCase();
@@ -726,12 +730,14 @@ router.put("/:vendorId/template", async (req, res) => {
       vendor.selectedTemplateKey = "";
       vendor.nurseryColorScheme = nurseryColorScheme;
       vendor.modernColorScheme = modernColorScheme;
+      vendor.classicColorScheme = classicColorScheme;
       await vendor.save();
       return res.json({
         success: true,
         selectedTemplateKey: "",
         nurseryColorScheme: vendor.nurseryColorScheme || "",
         modernColorScheme: vendor.modernColorScheme || "",
+        classicColorScheme: vendor.classicColorScheme || "",
         vendor: vendor.toObject(),
       });
     }
@@ -751,6 +757,7 @@ router.put("/:vendorId/template", async (req, res) => {
     vendor.selectedTemplateKey = selectedTemplateKey;
     vendor.nurseryColorScheme = nurseryColorScheme;
     vendor.modernColorScheme = modernColorScheme;
+    vendor.classicColorScheme = classicColorScheme;
     await vendor.save();
 
     return res.json({
@@ -758,6 +765,7 @@ router.put("/:vendorId/template", async (req, res) => {
       selectedTemplateKey,
       nurseryColorScheme: vendor.nurseryColorScheme || "",
       modernColorScheme: vendor.modernColorScheme || "",
+      classicColorScheme: vendor.classicColorScheme || "",
       template,
       vendor: vendor.toObject(),
     });

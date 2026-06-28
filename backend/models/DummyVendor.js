@@ -241,6 +241,12 @@ trustSummary: {
     default: "",
   },
 
+  classicColorScheme: {
+    type: String,
+    trim: true,
+    default: "",
+  },
+
   pricingSource: {
     type: String,
     enum: ["standard", "self_managed"],

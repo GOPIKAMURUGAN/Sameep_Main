@@ -375,6 +375,7 @@ const cardHandlers = {
           initialTemplateKey={currentVendorInfo?.selectedTemplateKey || ""}
           initialNurseryColorScheme={currentVendorInfo?.nurseryColorScheme || ""}
           initialModernColorScheme={currentVendorInfo?.modernColorScheme || ""}
+          initialClassicColorScheme={currentVendorInfo?.classicColorScheme || ""}
           onClose={() => setShowTemplateSelection(false)}
         />
       )}

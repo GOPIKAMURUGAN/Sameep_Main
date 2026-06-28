@@ -463,7 +463,16 @@ function getSocialHref(key, value) {
   if (!value) return "#";
   if (value.startsWith("http")) return value;
   if (key === "email") return `mailto:${value}`;
-  if (key === "whatsapp") return `https://wa.me/${String(value).replace(/\D/g, "")}`;
+  if (key === "whatsapp") {
+    const digits = String(value).replace(/\D/g, "");
+    const normalized =
+      digits.length === 10
+        ? `91${digits}`
+        : digits.length === 11 && digits.startsWith("0")
+        ? `91${digits.slice(1)}`
+        : digits;
+    return normalized ? `https://wa.me/${normalized}` : "#";
+  }
   return `https://${key}.com/${value}`;
 }
 

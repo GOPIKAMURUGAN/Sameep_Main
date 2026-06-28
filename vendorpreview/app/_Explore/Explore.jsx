@@ -3780,7 +3780,10 @@ function ExploreContent({ onReady, onOpenServices }) {
 
 
           {/* ✅ EXISTING EXPLORE CONTENT */}
-          <section id="categories" className="women-styling">
+          <section
+            id="categories"
+            className={`women-styling theme-${String(vendorInfo?.classicColorScheme || "blackgold").trim().toLowerCase() || "blackgold"}`}
+          >
             {/* CATEGORY NAVIGATION */}
             <div className="category-nav">
               {orderedCategories.map((section) => (
