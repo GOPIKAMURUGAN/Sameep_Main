@@ -70,6 +70,25 @@ function getTermsSummary(terms) {
   return splitTextList(terms).join(" • ");
 }
 
+function buildGoogleProfileLink({ mapsUrl, businessName, heroTagline, categoryName }) {
+  const googleMapsUrl = String(mapsUrl || "").trim();
+  if (!googleMapsUrl) return "";
+
+  let placeId = "";
+  if (googleMapsUrl.startsWith("place_id:")) {
+    placeId = googleMapsUrl.replace("place_id:", "");
+  } else if (googleMapsUrl.includes("place_id:")) {
+    placeId = googleMapsUrl.split("place_id:")[1];
+  }
+
+  if (!placeId) return googleMapsUrl;
+
+  const queryName = encodeURIComponent(
+    String(heroTagline || businessName || categoryName || "").trim()
+  );
+  return `https://www.google.com/maps/search/?api=1&query=${queryName}&query_place_id=${placeId}`;
+}
+
 function isOffersLabel(value) {
   return String(value || "").trim().toLowerCase() === "offers";
 }
@@ -423,6 +442,13 @@ function NurseryProductCard({ row, cartItem, onAddToCart, onIncreaseQty, onDecre
   const breadcrumbText = breadcrumbSegments.join(" / ");
   const displaySummary =
     row?.summary && row.summary !== breadcrumbText ? row.summary : "";
+  const packageIncludes = Array.isArray(row?.packagesIncludes)
+    ? row.packagesIncludes.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+  const termPoints = Array.isArray(row?.bulletPoints)
+    ? row.bulletPoints.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+  const shouldShowSummary = Boolean(displaySummary) && termPoints.length === 0;
 
   const handleAdd = () => {
     if (typeof onAddToCart !== "function") return;
@@ -452,7 +478,24 @@ function NurseryProductCard({ row, cartItem, onAddToCart, onIncreaseQty, onDecre
       <div className="nursery-product-body">
         {breadcrumbText ? <p className="nursery-product-breadcrumb">{breadcrumbText}</p> : null}
         <h3>{displayTitle}</h3>
-        {displaySummary ? <p className="nursery-product-summary">{displaySummary}</p> : null}
+        {shouldShowSummary ? <p className="nursery-product-summary">{displaySummary}</p> : null}
+        {packageIncludes.length > 0 ? (
+          <div className="nursery-product-meta-box">
+            <div className="nursery-product-meta-title">Package Includes</div>
+            <div className="nursery-product-package-list">
+              {packageIncludes.map((item, index) => (
+                <span key={`${row.id}-package-${index}`}>{item}</span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {termPoints.length > 0 ? (
+          <ul className="nursery-product-terms">
+            {termPoints.map((point, index) => (
+              <li key={`${row.id}-term-${index}`}>{point}</li>
+            ))}
+          </ul>
+        ) : null}
         <div className="nursery-mobile-product-copy">
           <strong>{displayTitle}</strong>
           {breadcrumbText ? <span>{breadcrumbText}</span> : null}
@@ -678,6 +721,16 @@ export default function NurseriesPreviewTemplate({
   const statEntries = useMemo(
     () => trustDisplayEntries.filter((entry) => !entry.isList),
     [trustDisplayEntries]
+  );
+  const googleProfileLink = useMemo(
+    () =>
+      buildGoogleProfileLink({
+        mapsUrl: vendorInfo?.googlePlace?.mapsUrl,
+        businessName: vendorInfo?.businessName,
+        heroTagline,
+        categoryName: category?.name,
+      }),
+    [category?.name, heroTagline, vendorInfo?.businessName, vendorInfo?.googlePlace?.mapsUrl]
   );
   const trustKeysKey = useMemo(
     () => trustEntries.map(([key]) => String(key || "").trim()).filter(Boolean).join("|"),
@@ -1039,15 +1092,32 @@ export default function NurseriesPreviewTemplate({
                 </div>
               ))}
               {typeof vendorInfo?.googlePlace?.rating === "number" ? (
-                <div className="nursery-stat-card">
-                  <strong>{vendorInfo.googlePlace.rating}*</strong>
-                  <span>
-                    Google Rating
-                    {vendorInfo?.googlePlace?.userRatingsTotal
-                      ? ` (${vendorInfo.googlePlace.userRatingsTotal})`
-                      : ""}
-                  </span>
-                </div>
+                googleProfileLink ? (
+                  <a
+                    className="nursery-stat-card is-link"
+                    href={googleProfileLink}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <strong>{vendorInfo.googlePlace.rating}*</strong>
+                    <span>
+                      Google Rating
+                      {vendorInfo?.googlePlace?.userRatingsTotal
+                        ? ` (${vendorInfo.googlePlace.userRatingsTotal})`
+                        : ""}
+                    </span>
+                  </a>
+                ) : (
+                  <div className="nursery-stat-card">
+                    <strong>{vendorInfo.googlePlace.rating}*</strong>
+                    <span>
+                      Google Rating
+                      {vendorInfo?.googlePlace?.userRatingsTotal
+                        ? ` (${vendorInfo.googlePlace.userRatingsTotal})`
+                        : ""}
+                    </span>
+                  </div>
+                )
               ) : null}
             </div>
           ) : null}

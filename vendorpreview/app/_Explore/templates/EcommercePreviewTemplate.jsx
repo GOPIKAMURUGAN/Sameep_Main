@@ -358,6 +358,7 @@ export default function EcommercePreviewTemplate({
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
   const [selectedVariantKeys, setSelectedVariantKeys] = useState({});
+  const [openVariantDropdownId, setOpenVariantDropdownId] = useState("");
   const [paymentConfig, setPaymentConfig] = useState({
     paymentEnabled: false,
     provider: "",
@@ -559,6 +560,28 @@ export default function EcommercePreviewTemplate({
     };
   }, [vendorId]);
 
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (!(event.target instanceof Element)) return;
+      if (event.target.closest(".ecommerce-variant-dropdown")) return;
+      setOpenVariantDropdownId("");
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setOpenVariantDropdownId("");
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   const handlePlaceOrder = () => {
     if (typeof window !== "undefined") {
       if (!showCheckoutForm) {
@@ -660,35 +683,8 @@ export default function EcommercePreviewTemplate({
         </div>
       </section>
 
-      <section className="ecommerce-summary-strip">
-        <div>
-          <span>Total MRP</span>
-          <strong>{formatCurrency(cartMrpTotal)}</strong>
-        </div>
-        <div>
-          <span>Discount</span>
-          <strong>{formatCurrency(cartDiscountTotal)}</strong>
-        </div>
-        <div>
-          <span>Net Pay</span>
-          <strong>{formatCurrency(cartTotal)}</strong>
-        </div>
-        <div className="ecommerce-summary-actions">
-          <button type="button" className="ecommerce-primary-button" onClick={handlePlaceOrder}>
-            {ecommercePrimaryCtaLabel}
-          </button>
-          <button type="button" className="ecommerce-secondary-button" onClick={onClearCart} disabled={!cartItems?.length}>
-            Clear
-          </button>
-        </div>
-      </section>
-
       <section id="ecommerce-catalog" className="ecommerce-catalog">
         <div className="ecommerce-catalog-heading">
-          <div className="ecommerce-catalog-heading-copy">
-            <h2>Product Catalog</h2>
-            <p>Enter quantities below. Totals update instantly.</p>
-          </div>
           <div className="ecommerce-catalog-toolbar">
             <div className="ecommerce-catalog-search">
               <input
@@ -800,6 +796,7 @@ export default function EcommercePreviewTemplate({
                   return Number(activeCartItem?.qty || 0) > 0;
                 }).length;
                 const groupIsActive = activeVariantsInCart > 0;
+                const isVariantMenuOpen = openVariantDropdownId === item.id;
 
                 return (
                   <div
@@ -822,7 +819,44 @@ export default function EcommercePreviewTemplate({
                         {item.subtitle ? <p>{item.subtitle}</p> : null}
                         {item.hasVariantSelector ? (
                           <div className="ecommerce-variant-selector">
-                            <span className="ecommerce-variant-label">Select variant</span>
+                            <div className="ecommerce-variant-dropdown">
+                              <button
+                                type="button"
+                                className={`ecommerce-variant-dropdown-trigger${isVariantMenuOpen ? " is-open" : ""}`}
+                                aria-haspopup="listbox"
+                                aria-expanded={isVariantMenuOpen}
+                                onClick={() =>
+                                  setOpenVariantDropdownId((current) => (current === item.id ? "" : item.id))
+                                }
+                              >
+                                <span>{selectedVariant.variantLabel}</span>
+                              </button>
+                              {isVariantMenuOpen ? (
+                                <div className="ecommerce-variant-dropdown-menu" role="listbox" aria-label={`Variants for ${item.name}`}>
+                                  {item.variants.map((variant) => {
+                                    const isSelected = selectedVariant.cartKey === variant.cartKey;
+                                    return (
+                                      <button
+                                        key={variant.cartKey || variant.id}
+                                        type="button"
+                                        role="option"
+                                        aria-selected={isSelected}
+                                        className={`ecommerce-variant-dropdown-option${isSelected ? " is-selected" : ""}`}
+                                        onClick={() => {
+                                          setSelectedVariantKeys((current) => ({
+                                            ...current,
+                                            [item.id]: variant.cartKey,
+                                          }));
+                                          setOpenVariantDropdownId("");
+                                        }}
+                                      >
+                                        {variant.variantLabel}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : null}
+                            </div>
                             <div className="ecommerce-variant-chips">
                               {item.variants.map((variant) => {
                                 const isSelected = selectedVariant.cartKey === variant.cartKey;
@@ -842,6 +876,24 @@ export default function EcommercePreviewTemplate({
                                   </button>
                                 );
                               })}
+                            </div>
+                            <div className="ecommerce-mobile-action-slot">
+                              {qty > 0 ? (
+                                <div className="ecommerce-qty-control">
+                                  <button type="button" onClick={() => onDecreaseQty(selectedVariant.cartKey)}>-</button>
+                                  <span>{qty}</span>
+                                  <button type="button" onClick={() => onIncreaseQty(selectedVariant.cartKey)}>+</button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="ecommerce-add-button"
+                                  onClick={() => onAddToCart(selectedVariant.rawNode)}
+                                  disabled={!selectedVariant.isOrderable}
+                                >
+                                  {selectedVariant.isOrderable ? "Add" : "Unavailable"}
+                                </button>
+                              )}
                             </div>
                           </div>
                         ) : null}
@@ -877,25 +929,6 @@ export default function EcommercePreviewTemplate({
 
                     <div className="ecommerce-mobile-compact-row">
                       <div className="ecommerce-mobile-compact-main">
-                        <div className="ecommerce-mobile-compact-group ecommerce-mobile-compact-group--qty">
-                          {qty > 0 ? (
-                            <div className="ecommerce-qty-control">
-                              <button type="button" onClick={() => onDecreaseQty(selectedVariant.cartKey)}>-</button>
-                              <span>{qty}</span>
-                              <button type="button" onClick={() => onIncreaseQty(selectedVariant.cartKey)}>+</button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              className="ecommerce-add-button"
-                              onClick={() => onAddToCart(selectedVariant.rawNode)}
-                              disabled={!selectedVariant.isOrderable}
-                            >
-                              {selectedVariant.isOrderable ? "Add" : "Unavailable"}
-                            </button>
-                          )}
-                        </div>
-
                         <div className="ecommerce-mobile-compact-group">
                           <span className="ecommerce-mobile-compact-label">MRP</span>
                           {referenceMrp ? <strong>{formatCurrency(referenceMrp)}</strong> : <strong>{formatCurrency(selectedVariant.price)}</strong>}
