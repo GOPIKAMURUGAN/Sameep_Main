@@ -606,6 +606,11 @@
   min-width: 0;
 }
 
+.ecommerce-product-cell > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .ecommerce-product-cell strong,
 .ecommerce-product-cell p,
 .ecommerce-product-cell small {
@@ -1334,7 +1339,7 @@
   .ecommerce-variant-selector {
     margin-top: 10px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) 88px;
     gap: 12px;
     align-items: end;
   }
@@ -1349,17 +1354,21 @@
     margin-top: 0;
     align-items: flex-end;
     justify-content: flex-end;
+    justify-self: end;
+    width: 88px;
   }
 
   .ecommerce-mobile-action-slot .ecommerce-add-button,
   .ecommerce-mobile-action-slot .ecommerce-qty-control {
-    width: auto;
+    width: 88px;
     max-width: none;
   }
 
   .ecommerce-mobile-action-slot .ecommerce-add-button {
     justify-content: center;
     min-height: 48px;
+    min-width: 88px;
+    padding: 12px 10px;
   }
 
   .ecommerce-qty-cell,
@@ -1443,7 +1452,7 @@
   }
 
   .ecommerce-add-button {
-    min-width: 126px;
+    min-width: 96px;
     min-height: 48px;
   }
 
