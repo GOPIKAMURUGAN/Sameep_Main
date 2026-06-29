@@ -149,7 +149,27 @@ function getResolvedPricing(node) {
   };
 }
 
-function collectLeafItems(nodes, pathNames = [], inheritedImageUrl = "") {
+function splitTextList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+
+  return String(value || "")
+    .split(/\r?\n|,|•/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function getTermsSummary(terms) {
+  return splitTextList(terms).slice(0, 2).join(" • ");
+}
+
+function collectLeafItems(
+  nodes,
+  pathNames = [],
+  inheritedImageUrl = "",
+  inheritedMeta = { terms: [], packagesIncludes: [] }
+) {
   const items = [];
 
   const buildDisplayInfo = (path) => {
@@ -177,6 +197,11 @@ function collectLeafItems(nodes, pathNames = [], inheritedImageUrl = "") {
     const currentPath = [...pathNames, node.name].filter(Boolean);
     const hasChildren = Array.isArray(node.children) && node.children.length > 0;
     const resolvedImageUrl = String(node.imageUrl || inheritedImageUrl || "").trim();
+    const nodeTerms = splitTextList(node.terms);
+    const nodePackagesIncludes = splitTextList(node.packagesIncludes);
+    const resolvedTerms = nodeTerms.length > 0 ? nodeTerms : inheritedMeta.terms;
+    const resolvedPackagesIncludes =
+      nodePackagesIncludes.length > 0 ? nodePackagesIncludes : inheritedMeta.packagesIncludes;
     const displayInfo = buildDisplayInfo(currentPath);
 
     if (node.isLeaf && node.price !== null && node.price !== undefined) {
@@ -187,6 +212,8 @@ function collectLeafItems(nodes, pathNames = [], inheritedImageUrl = "") {
         displayName: displayInfo.name,
         nodePath: currentPath,
         imageUrl: resolvedImageUrl,
+        terms: resolvedTerms,
+        packagesIncludes: resolvedPackagesIncludes,
         price: pricing.netPrice,
         mrp: pricing.mrp,
         discountPercent: pricing.discountPercent,
@@ -201,6 +228,9 @@ function collectLeafItems(nodes, pathNames = [], inheritedImageUrl = "") {
         unitLabel: node.unitLabel || "",
         nodePath: currentPath,
         imageUrl: resolvedImageUrl,
+        summary: getTermsSummary(resolvedTerms),
+        bulletPoints: resolvedTerms,
+        packagesIncludes: resolvedPackagesIncludes,
         price: pricing.netPrice,
         mrp: pricing.mrp,
         discountPercent: pricing.discountPercent,
@@ -213,7 +243,12 @@ function collectLeafItems(nodes, pathNames = [], inheritedImageUrl = "") {
     }
 
     if (hasChildren) {
-      items.push(...collectLeafItems(node.children, currentPath, resolvedImageUrl));
+      items.push(
+        ...collectLeafItems(node.children, currentPath, resolvedImageUrl, {
+          terms: resolvedTerms,
+          packagesIncludes: resolvedPackagesIncludes,
+        })
+      );
     }
   });
 
@@ -250,6 +285,9 @@ function buildGroupedItems(items) {
         itemCode: "",
         unitLabel: "",
         imageUrl: item.imageUrl || "",
+        summary: "",
+        bulletPoints: [],
+        packagesIncludes: [],
         isOrderable: false,
         minQty: Math.max(1, Number(item.minQty) || 1),
         stepQty: Math.max(1, Number(item.stepQty) || 1),
@@ -273,6 +311,10 @@ function buildGroupedItems(items) {
     group.imageUrl = group.imageUrl || item.imageUrl || "";
     group.itemCode = group.itemCode || item.itemCode || "";
     group.unitLabel = group.unitLabel || item.unitLabel || "";
+    group.summary = group.summary || item.summary || "";
+    group.bulletPoints = group.bulletPoints.length > 0 ? group.bulletPoints : item.bulletPoints || [];
+    group.packagesIncludes =
+      group.packagesIncludes.length > 0 ? group.packagesIncludes : item.packagesIncludes || [];
     group.isOrderable = group.isOrderable || item.isOrderable !== false;
     group.minQty = Math.min(group.minQty, Math.max(1, Number(item.minQty) || 1));
     group.stepQty = Math.min(group.stepQty, Math.max(1, Number(item.stepQty) || 1));
@@ -806,6 +848,14 @@ export default function EcommercePreviewTemplate({
                 }).length;
                 const groupIsActive = activeVariantsInCart > 0;
                 const isVariantMenuOpen = openVariantDropdownId === item.id;
+                const packageIncludes = Array.isArray(selectedVariant.packagesIncludes)
+                  ? selectedVariant.packagesIncludes.filter(Boolean)
+                  : [];
+                const termPoints = Array.isArray(selectedVariant.bulletPoints)
+                  ? selectedVariant.bulletPoints.filter(Boolean)
+                  : [];
+                const displaySummary =
+                  termPoints.length === 0 ? String(selectedVariant.summary || "").trim() : "";
 
                 return (
                   <div
@@ -826,6 +876,26 @@ export default function EcommercePreviewTemplate({
                         <strong>{item.name}</strong>
                         {selectedVariant.itemCode ? <small>{selectedVariant.itemCode}</small> : null}
                         {item.subtitle ? <p>{item.subtitle}</p> : null}
+                        {displaySummary ? (
+                          <div className="ecommerce-product-summary">{displaySummary}</div>
+                        ) : null}
+                        {packageIncludes.length > 0 ? (
+                          <div className="ecommerce-product-meta-box">
+                            <div className="ecommerce-product-meta-title">Package Includes</div>
+                            <div className="ecommerce-product-package-list">
+                              {packageIncludes.map((packageItem, packageIndex) => (
+                                <span key={`${selectedVariant.cartKey}-package-${packageIndex}`}>{packageItem}</span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                        {termPoints.length > 0 ? (
+                          <ul className="ecommerce-product-terms">
+                            {termPoints.map((point, pointIndex) => (
+                              <li key={`${selectedVariant.cartKey}-term-${pointIndex}`}>{point}</li>
+                            ))}
+                          </ul>
+                        ) : null}
                         {item.hasVariantSelector ? (
                           <div className="ecommerce-variant-selector">
                             <div className="ecommerce-variant-dropdown">
