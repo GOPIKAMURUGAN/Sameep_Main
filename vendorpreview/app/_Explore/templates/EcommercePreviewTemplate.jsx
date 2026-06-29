@@ -897,6 +897,26 @@ export default function EcommercePreviewTemplate({
                             </div>
                           </div>
                         ) : null}
+                        {!item.hasVariantSelector ? (
+                          <div className="ecommerce-mobile-action-slot">
+                            {qty > 0 ? (
+                              <div className="ecommerce-qty-control">
+                                <button type="button" onClick={() => onDecreaseQty(selectedVariant.cartKey)}>-</button>
+                                <span>{qty}</span>
+                                <button type="button" onClick={() => onIncreaseQty(selectedVariant.cartKey)}>+</button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                className="ecommerce-add-button"
+                                onClick={() => onAddToCart(selectedVariant.rawNode)}
+                                disabled={!selectedVariant.isOrderable}
+                              >
+                                {selectedVariant.isOrderable ? "Add" : "Unavailable"}
+                              </button>
+                            )}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
 
