@@ -5,7 +5,7 @@ import { API_BASE_URL } from "../../../config";
 import { useVendor } from "../../context/VendorContext";
 import "./LoyaltySettings.css";
 
-export default function LoyaltySettings({ vendorId, rootCategoryId, onBack, onClose }) {
+export default function LoyaltySettings({ vendorId, rootCategoryId, onBack }) {
   const [loadingRule, setLoadingRule] = useState(false);
   const [savingRule, setSavingRule] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -117,7 +117,8 @@ export default function LoyaltySettings({ vendorId, rootCategoryId, onBack, onCl
       <div className="loyalty-settings-shell">
         <div className="loyalty-settings-header">
           <button type="button" className="loyalty-settings-nav-btn" onClick={onBack}>
-            Back
+            <span aria-hidden="true">←</span>
+            <span>Back</span>
           </button>
           <div className="loyalty-settings-title-wrap">
             <div className="loyalty-settings-title">Loyalty Settings</div>
@@ -125,9 +126,6 @@ export default function LoyaltySettings({ vendorId, rootCategoryId, onBack, onCl
               Configure earning percentage, point expiry, and program status.
             </div>
           </div>
-          <button type="button" className="loyalty-settings-close-btn" onClick={onClose}>
-            Close
-          </button>
         </div>
 
         <div className="loyalty-settings-panel">

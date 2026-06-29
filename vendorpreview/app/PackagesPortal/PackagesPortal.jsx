@@ -1763,6 +1763,15 @@ async function updateService(service, status) {
   return (
     <div className="packages-overlay">
       <div className="packages-card">
+        <button
+          type="button"
+          className="services-page-back-btn"
+          onClick={() => path.length ? setPath(path.slice(0, -1)) : onClose()}
+        >
+          <span aria-hidden="true">←</span>
+          <span>Back</span>
+        </button>
+
         <div className="pricing-source-card">
           <div className="pricing-source-copy">
             <div className="pricing-source-label">Pricing Source</div>
@@ -1850,12 +1859,6 @@ async function updateService(service, status) {
 
         {/* HEADER */}
         <div className="services-header">
-          <span
-            className="back-arrow"
-            onClick={() => path.length ? setPath(path.slice(0, -1)) : onClose()}
-          >
-            ←
-          </span>
           <div className="header-text">
             <h2>{showingRoot ? "Packages" : currentNode.name}</h2>
             <p className="section-path">

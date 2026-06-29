@@ -18,7 +18,6 @@ import PaymentSettingsModal from "../../Profile/PaymentSettingsModal";
 function ProfileDashboard({
   vendorInfo,
   categorySocials,
-  onBack,
   onOpenServices,
 }) {
   const formatTemplateName = (value) =>
@@ -253,14 +252,6 @@ const cardHandlers = {
 
   return (
     <div className="profile-dashboard">
-      <button
-        className="dashboard-back-btn"
-        type="button"
-        onClick={onBack}
-      >
-        Back
-      </button>
-
       {activePanel === "home" && (
         <div className="profile-grid">
           {profileCards.map((card) => (

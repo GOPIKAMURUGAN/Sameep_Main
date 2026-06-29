@@ -1506,6 +1506,21 @@ function ExploreContent({ onReady, onOpenServices }) {
     setServiceType(type);
     setOpenServices(true);
   };
+  const renderDashboardHeader = (title, onBack) => (
+    <div className="new-dashboard-header">
+      <button
+        className="new-dashboard-nav-btn"
+        type="button"
+        onClick={onBack}
+      >
+        <span aria-hidden="true">←</span>
+        <span>Back</span>
+      </button>
+      <div className="new-dashboard-title">
+        {title}
+      </div>
+    </div>
+  );
   const verifyOtp = async () => {
     if (!otp || otp.length < 4) {
       alert("Enter valid OTP");
@@ -4977,7 +4992,6 @@ function ExploreContent({ onReady, onOpenServices }) {
           vendorId={vendorId}
           rootCategoryId={rootCategoryId}
           onBack={() => setViewMode("new-dashboard")}
-          onClose={() => setViewMode("preview")}
         />
       )}
 
@@ -5104,18 +5118,7 @@ function ExploreContent({ onReady, onOpenServices }) {
       {viewMode === "new-dashboard" && (
         <div className="new-dashboard-overlay">
           <div className="new-dashboard-shell">
-            <div className="new-dashboard-header">
-              <div className="new-dashboard-title">
-                New Dashboard
-              </div>
-              <button
-                className="new-dashboard-close-btn"
-                type="button"
-                onClick={() => setViewMode("preview")}
-              >
-                Close
-              </button>
-            </div>
+            {renderDashboardHeader("Dashboard", () => setViewMode("preview"))}
 
             <div className="new-dashboard-grid">
               <div
@@ -5271,23 +5274,11 @@ function ExploreContent({ onReady, onOpenServices }) {
       {viewMode === "profile-dashboard" && (
         <div className="new-dashboard-overlay">
           <div className="new-dashboard-shell">
-            <div className="new-dashboard-header">
-              <div className="new-dashboard-title">
-                Profile Dashboard
-              </div>
-              <button
-                className="new-dashboard-close-btn"
-                type="button"
-                onClick={() => setViewMode("preview")}
-              >
-                Close
-              </button>
-            </div>
+            {renderDashboardHeader("Profile Dashboard", () => setViewMode("new-dashboard"))}
 
             <ProfileDashboard
               vendorInfo={vendorInfo}
               categorySocials={hrCategory?.socialHandle ?? null}
-              onBack={() => setViewMode("new-dashboard")}
               onOpenServices={handleOpenServices}
             />
           </div>
@@ -5297,25 +5288,7 @@ function ExploreContent({ onReady, onOpenServices }) {
       {viewMode === "revenue-dashboard" && (
         <div className="new-dashboard-overlay">
           <div className="new-dashboard-shell">
-            <div className="new-dashboard-header">
-              <button
-                className="new-dashboard-nav-btn"
-                type="button"
-                onClick={() => setViewMode("new-dashboard")}
-              >
-                Back
-              </button>
-              <div className="new-dashboard-title">
-                Revenue Dashboard
-              </div>
-              <button
-                className="new-dashboard-close-btn"
-                type="button"
-                onClick={() => setViewMode("preview")}
-              >
-                Close
-              </button>
-            </div>
+            {renderDashboardHeader("Revenue Dashboard", () => setViewMode("new-dashboard"))}
 
             <div className="new-dashboard-grid">
               {[
@@ -5406,18 +5379,7 @@ function ExploreContent({ onReady, onOpenServices }) {
       {viewMode === "stylists-dashboard" && hrEnabled && (
         <div className="new-dashboard-overlay">
           <div className="new-dashboard-shell">
-            <div className="new-dashboard-header">
-              <div className="new-dashboard-title">
-                {hrDashboardTitle}
-              </div>
-              <button
-                className="new-dashboard-close-btn"
-                type="button"
-                onClick={() => setViewMode("new-dashboard")}
-              >
-                Close
-              </button>
-            </div>
+            {renderDashboardHeader(hrDashboardTitle, () => setViewMode("new-dashboard"))}
 
             <MyStylists
               vendorId={vendorId}
@@ -5430,25 +5392,7 @@ function ExploreContent({ onReady, onOpenServices }) {
       {viewMode === "website-analytics-dashboard" && (
         <div className="new-dashboard-overlay">
           <div className="new-dashboard-shell">
-            <div className="new-dashboard-header">
-              <button
-                className="new-dashboard-nav-btn"
-                type="button"
-                onClick={() => setViewMode("new-dashboard")}
-              >
-                Back
-              </button>
-              <div className="new-dashboard-title">
-                Website Analytics
-              </div>
-              <button
-                className="new-dashboard-close-btn"
-                type="button"
-                onClick={() => setViewMode("preview")}
-              >
-                Close
-              </button>
-            </div>
+            {renderDashboardHeader("Website Analytics", () => setViewMode("new-dashboard"))}
 
             <WebsiteAnalyticsDashboard vendorId={vendorId} />
           </div>
@@ -5457,30 +5401,10 @@ function ExploreContent({ onReady, onOpenServices }) {
       {viewMode === "subscription-dashboard" && (
         <div className="new-dashboard-overlay">
           <div className="new-dashboard-shell">
-
-            <div className="new-dashboard-header">
-              <button
-                className="new-dashboard-nav-btn"
-                onClick={() => setViewMode("new-dashboard")}
-              >
-                Back
-              </button>
-
-              <div className="new-dashboard-title">
-                Subscription
-              </div>
-
-              <button
-                className="new-dashboard-close-btn"
-                onClick={() => setViewMode("preview")}
-              >
-                Close
-              </button>
-            </div>
+            {renderDashboardHeader("Subscription", () => setViewMode("new-dashboard"))}
 
             <SubscriptionDashboard
               vendorId={vendorId}
-              onBack={() => setViewMode("new-dashboard")}
             />
 
           </div>
@@ -5490,27 +5414,7 @@ function ExploreContent({ onReady, onOpenServices }) {
       {viewMode === "enquiries-dashboard" && (
         <div className="new-dashboard-overlay">
           <div className="new-dashboard-shell">
-            <div className="new-dashboard-header">
-              <button
-                className="new-dashboard-nav-btn"
-                type="button"
-                onClick={() => setViewMode("new-dashboard")}
-              >
-                Back
-              </button>
-
-              <div className="new-dashboard-title">
-                Enquiries
-              </div>
-
-              <button
-                className="new-dashboard-close-btn"
-                type="button"
-                onClick={() => setViewMode("preview")}
-              >
-                Close
-              </button>
-            </div>
+            {renderDashboardHeader("Enquiries", () => setViewMode("new-dashboard"))}
 
             <EnquiriesDashboard
               vendorId={vendorId}

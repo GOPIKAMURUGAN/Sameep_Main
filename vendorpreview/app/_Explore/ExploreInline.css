@@ -1463,6 +1463,7 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .new-dashboard-title {
@@ -1481,12 +1482,16 @@
 }
 
 .new-dashboard-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 12px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
   color: #f3f3f3;
   cursor: pointer;
+  font-weight: 700;
 }
 
 .new-dashboard-grid {

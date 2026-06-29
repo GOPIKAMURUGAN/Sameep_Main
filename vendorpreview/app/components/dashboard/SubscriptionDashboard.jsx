@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { API_BASE_URL } from "../../../config";
 import "./SubscriptionDashboard.css";
 
-export default function SubscriptionDashboard({ vendorId, onBack }) {
+export default function SubscriptionDashboard({ vendorId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -53,17 +53,6 @@ export default function SubscriptionDashboard({ vendorId, onBack }) {
 
   return (
     <section className="subscription-panel">
-
-      <div className="subscription-header">
-        <button className="subscription-back" onClick={onBack}>
-          Back
-        </button>
-
-        <div className="subscription-title">
-          Subscription
-        </div>
-      </div>
-
       {loading ? (
         <div className="subscription-loading">
           Loading subscription...

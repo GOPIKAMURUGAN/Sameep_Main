@@ -35,7 +35,7 @@
 .loyalty-settings-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 16px;
 
   padding: 18px 22px;
   border-bottom: 1px solid rgba(230,195,122,0.15);
@@ -58,8 +58,10 @@
   color: rgba(255,255,255,0.65);
 }
 
-.loyalty-settings-nav-btn,
-.loyalty-settings-close-btn {
+.loyalty-settings-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   background: transparent;
   border: 1px solid rgba(230,195,122,0.35);
   color: #e6c37a;
@@ -70,8 +72,7 @@
   transition: 0.25s;
 }
 
-.loyalty-settings-nav-btn:hover,
-.loyalty-settings-close-btn:hover {
+.loyalty-settings-nav-btn:hover {
   background: rgba(230,195,122,0.15);
 }
 
