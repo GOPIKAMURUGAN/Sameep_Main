@@ -220,12 +220,78 @@ function collectLeafItems(nodes, pathNames = [], inheritedImageUrl = "") {
   return items;
 }
 
+function buildGroupedItems(items) {
+  const groups = new Map();
+
+  (Array.isArray(items) ? items : []).forEach((item, index) => {
+    if (!item) return;
+
+    const nodePath = (Array.isArray(item.nodePath) ? item.nodePath : [])
+      .map((segment) => String(segment || "").trim())
+      .filter(Boolean);
+    const hasHierarchyVariant = nodePath.length > 2;
+    const parentPath = hasHierarchyVariant ? nodePath.slice(0, -1) : nodePath;
+    const variantLabel = hasHierarchyVariant
+      ? nodePath[nodePath.length - 1]
+      : String(item.unitLabel || "").trim();
+    const groupPath = parentPath.length > 0 ? parentPath : nodePath;
+    const groupName = groupPath.length > 0 ? groupPath[groupPath.length - 1] : item.name || "Item";
+    const groupSubtitle =
+      groupPath.length > 1 ? groupPath.slice(0, -1).join(" / ") : String(item.subtitle || "").trim();
+    const groupKey =
+      groupPath.length > 0 ? groupPath.join("||") : `item||${item.id || item.cartKey || index}`;
+
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, {
+        id: groupKey,
+        name: groupName,
+        subtitle: groupSubtitle,
+        nodePath: groupPath,
+        itemCode: "",
+        unitLabel: "",
+        imageUrl: item.imageUrl || "",
+        isOrderable: false,
+        minQty: Math.max(1, Number(item.minQty) || 1),
+        stepQty: Math.max(1, Number(item.stepQty) || 1),
+        hasVariantSelector: false,
+        variants: [],
+      });
+    }
+
+    const group = groups.get(groupKey);
+    const normalizedVariantLabel = String(variantLabel || "").trim();
+    const normalizedGroupName = String(groupName || "").trim();
+
+    group.variants.push({
+      ...item,
+      variantLabel: normalizedVariantLabel || item.name || "Default",
+      variantSortOrder: index,
+    });
+    group.hasVariantSelector =
+      group.hasVariantSelector ||
+      Boolean(normalizedVariantLabel && normalizedVariantLabel !== normalizedGroupName);
+    group.imageUrl = group.imageUrl || item.imageUrl || "";
+    group.itemCode = group.itemCode || item.itemCode || "";
+    group.unitLabel = group.unitLabel || item.unitLabel || "";
+    group.isOrderable = group.isOrderable || item.isOrderable !== false;
+    group.minQty = Math.min(group.minQty, Math.max(1, Number(item.minQty) || 1));
+    group.stepQty = Math.min(group.stepQty, Math.max(1, Number(item.stepQty) || 1));
+  });
+
+  return Array.from(groups.values()).map((group) => ({
+    ...group,
+    variants: group.variants.sort((left, right) => left.variantSortOrder - right.variantSortOrder),
+    defaultVariantKey: group.variants[0]?.cartKey || group.variants[0]?.id || group.id,
+  }));
+}
+
 function buildSections(menuTree) {
   return (Array.isArray(menuTree) ? menuTree : [])
     .map((section, index) => {
-      const items = section?.isLeaf
+      const leafItems = section?.isLeaf
         ? collectLeafItems([section], [])
         : collectLeafItems(section?.children || [], [section?.name].filter(Boolean));
+      const items = buildGroupedItems(leafItems);
 
       if (!items.length) return null;
 
@@ -243,6 +309,27 @@ function buildSections(menuTree) {
 function getCartItem(cartItems, item) {
   return (Array.isArray(cartItems) ? cartItems : []).find(
     (entry) => (entry.cartKey || entry.itemId) === item.cartKey
+  );
+}
+
+function getSelectedVariant(groupItem, selectedVariantKey, cartItems) {
+  const variants = Array.isArray(groupItem?.variants) ? groupItem.variants : [];
+  if (!variants.length) return null;
+
+  if (selectedVariantKey) {
+    const matchedVariant = variants.find((variant) => variant.cartKey === selectedVariantKey);
+    if (matchedVariant) return matchedVariant;
+  }
+
+  const activeVariant = variants.find((variant) => {
+    const cartItem = getCartItem(cartItems, variant);
+    return Number(cartItem?.qty || 0) > 0;
+  });
+  if (activeVariant) return activeVariant;
+
+  return (
+    variants.find((variant) => variant.cartKey === groupItem.defaultVariantKey) ||
+    variants[0]
   );
 }
 
@@ -270,6 +357,7 @@ export default function EcommercePreviewTemplate({
   const [catalogSearch, setCatalogSearch] = useState("");
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
+  const [selectedVariantKeys, setSelectedVariantKeys] = useState({});
   const [paymentConfig, setPaymentConfig] = useState({
     paymentEnabled: false,
     provider: "",
@@ -365,6 +453,7 @@ export default function EcommercePreviewTemplate({
             item.subtitle,
             item.itemCode,
             item.unitLabel,
+            ...(Array.isArray(item.variants) ? item.variants.map((variant) => variant.variantLabel) : []),
           ]
             .map((value) => String(value || "").toLowerCase())
             .join(" ");
@@ -691,25 +780,37 @@ export default function EcommercePreviewTemplate({
               </div>
 
               {section.items.map((item, index) => {
-                const cartItem = getCartItem(cartItems, item);
+                const selectedVariant = getSelectedVariant(
+                  item,
+                  selectedVariantKeys[item.id],
+                  cartItems
+                );
+                if (!selectedVariant) return null;
+
+                const cartItem = getCartItem(cartItems, selectedVariant);
                 const qty = Number(cartItem?.qty || 0);
-                const discountLabel = getDiscountLabel(item);
-                const referenceMrp = Number(item.mrp) > 0 ? Number(item.mrp) : null;
-                const effectiveMrp = referenceMrp || Number(item.price) || 0;
+                const discountLabel = getDiscountLabel(selectedVariant);
+                const referenceMrp = Number(selectedVariant.mrp) > 0 ? Number(selectedVariant.mrp) : null;
+                const effectiveMrp = referenceMrp || Number(selectedVariant.price) || 0;
                 const grossAmount = qty > 0 ? effectiveMrp * qty : 0;
-                const netAmount = qty > 0 ? (Number(item.price) || 0) * qty : 0;
+                const netAmount = qty > 0 ? (Number(selectedVariant.price) || 0) * qty : 0;
                 const savingsAmount = Math.max(grossAmount - netAmount, 0);
+                const activeVariantsInCart = (Array.isArray(item.variants) ? item.variants : []).filter((variant) => {
+                  const activeCartItem = getCartItem(cartItems, variant);
+                  return Number(activeCartItem?.qty || 0) > 0;
+                }).length;
+                const groupIsActive = activeVariantsInCart > 0;
 
                 return (
                   <div
                     key={item.id}
-                    className={`ecommerce-table-row${qty > 0 ? " ecommerce-table-row--active" : ""}`}
+                    className={`ecommerce-table-row${groupIsActive ? " ecommerce-table-row--active" : ""}`}
                   >
                     <span className="ecommerce-row-index">{String(index + 1).padStart(2, "0")}</span>
 
                     <div className="ecommerce-product-cell">
-                      {item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.name} className="ecommerce-product-image" />
+                      {selectedVariant.imageUrl ? (
+                        <img src={selectedVariant.imageUrl} alt={item.name} className="ecommerce-product-image" />
                       ) : (
                         <div className="ecommerce-product-image ecommerce-product-image--placeholder">
                           {item.name.charAt(0).toUpperCase()}
@@ -717,33 +818,59 @@ export default function EcommercePreviewTemplate({
                       )}
                       <div>
                         <strong>{item.name}</strong>
-                        {item.itemCode ? <small>{item.itemCode}</small> : null}
+                        {selectedVariant.itemCode ? <small>{selectedVariant.itemCode}</small> : null}
                         {item.subtitle ? <p>{item.subtitle}</p> : null}
+                        {item.hasVariantSelector ? (
+                          <div className="ecommerce-variant-selector">
+                            <span className="ecommerce-variant-label">Select variant</span>
+                            <div className="ecommerce-variant-chips">
+                              {item.variants.map((variant) => {
+                                const isSelected = selectedVariant.cartKey === variant.cartKey;
+                                return (
+                                  <button
+                                    key={variant.cartKey || variant.id}
+                                    type="button"
+                                    className={`ecommerce-variant-chip${isSelected ? " is-active" : ""}`}
+                                    onClick={() =>
+                                      setSelectedVariantKeys((current) => ({
+                                        ...current,
+                                        [item.id]: variant.cartKey,
+                                      }))
+                                    }
+                                  >
+                                    {variant.variantLabel}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
 
                     <div className="ecommerce-qty-cell">
                       {qty > 0 ? (
                         <div className="ecommerce-qty-control">
-                          <button type="button" onClick={() => onDecreaseQty(item.cartKey)}>-</button>
+                          <button type="button" onClick={() => onDecreaseQty(selectedVariant.cartKey)}>-</button>
                           <span>{qty}</span>
-                          <button type="button" onClick={() => onIncreaseQty(item.cartKey)}>+</button>
+                          <button type="button" onClick={() => onIncreaseQty(selectedVariant.cartKey)}>+</button>
                         </div>
                       ) : (
                         <button
                           type="button"
                           className="ecommerce-add-button"
-                          onClick={() => onAddToCart(item.rawNode)}
-                          disabled={!item.isOrderable}
+                          onClick={() => onAddToCart(selectedVariant.rawNode)}
+                          disabled={!selectedVariant.isOrderable}
                         >
-                          {item.isOrderable ? "Add" : "Unavailable"}
+                          {selectedVariant.isOrderable ? "Add" : "Unavailable"}
                         </button>
                       )}
-                      {(item.minQty > 1 || item.stepQty > 1 || item.unitLabel) ? (
+                      {(selectedVariant.minQty > 1 || selectedVariant.stepQty > 1 || selectedVariant.unitLabel || activeVariantsInCart > 1) ? (
                         <small>
-                          Min {item.minQty}
-                          {item.stepQty > 1 ? ` • Step ${item.stepQty}` : ""}
-                          {item.unitLabel ? ` • ${item.unitLabel}` : ""}
+                          {selectedVariant.minQty > 1 ? `Min ${selectedVariant.minQty}` : ""}
+                          {selectedVariant.stepQty > 1 ? `${selectedVariant.minQty > 1 ? " • " : ""}Step ${selectedVariant.stepQty}` : ""}
+                          {selectedVariant.unitLabel ? `${selectedVariant.minQty > 1 || selectedVariant.stepQty > 1 ? " • " : ""}${selectedVariant.unitLabel}` : ""}
+                          {activeVariantsInCart > 1 ? `${selectedVariant.minQty > 1 || selectedVariant.stepQty > 1 || selectedVariant.unitLabel ? " • " : ""}${activeVariantsInCart} variants in cart` : ""}
                         </small>
                       ) : null}
                     </div>
@@ -753,25 +880,25 @@ export default function EcommercePreviewTemplate({
                         <div className="ecommerce-mobile-compact-group ecommerce-mobile-compact-group--qty">
                           {qty > 0 ? (
                             <div className="ecommerce-qty-control">
-                              <button type="button" onClick={() => onDecreaseQty(item.cartKey)}>-</button>
+                              <button type="button" onClick={() => onDecreaseQty(selectedVariant.cartKey)}>-</button>
                               <span>{qty}</span>
-                              <button type="button" onClick={() => onIncreaseQty(item.cartKey)}>+</button>
+                              <button type="button" onClick={() => onIncreaseQty(selectedVariant.cartKey)}>+</button>
                             </div>
                           ) : (
                             <button
                               type="button"
                               className="ecommerce-add-button"
-                              onClick={() => onAddToCart(item.rawNode)}
-                              disabled={!item.isOrderable}
+                              onClick={() => onAddToCart(selectedVariant.rawNode)}
+                              disabled={!selectedVariant.isOrderable}
                             >
-                              {item.isOrderable ? "Add" : "Unavailable"}
+                              {selectedVariant.isOrderable ? "Add" : "Unavailable"}
                             </button>
                           )}
                         </div>
 
                         <div className="ecommerce-mobile-compact-group">
                           <span className="ecommerce-mobile-compact-label">MRP</span>
-                          {referenceMrp ? <strong>{formatCurrency(referenceMrp)}</strong> : <strong>{formatCurrency(item.price)}</strong>}
+                          {referenceMrp ? <strong>{formatCurrency(referenceMrp)}</strong> : <strong>{formatCurrency(selectedVariant.price)}</strong>}
                         </div>
 
                         <div className="ecommerce-mobile-compact-group">
@@ -788,14 +915,14 @@ export default function EcommercePreviewTemplate({
                             {savingsAmount > 0 ? <small>save {formatCurrency(savingsAmount)}</small> : null}
                           </>
                         ) : (
-                          <strong>{formatCurrency(item.price)}</strong>
+                          <strong>{formatCurrency(selectedVariant.price)}</strong>
                         )}
                       </div>
                     </div>
 
                     <div className="ecommerce-price-cell">
-                      {referenceMrp ? <strong>{formatCurrency(referenceMrp)}</strong> : <strong>{formatCurrency(item.price)}</strong>}
-                      {referenceMrp && referenceMrp > item.price ? <small>{formatCurrency(item.price)}</small> : null}
+                      {referenceMrp ? <strong>{formatCurrency(referenceMrp)}</strong> : <strong>{formatCurrency(selectedVariant.price)}</strong>}
+                      {referenceMrp && referenceMrp > selectedVariant.price ? <small>{formatCurrency(selectedVariant.price)}</small> : null}
                     </div>
 
                     <div className="ecommerce-discount-cell">
@@ -813,7 +940,7 @@ export default function EcommercePreviewTemplate({
                           {savingsAmount > 0 ? <small>save {formatCurrency(savingsAmount)}</small> : null}
                         </>
                       ) : (
-                        <strong>{formatCurrency(item.price)}</strong>
+                        <strong>{formatCurrency(selectedVariant.price)}</strong>
                       )}
                     </div>
                   </div>

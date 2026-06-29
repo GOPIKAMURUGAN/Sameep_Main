@@ -58,6 +58,15 @@ const SUPPORTED_PREVIEW_TEMPLATES = [
     isDefault: false,
     sortOrder: 6,
   },
+  {
+    key: "premium_light",
+    name: "Premium Light",
+    description: "Modern service-first template with airy premium layouts, dynamic service cards and integrated appointment flow.",
+    previewHint: "Best for salons, clinics, studios and other service businesses that want a polished light experience.",
+    status: "Active",
+    isDefault: false,
+    sortOrder: 7,
+  },
 ];
 
 async function syncSupportedTemplates() {

@@ -28,12 +28,13 @@ import ModernPreviewTemplate from "./templates/ModernPreviewTemplate";
 import CatalogPreviewTemplate from "./templates/CatalogPreviewTemplate";
 import NurseriesPreviewTemplate from "./templates/NurseriesPreviewTemplate";
 import EcommercePreviewTemplate from "./templates/EcommercePreviewTemplate";
+import PremiumLightPreviewTemplate from "./templates/PremiumLightPreviewTemplate";
 import { CART_UPDATED_EVENT, ENQUIRY_OPEN_EVENT } from "../utils/enquiryFlow";
 const FOOTER_GALLERY_OPEN_EVENT = "ynot-footer-open-gallery";
 
 function normalizePreviewTemplateKey(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return ["classic", "modern", "catalog", "astrology", "nurseries", "ecommerce"].includes(normalized) ? normalized : "";
+  return ["classic", "modern", "catalog", "astrology", "nurseries", "ecommerce", "premium_light"].includes(normalized) ? normalized : "";
 }
 // import { useLoginPopup } from "./LoginPopupContext";
 
@@ -3753,6 +3754,27 @@ function ExploreContent({ onReady, onOpenServices }) {
           onOpenAdminMenu={openQuickActionMenu}
           onOpenAdminDashboard={openQuickActionDashboard}
           onOpenAdmin={() => setShowOptions((prev) => !prev)}
+        />
+      ) : activeTemplateKey === "premium_light" ? (
+        <PremiumLightPreviewTemplate
+          vendorInfo={vendorInfo}
+          category={previewCategory}
+          orderedCategories={orderedCategories}
+          sectionsWithHeading={sectionsWithHeading}
+          cardsWithoutHeading={cardsWithoutHeading}
+          mergedHeroImages={mergedHeroImages}
+          heroTagline={heroTagline}
+          heroDescription={heroDescription}
+          onOpenGallery={() => {
+            setGalleryReadOnly(true);
+            setServiceType("gallery");
+            setOpenServices(true);
+          }}
+          cartItems={cartItems}
+          cartTotal={cartTotal}
+          onAddToCart={addToCart}
+          onIncreaseQty={increaseQty}
+          onDecreaseQty={decreaseQty}
         />
       ) : (
         <>
