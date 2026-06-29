@@ -1339,7 +1339,7 @@
   .ecommerce-variant-selector {
     margin-top: 10px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 88px;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
     align-items: end;
   }
@@ -1355,12 +1355,22 @@
     align-items: flex-end;
     justify-content: flex-end;
     justify-self: end;
-    width: 88px;
+    width: auto;
+    min-width: 0;
   }
 
   .ecommerce-mobile-action-slot .ecommerce-add-button,
   .ecommerce-mobile-action-slot .ecommerce-qty-control {
+    max-width: none;
+  }
+
+  .ecommerce-mobile-action-slot .ecommerce-add-button {
     width: 88px;
+  }
+
+  .ecommerce-mobile-action-slot .ecommerce-qty-control {
+    width: auto;
+    min-width: 132px;
     max-width: none;
   }
 

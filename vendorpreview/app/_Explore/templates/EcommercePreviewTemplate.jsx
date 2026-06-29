@@ -359,6 +359,7 @@ export default function EcommercePreviewTemplate({
   const [categorySearch, setCategorySearch] = useState("");
   const [selectedVariantKeys, setSelectedVariantKeys] = useState({});
   const [openVariantDropdownId, setOpenVariantDropdownId] = useState("");
+  const [heroImageIndex, setHeroImageIndex] = useState(0);
   const [paymentConfig, setPaymentConfig] = useState({
     paymentEnabled: false,
     provider: "",
@@ -418,19 +419,27 @@ export default function EcommercePreviewTemplate({
   const ecommercePrimaryCtaLabel = isRazorpayCheckoutEnabled ? "Checkout" : "Place Order";
   const ecommerceSubmitLabel = isRazorpayCheckoutEnabled ? "Proceed to Payment" : "Place Order";
 
-  const heroImage = useMemo(() => {
+  const heroImageList = useMemo(() => {
     const previewImages = Array.isArray(mergedHeroImages)
       ? mergedHeroImages.map((image) => String(image || "").trim()).filter(Boolean)
       : [];
-    if (previewImages.length > 0) return previewImages[0];
-
-    for (const section of sections) {
-      const firstImage = section.items.find((item) => item.imageUrl)?.imageUrl;
-      if (firstImage) return firstImage;
-    }
-
-    return "";
+    const sectionImages = sections
+      .flatMap((section) => section.items.map((item) => String(item.imageUrl || "").trim()))
+      .filter(Boolean);
+    return Array.from(new Set([...previewImages, ...sectionImages]));
   }, [mergedHeroImages, sections]);
+
+  useEffect(() => {
+    if (heroImageList.length <= 1) return undefined;
+
+    const interval = window.setInterval(() => {
+      setHeroImageIndex((current) => (current + 1) % heroImageList.length);
+    }, 3200);
+
+    return () => window.clearInterval(interval);
+  }, [heroImageList]);
+
+  const heroImage = heroImageList[heroImageList.length ? heroImageIndex % heroImageList.length : 0] || "";
 
   const cartMrpTotal = useMemo(
     () =>
