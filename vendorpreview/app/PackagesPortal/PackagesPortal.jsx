@@ -2405,7 +2405,7 @@ async function updateService(service, status) {
               </div>
             ) : null}
             <button
-              className="btn-primary"
+              className="btn-primary edit-service-save-btn"
               onClick={async () => {
                 if (!editingService) return; // safety
                 const resolvedTerms =
@@ -2754,7 +2754,7 @@ async function updateService(service, status) {
               onChange={e => setEditCategoryName(e.target.value)}
             />
 
-            <button className="btn-primary" onClick={handleSaveCategoryName}>
+            <button className="btn-primary edit-category-save-btn" onClick={handleSaveCategoryName}>
               Save
             </button>
           </Modal>
@@ -2978,7 +2978,7 @@ async function updateService(service, status) {
             ) : null}
 
             <button
-              className="btn-primary"
+              className="btn-primary add-node-create-btn"
               onClick={handleCreateSelfManagedNode}
               disabled={addingNode}
             >
@@ -3236,7 +3236,7 @@ async function updateService(service, status) {
           </div>
 
           <button
-            className="btn-primary"
+            className="btn-primary custom-modal-create-btn"
             onClick={handleSaveCustomPackage}
             disabled={savingCustomPackage}
           >
