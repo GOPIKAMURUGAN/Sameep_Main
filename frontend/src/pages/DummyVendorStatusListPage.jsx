@@ -579,6 +579,15 @@ export default function DummyVendorStatusListPage() {
         >Social Handles</button>
         <button
           onClick={() => {
+            const v = vendors.find((x) => x._id === selectedVendorId);
+            if (!v) return alert('Please select a vendor first');
+            const vendorName = v.businessName || v.name || v.contactName || 'Vendor';
+            navigate(`/site-analytics?vendorId=${encodeURIComponent(v._id)}&vendorName=${encodeURIComponent(vendorName)}`);
+          }}
+          style={{ padding: '6px 12px', borderRadius: 6, background: '#0891b2', color: '#fff', border: 'none' }}
+        >Site Analytics</button>
+        <button
+          onClick={() => {
             const v = vendors.find(x => x._id === selectedVendorId);
             if (!v) return alert('Please select a vendor first');
             (async () => {

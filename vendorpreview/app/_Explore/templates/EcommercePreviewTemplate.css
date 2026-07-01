@@ -531,7 +531,8 @@
   background: #ffffff;
   border: 1px solid #ececec;
   border-radius: 24px;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
 }
 
 .ecommerce-section-header {
@@ -583,11 +584,17 @@
 }
 
 .ecommerce-table-row {
+  position: relative;
+  z-index: 0;
   border-bottom: 1px solid #f0f0f0;
 }
 
 .ecommerce-table-row--active {
   background: #fff4f2;
+}
+
+.ecommerce-table-row--dropdown-open {
+  z-index: 12;
 }
 
 .ecommerce-table-row:last-child {
@@ -735,7 +742,7 @@
   left: 0;
   right: 0;
   top: calc(100% + 8px);
-  z-index: 8;
+  z-index: 20;
   display: flex;
   flex-direction: column;
   padding: 8px;

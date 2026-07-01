@@ -12,6 +12,12 @@ function formatCurrency(value) {
   return `₹${amount.toLocaleString("en-IN")}`;
 }
 
+function formatDisplayCurrency(value) {
+  const amount = Number(value || 0);
+  if (amount <= 0) return "Contact for price";
+  return formatCurrency(amount);
+}
+
 function normalizePhones(vendorInfo) {
   return [vendorInfo?.phone, ...(Array.isArray(vendorInfo?.secondaryPhones) ? vendorInfo.secondaryPhones : [])]
     .map((phone) => String(phone || "").trim())
@@ -860,7 +866,7 @@ export default function EcommercePreviewTemplate({
                 return (
                   <div
                     key={item.id}
-                    className={`ecommerce-table-row${groupIsActive ? " ecommerce-table-row--active" : ""}`}
+                    className={`ecommerce-table-row${groupIsActive ? " ecommerce-table-row--active" : ""}${isVariantMenuOpen ? " ecommerce-table-row--dropdown-open" : ""}`}
                   >
                     <span className="ecommerce-row-index">{String(index + 1).padStart(2, "0")}</span>
 
@@ -1030,7 +1036,7 @@ export default function EcommercePreviewTemplate({
                       <div className="ecommerce-mobile-compact-main">
                         <div className="ecommerce-mobile-compact-group">
                           <span className="ecommerce-mobile-compact-label">MRP</span>
-                          {referenceMrp ? <strong>{formatCurrency(referenceMrp)}</strong> : <strong>{formatCurrency(selectedVariant.price)}</strong>}
+                          {referenceMrp ? <strong>{formatDisplayCurrency(referenceMrp)}</strong> : <strong>{formatDisplayCurrency(selectedVariant.price)}</strong>}
                         </div>
 
                         <div className="ecommerce-mobile-compact-group">
@@ -1047,14 +1053,14 @@ export default function EcommercePreviewTemplate({
                             {savingsAmount > 0 ? <small>save {formatCurrency(savingsAmount)}</small> : null}
                           </>
                         ) : (
-                          <strong>{formatCurrency(selectedVariant.price)}</strong>
+                          <strong>{formatDisplayCurrency(selectedVariant.price)}</strong>
                         )}
                       </div>
                     </div>
 
                     <div className="ecommerce-price-cell">
-                      {referenceMrp ? <strong>{formatCurrency(referenceMrp)}</strong> : <strong>{formatCurrency(selectedVariant.price)}</strong>}
-                      {referenceMrp && referenceMrp > selectedVariant.price ? <small>{formatCurrency(selectedVariant.price)}</small> : null}
+                      {referenceMrp ? <strong>{formatDisplayCurrency(referenceMrp)}</strong> : <strong>{formatDisplayCurrency(selectedVariant.price)}</strong>}
+                      {referenceMrp && referenceMrp > selectedVariant.price ? <small>{formatDisplayCurrency(selectedVariant.price)}</small> : null}
                     </div>
 
                     <div className="ecommerce-discount-cell">
@@ -1072,7 +1078,7 @@ export default function EcommercePreviewTemplate({
                           {savingsAmount > 0 ? <small>save {formatCurrency(savingsAmount)}</small> : null}
                         </>
                       ) : (
-                        <strong>{formatCurrency(selectedVariant.price)}</strong>
+                        <strong>{formatDisplayCurrency(selectedVariant.price)}</strong>
                       )}
                     </div>
                   </div>

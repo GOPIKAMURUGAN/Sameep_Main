@@ -85,6 +85,114 @@ function buildExtraMatch(pageType, eventType) {
   return match;
 }
 
+async function buildVendorSummaryResponse(vendorId, days) {
+  const since = startOfIstDay(new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000));
+  const baseMatch = {
+    createdAt: { $gte: since },
+    pageType: "vendor_preview",
+    vendorId: new mongoose.Types.ObjectId(vendorId),
+  };
+  const pageViewMatch = {
+    ...baseMatch,
+    eventType: "page_view",
+  };
+
+  const [
+    totalPageViews,
+    uniqueVisitorsDocs,
+    ctaClicks,
+    enquirySubmissions,
+    topSources,
+    topCampaigns,
+    dailyTrendRaw,
+  ] = await Promise.all([
+    SiteAnalyticsEvent.countDocuments(pageViewMatch),
+    SiteAnalyticsEvent.distinct("visitorId", {
+      ...pageViewMatch,
+      visitorId: { $ne: "" },
+    }),
+    SiteAnalyticsEvent.countDocuments({
+      ...baseMatch,
+      eventType: "cta_click",
+    }),
+    SiteAnalyticsEvent.countDocuments({
+      ...baseMatch,
+      eventType: "enquiry_submit",
+    }),
+    SiteAnalyticsEvent.aggregate([
+      { $match: pageViewMatch },
+      { $group: { _id: { $ifNull: ["$sourceLabel", "direct"] }, views: { $sum: 1 } } },
+      { $sort: { views: -1 } },
+      { $limit: 8 },
+    ]),
+    SiteAnalyticsEvent.aggregate([
+      {
+        $match: {
+          ...pageViewMatch,
+          utmCampaign: { $ne: "" },
+        },
+      },
+      { $group: { _id: "$utmCampaign", views: { $sum: 1 } } },
+      { $sort: { views: -1 } },
+      { $limit: 8 },
+    ]),
+    SiteAnalyticsEvent.aggregate([
+      { $match: pageViewMatch },
+      {
+        $group: {
+          _id: {
+            date: {
+              $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: IST_TIMEZONE },
+            },
+          },
+          views: { $sum: 1 },
+          visitors: { $addToSet: "$visitorId" },
+        },
+      },
+      { $sort: { "_id.date": 1 } },
+    ]),
+  ]);
+
+  const trendByDate = new Map();
+  for (let i = 0; i < days; i += 1) {
+    const date = new Date(since.getTime() + i * 24 * 60 * 60 * 1000);
+    trendByDate.set(formatDateKey(date), {
+      date: formatDateKey(date),
+      views: 0,
+      uniqueVisitors: 0,
+    });
+  }
+
+  dailyTrendRaw.forEach((item) => {
+    const key = item?._id?.date;
+    if (!trendByDate.has(key)) return;
+    trendByDate.set(key, {
+      date: key,
+      views: item?.views || 0,
+      uniqueVisitors: (item?.visitors || []).filter(Boolean).length,
+    });
+  });
+
+  return {
+    periodDays: days,
+    overview: {
+      totalPageViews,
+      uniqueVisitors: uniqueVisitorsDocs.length,
+      ctaClicks,
+      enquirySubmissions,
+    },
+    topSources: topSources.map((item) => ({
+      source: item._id || "direct",
+      views: item.views || 0,
+    })),
+    topCampaigns: topCampaigns.map((item) => ({
+      campaign: item._id || "Unknown",
+      views: item.views || 0,
+    })),
+    dailyTrend: Array.from(trendByDate.values()),
+  };
+}
+
 router.post("/track", async (req, res) => {
   try {
     const pageType = normalizeText(req.body?.pageType);
@@ -346,6 +454,44 @@ router.get("/admin/summary", requireAdminAuth, async (req, res) => {
   }
 });
 
+router.get("/admin/vendor-summary", requireAdminAuth, async (req, res) => {
+  try {
+    const vendorId = normalizeText(req.query.vendorId);
+    if (!mongoose.Types.ObjectId.isValid(vendorId)) {
+      return res.status(400).json({ message: "Invalid vendorId" });
+    }
+
+    const days = Math.max(1, Math.min(365, Number(req.query.days) || 30));
+    const vendor = await DummyVendor.findById(vendorId)
+      .select("businessName name homeLocation businessLocation city")
+      .lean();
+
+    if (!vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    const summary = await buildVendorSummaryResponse(vendorId, days);
+    const vendorName =
+      vendor.businessName ||
+      vendor.name ||
+      vendor.businessLocation ||
+      vendor.homeLocation ||
+      vendor.city ||
+      "Vendor";
+
+    return res.json({
+      ...summary,
+      vendor: {
+        vendorId,
+        vendorName,
+      },
+    });
+  } catch (error) {
+    console.error("admin vendor site analytics summary error", error);
+    return res.status(500).json({ message: "Failed to load vendor analytics summary" });
+  }
+});
+
 router.get("/vendor/summary", async (req, res) => {
   try {
     const vendorId = normalizeText(req.query.vendorId);
@@ -358,111 +504,8 @@ router.get("/vendor/summary", async (req, res) => {
     }
 
     const days = Math.max(1, Math.min(365, Number(req.query.days) || 30));
-    const since = startOfIstDay(new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000));
-    const baseMatch = {
-      createdAt: { $gte: since },
-      pageType: "vendor_preview",
-      vendorId: new mongoose.Types.ObjectId(vendorId),
-    };
-    const pageViewMatch = {
-      ...baseMatch,
-      eventType: "page_view",
-    };
-
-    const [
-      totalPageViews,
-      uniqueVisitorsDocs,
-      ctaClicks,
-      enquirySubmissions,
-      topSources,
-      topCampaigns,
-      dailyTrendRaw,
-    ] = await Promise.all([
-      SiteAnalyticsEvent.countDocuments(pageViewMatch),
-      SiteAnalyticsEvent.distinct("visitorId", {
-        ...pageViewMatch,
-        visitorId: { $ne: "" },
-      }),
-      SiteAnalyticsEvent.countDocuments({
-        ...baseMatch,
-        eventType: "cta_click",
-      }),
-      SiteAnalyticsEvent.countDocuments({
-        ...baseMatch,
-        eventType: "enquiry_submit",
-      }),
-      SiteAnalyticsEvent.aggregate([
-        { $match: pageViewMatch },
-        { $group: { _id: { $ifNull: ["$sourceLabel", "direct"] }, views: { $sum: 1 } } },
-        { $sort: { views: -1 } },
-        { $limit: 8 },
-      ]),
-      SiteAnalyticsEvent.aggregate([
-        {
-          $match: {
-            ...pageViewMatch,
-            utmCampaign: { $ne: "" },
-          },
-        },
-        { $group: { _id: "$utmCampaign", views: { $sum: 1 } } },
-        { $sort: { views: -1 } },
-        { $limit: 8 },
-      ]),
-      SiteAnalyticsEvent.aggregate([
-        { $match: pageViewMatch },
-        {
-          $group: {
-            _id: {
-              date: {
-                $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: IST_TIMEZONE },
-              },
-            },
-            views: { $sum: 1 },
-            visitors: { $addToSet: "$visitorId" },
-          },
-        },
-        { $sort: { "_id.date": 1 } },
-      ]),
-    ]);
-
-    const trendByDate = new Map();
-    for (let i = 0; i < days; i += 1) {
-      const date = new Date(since.getTime() + i * 24 * 60 * 60 * 1000);
-      trendByDate.set(formatDateKey(date), {
-        date: formatDateKey(date),
-        views: 0,
-        uniqueVisitors: 0,
-      });
-    }
-
-    dailyTrendRaw.forEach((item) => {
-      const key = item?._id?.date;
-      if (!trendByDate.has(key)) return;
-      trendByDate.set(key, {
-        date: key,
-        views: item?.views || 0,
-        uniqueVisitors: (item?.visitors || []).filter(Boolean).length,
-      });
-    });
-
-    return res.json({
-      periodDays: days,
-      overview: {
-        totalPageViews,
-        uniqueVisitors: uniqueVisitorsDocs.length,
-        ctaClicks,
-        enquirySubmissions,
-      },
-      topSources: topSources.map((item) => ({
-        source: item._id || "direct",
-        views: item.views || 0,
-      })),
-      topCampaigns: topCampaigns.map((item) => ({
-        campaign: item._id || "Unknown",
-        views: item.views || 0,
-      })),
-      dailyTrend: Array.from(trendByDate.values()),
-    });
+    const summary = await buildVendorSummaryResponse(vendorId, days);
+    return res.json(summary);
   } catch (error) {
     console.error("vendor site analytics summary error", error);
     return res.status(500).json({ message: "Failed to load vendor analytics summary" });
