@@ -1444,12 +1444,15 @@ export default function NurseriesPreviewTemplate({
             <span>{formatCurrency(cartTotal)}</span>
           </div>
           <div className="nursery-cart-bar-actions">
-            <button type="button" className="nursery-cart-secondary-btn" onClick={handleOpenEnquiry}>
-              Service Enquiry
-            </button>
-            <button type="button" onClick={onOpenMenu}>
-              Open Cart
-            </button>
+            {hasVendorSession ? (
+              <button type="button" onClick={onOpenMenu}>
+                Go to Cart
+              </button>
+            ) : (
+              <button type="button" className="nursery-cart-secondary-btn" onClick={handleOpenEnquiry}>
+                Service Enquiry
+              </button>
+            )}
           </div>
         </div>
       ) : null}

@@ -2324,21 +2324,16 @@ export default function ModernPreviewTemplate({
           <div className="modern-cart-bar-actions">
             {hasVendorSession ? (
               <button type="button" className="modern-cart-bar-btn" onClick={onOpenMenu}>
-                Open Cart
+                Go to Cart
               </button>
             ) : (
-              <>
-                <button
-                  type="button"
-                  className="modern-cart-bar-btn modern-cart-bar-btn-secondary"
-                  onClick={goToQuickInquiry}
-                >
-                  {enquiryTypeLabel}
-                </button>
-                <button type="button" className="modern-cart-bar-btn" onClick={onOpenMenu}>
-                  Generate Bill
-                </button>
-              </>
+              <button
+                type="button"
+                className="modern-cart-bar-btn modern-cart-bar-btn-secondary"
+                onClick={goToQuickInquiry}
+              >
+                {enquiryTypeLabel}
+              </button>
             )}
           </div>
         </div>
