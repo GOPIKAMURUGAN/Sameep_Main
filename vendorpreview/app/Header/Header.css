@@ -171,6 +171,61 @@
   padding: var(--bs-nav-link-padding-y) var(--bs-nav-link-padding-x);
 }
 
+.header-admin-menu {
+  position: relative;
+}
+
+.header-admin-button {
+  margin-left: 14px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1.5px solid var(--classic-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--classic-header-link);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 0 10px var(--classic-border-soft);
+  transition: 0.25s ease;
+}
+
+.header-admin-button:hover {
+  background: var(--classic-button-gradient);
+  color: var(--classic-accent-contrast);
+}
+
+.header-admin-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 170px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--classic-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--classic-bg) 88%, transparent);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.32),
+    0 0 16px var(--classic-border-soft);
+  z-index: 30;
+}
+
+.header-admin-dropdown button {
+  border: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--classic-header-link);
+  font-weight: 700;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.header-admin-dropdown button:hover {
+  background: var(--classic-button-gradient);
+  color: var(--classic-accent-contrast);
+}
+
 /* ============================================================
    LOGIN BUTTON
 ============================================================ */
@@ -364,6 +419,17 @@
     width: 42px;
     height: 42px;
     margin-top: 8px;
+  }
+
+  .header-admin-button {
+    width: 100%;
+    margin: 10px 0 0 0;
+    padding: 10px 16px;
+  }
+
+  .header-admin-dropdown {
+    position: static;
+    margin-top: 10px;
   }
 }
 

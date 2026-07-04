@@ -197,6 +197,74 @@
   color: var(--classic-accent);
 }
 
+.explore-mobile-cart-fab.theme-blackgold {
+  --classic-bg: #0b0b0d;
+  --classic-surface: rgba(25, 25, 28, 0.65);
+  --classic-surface-strong: rgba(16, 16, 18, 0.96);
+  --classic-panel: rgba(24, 25, 30, 0.92);
+  --classic-accent: #f5d97a;
+  --classic-accent-strong: #e6c37a;
+  --classic-accent-contrast: #111;
+  --classic-border: rgba(245, 217, 122, 0.32);
+  --classic-border-soft: rgba(245, 217, 122, 0.22);
+  --classic-text: #ffffff;
+  --classic-text-soft: rgba(255, 255, 255, 0.72);
+  --classic-heading-shadow: rgba(245, 217, 122, 0.45);
+  --classic-button-gradient: linear-gradient(135deg, #e6c37a, #d7b04f);
+  --classic-button-gradient-strong: linear-gradient(135deg, #fff4c7, #d2ae41 45%, #d2a941);
+}
+
+.explore-mobile-cart-fab.theme-midnightgold {
+  --classic-bg: #0f1726;
+  --classic-surface: rgba(20, 29, 46, 0.7);
+  --classic-surface-strong: rgba(16, 24, 38, 0.96);
+  --classic-panel: rgba(23, 34, 53, 0.92);
+  --classic-accent: #e5ca7a;
+  --classic-accent-strong: #d6b15e;
+  --classic-accent-contrast: #101723;
+  --classic-border: rgba(214, 177, 94, 0.34);
+  --classic-border-soft: rgba(214, 177, 94, 0.22);
+  --classic-text: #f7f8fb;
+  --classic-text-soft: rgba(236, 240, 248, 0.74);
+  --classic-heading-shadow: rgba(214, 177, 94, 0.4);
+  --classic-button-gradient: linear-gradient(135deg, #d6b15e, #b89043);
+  --classic-button-gradient-strong: linear-gradient(135deg, #f4e6b0, #d6b15e 45%, #b89043);
+}
+
+.explore-mobile-cart-fab.theme-charcoalcopper {
+  --classic-bg: #161618;
+  --classic-surface: rgba(32, 30, 31, 0.72);
+  --classic-surface-strong: rgba(26, 24, 24, 0.96);
+  --classic-panel: rgba(33, 29, 29, 0.92);
+  --classic-accent: #d9a173;
+  --classic-accent-strong: #c98554;
+  --classic-accent-contrast: #1a1615;
+  --classic-border: rgba(201, 133, 84, 0.34);
+  --classic-border-soft: rgba(201, 133, 84, 0.22);
+  --classic-text: #fbf7f4;
+  --classic-text-soft: rgba(251, 247, 244, 0.74);
+  --classic-heading-shadow: rgba(201, 133, 84, 0.35);
+  --classic-button-gradient: linear-gradient(135deg, #d9a173, #b86f43);
+  --classic-button-gradient-strong: linear-gradient(135deg, #f0c7a0, #c98554 45%, #aa633b);
+}
+
+.explore-mobile-cart-fab.theme-blackchampagne {
+  --classic-bg: #101012;
+  --classic-surface: rgba(28, 28, 30, 0.7);
+  --classic-surface-strong: rgba(18, 18, 20, 0.96);
+  --classic-panel: rgba(26, 26, 29, 0.92);
+  --classic-accent: #e6d0aa;
+  --classic-accent-strong: #d7b98d;
+  --classic-accent-contrast: #121214;
+  --classic-border: rgba(215, 185, 141, 0.34);
+  --classic-border-soft: rgba(215, 185, 141, 0.22);
+  --classic-text: #f7f3ec;
+  --classic-text-soft: rgba(247, 243, 236, 0.74);
+  --classic-heading-shadow: rgba(215, 185, 141, 0.32);
+  --classic-button-gradient: linear-gradient(135deg, #e6d0aa, #c9ab7e);
+  --classic-button-gradient-strong: linear-gradient(135deg, #f4ead7, #d7b98d 45%, #c19f70);
+}
+
 .explore-mobile-cart-summary {
   display: flex;
   align-items: center;

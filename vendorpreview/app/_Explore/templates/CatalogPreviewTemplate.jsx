@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { API_BASE_URL } from "../../../config";
+import { openAdminDashboard, openAdminMenu } from "../../utils/adminQuickActions";
 import "./CatalogPreviewTemplate.css";
 
 const DEFAULT_NAV = [
@@ -400,6 +401,7 @@ export default function CatalogPreviewTemplate({
   const [activeSectionName, setActiveSectionName] = useState("");
   const [activeCardId, setActiveCardId] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showAdminMenu, setShowAdminMenu] = useState(false);
 
   const navItems = useMemo(() => {
     const webMenu = Array.isArray(category?.webMenu) ? category.webMenu : [];
@@ -597,6 +599,38 @@ export default function CatalogPreviewTemplate({
           ))}
         </nav>
 
+        <div className="catalog-admin-menu">
+          <button
+            type="button"
+            className="catalog-admin-btn"
+            onClick={() => setShowAdminMenu((current) => !current)}
+          >
+            Admin
+          </button>
+          {showAdminMenu ? (
+            <div className="catalog-admin-dropdown">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdminMenu(false);
+                  openAdminMenu();
+                }}
+              >
+                Menu
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdminMenu(false);
+                  openAdminDashboard();
+                }}
+              >
+                Dashboard
+              </button>
+            </div>
+          ) : null}
+        </div>
+
         <button
           type="button"
           className="catalog-book-btn"
@@ -631,6 +665,39 @@ export default function CatalogPreviewTemplate({
               {item.label}
             </a>
           ))}
+          <div className="catalog-mobile-admin-menu">
+            <button
+              type="button"
+              className="catalog-book-btn catalog-book-btn-secondary"
+              onClick={() => setShowAdminMenu((current) => !current)}
+            >
+              Admin
+            </button>
+            {showAdminMenu ? (
+              <div className="catalog-admin-dropdown catalog-admin-dropdown-mobile">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdminMenu(false);
+                    setMobileMenuOpen(false);
+                    openAdminMenu();
+                  }}
+                >
+                  Menu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdminMenu(false);
+                    setMobileMenuOpen(false);
+                    openAdminDashboard();
+                  }}
+                >
+                  Dashboard
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

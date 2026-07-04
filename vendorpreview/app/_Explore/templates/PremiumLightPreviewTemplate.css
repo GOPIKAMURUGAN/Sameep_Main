@@ -79,6 +79,7 @@
 }
 
 .premium-light-cta,
+.premium-light-admin-btn,
 .premium-light-primary-btn,
 .premium-light-add-btn {
   border: 0;
@@ -102,6 +103,49 @@
   padding: 16px 32px;
   font-size: 1rem;
   min-width: 248px;
+}
+
+.premium-light-admin-menu {
+  position: relative;
+}
+
+.premium-light-admin-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 180px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--pl-border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 22px 40px rgba(20, 32, 58, 0.12);
+  z-index: 20;
+}
+
+.premium-light-admin-dropdown button {
+  border: 0;
+  border-radius: 14px;
+  background: rgba(21, 163, 155, 0.08);
+  color: var(--pl-text);
+  font-weight: 700;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.premium-light-mobile-admin-menu {
+  margin-top: 12px;
+}
+
+.premium-light-mobile-admin-btn {
+  width: 100%;
+  min-width: 0;
+}
+
+.premium-light-admin-dropdown-mobile {
+  position: static;
+  margin-top: 10px;
 }
 
 .premium-light-mobile-toggle {
@@ -852,7 +896,8 @@
   }
 
   .premium-light-nav,
-  .premium-light-cta {
+  .premium-light-cta,
+  .premium-light-admin-menu {
     display: none;
   }
 

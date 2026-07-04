@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { FaMapMarkerAlt, FaPhoneAlt, FaStar } from "react-icons/fa";
 import ContactSection from "../../Contact/Contact";
+import { openAdminDashboard, openAdminMenu } from "../../utils/adminQuickActions";
 import "./PremiumLightPreviewTemplate.css";
 
 const DEFAULT_NAV = [
@@ -514,6 +515,7 @@ export default function PremiumLightPreviewTemplate({
   onDecreaseQty,
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showAdminMenu, setShowAdminMenu] = useState(false);
   const trustSummary = vendorInfo?.trustSummary || vendorInfo?.trust || {};
   const poweredByUrl = getPoweredByUrl();
   const businessName = vendorInfo?.businessName || category?.name || "Business";
@@ -668,6 +670,38 @@ export default function PremiumLightPreviewTemplate({
           ))}
         </nav>
 
+        <div className="premium-light-admin-menu">
+          <button
+            type="button"
+            className="premium-light-admin-btn"
+            onClick={() => setShowAdminMenu((current) => !current)}
+          >
+            Admin
+          </button>
+          {showAdminMenu ? (
+            <div className="premium-light-admin-dropdown">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdminMenu(false);
+                  openAdminMenu();
+                }}
+              >
+                Menu
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdminMenu(false);
+                  openAdminDashboard();
+                }}
+              >
+                Dashboard
+              </button>
+            </div>
+          ) : null}
+        </div>
+
         <button
           type="button"
           className="premium-light-cta"
@@ -699,6 +733,39 @@ export default function PremiumLightPreviewTemplate({
               {item.label}
             </a>
           ))}
+          <div className="premium-light-mobile-admin-menu">
+            <button
+              type="button"
+              className="premium-light-cta premium-light-mobile-admin-btn"
+              onClick={() => setShowAdminMenu((current) => !current)}
+            >
+              Admin
+            </button>
+            {showAdminMenu ? (
+              <div className="premium-light-admin-dropdown premium-light-admin-dropdown-mobile">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdminMenu(false);
+                    setMobileMenuOpen(false);
+                    openAdminMenu();
+                  }}
+                >
+                  Menu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdminMenu(false);
+                    setMobileMenuOpen(false);
+                    openAdminDashboard();
+                  }}
+                >
+                  Dashboard
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

@@ -30,6 +30,10 @@ import NurseriesPreviewTemplate from "./templates/NurseriesPreviewTemplate";
 import EcommercePreviewTemplate from "./templates/EcommercePreviewTemplate";
 import PremiumLightPreviewTemplate from "./templates/PremiumLightPreviewTemplate";
 import { CART_UPDATED_EVENT, ENQUIRY_OPEN_EVENT } from "../utils/enquiryFlow";
+import {
+  ADMIN_OPEN_DASHBOARD_EVENT,
+  ADMIN_OPEN_MENU_EVENT,
+} from "../utils/adminQuickActions";
 const FOOTER_GALLERY_OPEN_EVENT = "ynot-footer-open-gallery";
 
 function normalizePreviewTemplateKey(value) {
@@ -2855,6 +2859,21 @@ function ExploreContent({ onReady, onOpenServices }) {
     setViewMode("new-dashboard");
   };
 
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const handleAdminOpenMenu = () => openQuickActionMenu();
+    const handleAdminOpenDashboard = () => openQuickActionDashboard();
+
+    window.addEventListener(ADMIN_OPEN_MENU_EVENT, handleAdminOpenMenu);
+    window.addEventListener(ADMIN_OPEN_DASHBOARD_EVENT, handleAdminOpenDashboard);
+
+    return () => {
+      window.removeEventListener(ADMIN_OPEN_MENU_EVENT, handleAdminOpenMenu);
+      window.removeEventListener(ADMIN_OPEN_DASHBOARD_EVENT, handleAdminOpenDashboard);
+    };
+  }, [vendorId]);
+
   const decreaseQty = (cartKey) => {
     setCartItems(prev => {
       const item = prev.find(i => (i.cartKey || i.itemId) === cartKey);
@@ -3963,22 +3982,13 @@ function ExploreContent({ onReady, onOpenServices }) {
                               Go to Cart
                             </button>
                           ) : (
-                            <div className="explore-cart-btn-row">
-                              <button
-                                type="button"
-                                className="explore-cart-login-btn"
-                                onClick={handleClassicEnquiryAction}
-                              >
-                                Service Enquiry
-                              </button>
-                              <button
-                                type="button"
-                                className="explore-cart-go-btn"
-                                onClick={handleGenerateBill}
-                              >
-                                Generate Bill
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              className="explore-cart-login-btn"
+                              onClick={handleClassicEnquiryAction}
+                            >
+                              Service Enquiry
+                            </button>
                           )}
                         </div>
                       </div>
@@ -3999,7 +4009,9 @@ function ExploreContent({ onReady, onOpenServices }) {
             </div>
           </section>
           {isMobile && viewMode !== "menu" && cartItems.length > 0 && (
-            <div className="explore-mobile-cart-fab">
+            <div
+              className={`explore-mobile-cart-fab theme-${String(vendorInfo?.classicColorScheme || "blackgold").trim().toLowerCase() || "blackgold"}`}
+            >
               <div className="explore-mobile-cart-summary">
                 <span className="explore-mobile-cart-count">{cartItems.length}</span>
                 <span className="explore-mobile-cart-label">Cart</span>
@@ -4041,22 +4053,13 @@ function ExploreContent({ onReady, onOpenServices }) {
                   Go to Cart
                 </button>
               ) : (
-                <div className="explore-mobile-cart-actions">
-                  <button
-                    type="button"
-                    className="explore-mobile-cart-action explore-mobile-cart-action-secondary"
-                    onClick={handleClassicEnquiryAction}
-                  >
-                    Service Enquiry
-                  </button>
-                  <button
-                    type="button"
-                    className="explore-mobile-cart-action explore-mobile-cart-action-primary"
-                    onClick={handleGenerateBill}
-                  >
-                    Generate Bill
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="explore-mobile-cart-action explore-mobile-cart-action-secondary"
+                  onClick={handleClassicEnquiryAction}
+                >
+                  Service Enquiry
+                </button>
               )}
             </div>
           )}
@@ -4315,214 +4318,258 @@ function ExploreContent({ onReady, onOpenServices }) {
                               You will earn: {earnPoints} points
                             </div>
                           )}
-                          <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
-                            <button
-                              onClick={clearCart}
-                              style={{
-                                flex: 1,
-                                background: "#222",
-                                border: "1px solid #555",
-                                padding: "10px",
-                                borderRadius: "8px",
-                                color: "#fff",
-                                cursor: "pointer",
-                              }}
-                            >
-                              Clear Cart
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (appliedDiscount > 0) {
-                                  setDiscountAmount(0);
-                                  setDiscountPercent(0);
-                                  setAppliedDiscount(0);
-                                  setDiscountMode(null);
-                                } else {
-                                  setShowDiscountPopup(true);
-                                }
-                              }}
-                              style={{
-                                flex: 1,
-                                background: appliedDiscount > 0 ? "#4a1a1a" : "#222",
-                                border: "1px solid #555",
-                                padding: "10px",
-                                borderRadius: "8px",
-                                color: "#fff",
-                                cursor: "pointer",
-                              }}
-                            >
-                              {appliedDiscount > 0 ? "Clear Discount" : "Discount"}
-                            </button>
-                          </div>
-                          <div
-                            style={{
-                              borderTop: "1px solid #333",
-                              marginTop: "20px",
-                              paddingTop: "15px",
-                            }}
-                          >
-                            <label style={{ color: "#e6c37a", fontSize: "14px" }}>
-                              Customer Mobile
-                            </label>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                background: "#111",
-                                border: "1px solid #444",
-                                borderRadius: "8px",
-                                overflow: "hidden",
-                                marginTop: "6px",
-                                marginBottom: "10px",
-                              }}
-                            >
+                          {hasActiveVendorSession ? (
+                            <>
+                              <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
+                                <button
+                                  onClick={clearCart}
+                                  style={{
+                                    flex: 1,
+                                    background: "#222",
+                                    border: "1px solid #555",
+                                    padding: "10px",
+                                    borderRadius: "8px",
+                                    color: "#fff",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Clear Cart
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (appliedDiscount > 0) {
+                                      setDiscountAmount(0);
+                                      setDiscountPercent(0);
+                                      setAppliedDiscount(0);
+                                      setDiscountMode(null);
+                                    } else {
+                                      setShowDiscountPopup(true);
+                                    }
+                                  }}
+                                  style={{
+                                    flex: 1,
+                                    background: appliedDiscount > 0 ? "#4a1a1a" : "#222",
+                                    border: "1px solid #555",
+                                    padding: "10px",
+                                    borderRadius: "8px",
+                                    color: "#fff",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  {appliedDiscount > 0 ? "Clear Discount" : "Discount"}
+                                </button>
+                              </div>
                               <div
                                 style={{
-                                  padding: "10px 12px",
-                                  borderRight: "1px solid #333",
-                                  color: "#aaa",
-                                  fontWeight: 500,
+                                  borderTop: "1px solid #333",
+                                  marginTop: "20px",
+                                  paddingTop: "15px",
                                 }}
                               >
-                                +91
-                              </div>
-                              <input
-                                value={customerMobile}
-                                onChange={(e) => setCustomerMobile(e.target.value)}
-                                placeholder="Enter mobile"
-                                style={{
-                                  flex: 1,
-                                  background: "transparent",
-                                  border: "none",
-                                  outline: "none",
-                                  color: "#fff",
-                                  padding: "10px",
-                                }}
-                              />
-                            </div>
-                            {loyaltyEnabled && (
-                              <>
-                                <div style={{ fontSize: "13px", color: "#aaa", marginTop: 6 }}>
-                                  Available Points: {availablePoints}
-                                </div>
-                                {!customerMobile && (
-                                  <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
-                                    Walk-in billing — no loyalty points will be applied
-                                  </div>
-                                )}
-                                {verifyingCustomer && (
-                                  <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
-                                    Checking customer...
-                                  </div>
-                                )}
-                                {availablePoints > 0 && (
-                                  <div style={{ marginTop: 8 }}>
-                                    <div style={{ fontSize: "12px", color: "#aaa" }}>
-                                      Redeem Points
-                                    </div>
-                                    <input
-                                      type="number"
-                                      value={redeemPoints}
-                                      min={0}
-                                      max={availablePoints}
-                                      onChange={(e) => {
-                                        const value = Number(e.target.value) || 0;
-                                        const safeValue = Math.min(Math.max(value, 0), availablePoints);
-                                        setRedeemPoints(safeValue);
-                                      }}
-                                      style={{
-                                        width: "100%",
-                                        background: "#111",
-                                        border: "1px solid #444",
-                                        padding: "10px",
-                                        borderRadius: "8px",
-                                        color: "#fff",
-                                        marginTop: "6px",
-                                      }}
-                                    />
-                                  </div>
-                                )}
-                                {showOtpInput && (
-                                  <div style={{ marginTop: 10 }}>
-                                    <input
-                                      placeholder="Enter OTP"
-                                      value={otp}
-                                      onChange={(e) => setOtp(e.target.value)}
-                                      style={{
-                                        width: "100%",
-                                        background: "#111",
-                                        border: "1px solid #444",
-                                        padding: "10px",
-                                        borderRadius: "8px",
-                                        color: "#fff",
-                                      }}
-                                    />
-                                  </div>
-                                )}
-                                {showOtpInput && (
-                                  <button
-                                    onClick={handleVerifyOtp}
-                                    disabled={verifyingOtp}
+                                <label style={{ color: "#e6c37a", fontSize: "14px" }}>
+                                  Customer Mobile
+                                </label>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    background: "#111",
+                                    border: "1px solid #444",
+                                    borderRadius: "8px",
+                                    overflow: "hidden",
+                                    marginTop: "6px",
+                                    marginBottom: "10px",
+                                  }}
+                                >
+                                  <div
                                     style={{
-                                      marginTop: "10px",
-                                      width: "100%",
-                                      background: "#222",
-                                      border: "1px solid #555",
-                                      padding: "10px",
-                                      borderRadius: "8px",
-                                      color: "#fff",
-                                      cursor: verifyingOtp ? "not-allowed" : "pointer",
-                                      opacity: verifyingOtp ? 0.7 : 1,
+                                      padding: "10px 12px",
+                                      borderRight: "1px solid #333",
+                                      color: "#aaa",
+                                      fontWeight: 500,
                                     }}
                                   >
-                                    {verifyingOtp ? "Verifying..." : "Verify OTP"}
-                                  </button>
+                                    +91
+                                  </div>
+                                  <input
+                                    value={customerMobile}
+                                    onChange={(e) => setCustomerMobile(e.target.value)}
+                                    placeholder="Enter mobile"
+                                    style={{
+                                      flex: 1,
+                                      background: "transparent",
+                                      border: "none",
+                                      outline: "none",
+                                      color: "#fff",
+                                      padding: "10px",
+                                    }}
+                                  />
+                                </div>
+                                {loyaltyEnabled && (
+                                  <>
+                                    <div style={{ fontSize: "13px", color: "#aaa", marginTop: 6 }}>
+                                      Available Points: {availablePoints}
+                                    </div>
+                                    {!customerMobile && (
+                                      <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
+                                        Walk-in billing — no loyalty points will be applied
+                                      </div>
+                                    )}
+                                    {verifyingCustomer && (
+                                      <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
+                                        Checking customer...
+                                      </div>
+                                    )}
+                                    {availablePoints > 0 && (
+                                      <div style={{ marginTop: 8 }}>
+                                        <div style={{ fontSize: "12px", color: "#aaa" }}>
+                                          Redeem Points
+                                        </div>
+                                        <input
+                                          type="number"
+                                          value={redeemPoints}
+                                          min={0}
+                                          max={availablePoints}
+                                          onChange={(e) => {
+                                            const value = Number(e.target.value) || 0;
+                                            const safeValue = Math.min(Math.max(value, 0), availablePoints);
+                                            setRedeemPoints(safeValue);
+                                          }}
+                                          style={{
+                                            width: "100%",
+                                            background: "#111",
+                                            border: "1px solid #444",
+                                            padding: "10px",
+                                            borderRadius: "8px",
+                                            color: "#fff",
+                                            marginTop: "6px",
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+                                    {showOtpInput && (
+                                      <div style={{ marginTop: 10 }}>
+                                        <input
+                                          placeholder="Enter OTP"
+                                          value={otp}
+                                          onChange={(e) => setOtp(e.target.value)}
+                                          style={{
+                                            width: "100%",
+                                            background: "#111",
+                                            border: "1px solid #444",
+                                            padding: "10px",
+                                            borderRadius: "8px",
+                                            color: "#fff",
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+                                    {showOtpInput && (
+                                      <button
+                                        onClick={handleVerifyOtp}
+                                        disabled={verifyingOtp}
+                                        style={{
+                                          marginTop: "10px",
+                                          width: "100%",
+                                          background: "#222",
+                                          border: "1px solid #555",
+                                          padding: "10px",
+                                          borderRadius: "8px",
+                                          color: "#fff",
+                                          cursor: verifyingOtp ? "not-allowed" : "pointer",
+                                          opacity: verifyingOtp ? 0.7 : 1,
+                                        }}
+                                      >
+                                        {verifyingOtp ? "Verifying..." : "Verify OTP"}
+                                      </button>
+                                    )}
+                                  </>
                                 )}
-                              </>
-                            )}
-                            <button
-                              onClick={() => {
-                                const vendorToken =
-                                  typeof window !== "undefined"
-                                    ? localStorage.getItem(`vendorToken:${vendorId}`)
-                                    : null;
+                                <button
+                                  onClick={() => {
+                                    const vendorToken =
+                                      typeof window !== "undefined"
+                                        ? localStorage.getItem(`vendorToken:${vendorId}`)
+                                        : null;
 
-                                if (!vendorToken) {
-                                  setPendingAction("GENERATE_BILL");
-                                  setShowVendorLogin(true);
-                                  return;
-                                }
+                                    if (!vendorToken) {
+                                      setPendingAction("GENERATE_BILL");
+                                      setShowVendorLogin(true);
+                                      return;
+                                    }
 
-                                const storedVendorId =
-                                  typeof window !== "undefined"
-                                    ? localStorage.getItem("vendorSessionVendorId")
-                                    : null;
+                                    const storedVendorId =
+                                      typeof window !== "undefined"
+                                        ? localStorage.getItem("vendorSessionVendorId")
+                                        : null;
 
-                                if (storedVendorId !== String(vendorId)) {
-                                  setPendingAction("GENERATE_BILL");
-                                  setShowVendorLogin(true);
-                                  return;
-                                }
+                                    if (storedVendorId !== String(vendorId)) {
+                                      setPendingAction("GENERATE_BILL");
+                                      setShowVendorLogin(true);
+                                      return;
+                                    }
 
-                                handleGenerateBill();
-                              }}
+                                    handleGenerateBill();
+                                  }}
+                                  style={{
+                                    marginTop: "14px",
+                                    width: "100%",
+                                    background: "#e6c37a",
+                                    color: "#000",
+                                    padding: "12px",
+                                    borderRadius: "10px",
+                                    fontWeight: "600",
+                                    opacity: canGenerateBill ? 1 : 0.6,
+                                    cursor:
+                                      canGenerateBill ? "pointer" : "not-allowed",
+                                  }}
+                                  disabled={!canGenerateBill}
+                                >
+                                  {processingBill ? "Generating..." : "Generate Bill"}
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <div
                               style={{
-                                marginTop: "14px",
-                                width: "100%",
-                                background: "#e6c37a",
-                                color: "#000",
-                                padding: "12px",
-                                borderRadius: "10px",
-                                fontWeight: "600",
-                                opacity: canGenerateBill ? 1 : 0.6,
-                                cursor:
-                                  canGenerateBill ? "pointer" : "not-allowed",
+                                borderTop: "1px solid #333",
+                                marginTop: "20px",
+                                paddingTop: "15px",
+                                display: "flex",
+                                gap: "10px",
                               }}
-                              disabled={!canGenerateBill}
                             >
-                              {processingBill ? "Generating..." : "Generate Bill"}
-                            </button>
-                          </div>
+                              <button
+                                onClick={clearCart}
+                                style={{
+                                  flex: 1,
+                                  background: "#222",
+                                  border: "1px solid #555",
+                                  padding: "10px",
+                                  borderRadius: "8px",
+                                  color: "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Clear Cart
+                              </button>
+                              <button
+                                onClick={handleClassicEnquiryAction}
+                                style={{
+                                  flex: 1,
+                                  background: "#e6c37a",
+                                  border: "none",
+                                  padding: "10px",
+                                  borderRadius: "8px",
+                                  color: "#000",
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Service Enquiry
+                              </button>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
@@ -4771,210 +4818,245 @@ function ExploreContent({ onReady, onOpenServices }) {
                                 You will earn: {earnPoints} points
                               </div>
                             )}
-                            <div style={{ marginTop: "10px", display: "flex", gap: 10 }}>
-                              <button
-                                onClick={clearCart}
-                                style={{
-                                  flex: 1,
-                                  background: "#222",
-                                  border: "1px solid #555",
-                                  padding: "10px",
-                                  borderRadius: "8px",
-                                  color: "#fff",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                Clear Cart
-                              </button>
-                              <button
-                                onClick={() => {
-                                  if (appliedDiscount > 0) {
-                                    setDiscountAmount(0);
-                                    setDiscountPercent(0);
-                                    setAppliedDiscount(0);
-                                    setDiscountMode(null);
-                                  } else {
-                                    setShowDiscountPopup(true);
-                                  }
-                                }}
-                                style={{
-                                  flex: 1,
-                                  background: appliedDiscount > 0 ? "#4a1a1a" : "#222",
-                                  border: "1px solid #555",
-                                  padding: "10px",
-                                  borderRadius: "8px",
-                                  color: "#fff",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                {appliedDiscount > 0 ? "Clear Discount" : "Discount"}
-                              </button>
-                            </div>
-                            <div
-                              style={{
-                                borderTop: "1px solid #333",
-                                marginTop: "20px",
-                                paddingTop: "15px",
-                              }}
-                            >
-                              <label style={{ color: "#e6c37a", fontSize: "14px" }}>
-                                Customer Mobile
-                              </label>
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  background: "#111",
-                                  border: "1px solid #444",
-                                  borderRadius: "8px",
-                                  overflow: "hidden",
-                                  marginTop: "6px",
-                                  marginBottom: "10px",
-                                }}
-                              >
+                            {hasActiveVendorSession ? (
+                              <>
+                                <div style={{ marginTop: "10px", display: "flex", gap: 10 }}>
+                                  <button
+                                    onClick={clearCart}
+                                    style={{
+                                      flex: 1,
+                                      background: "#222",
+                                      border: "1px solid #555",
+                                      padding: "10px",
+                                      borderRadius: "8px",
+                                      color: "#fff",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Clear Cart
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (appliedDiscount > 0) {
+                                        setDiscountAmount(0);
+                                        setDiscountPercent(0);
+                                        setAppliedDiscount(0);
+                                        setDiscountMode(null);
+                                      } else {
+                                        setShowDiscountPopup(true);
+                                      }
+                                    }}
+                                    style={{
+                                      flex: 1,
+                                      background: appliedDiscount > 0 ? "#4a1a1a" : "#222",
+                                      border: "1px solid #555",
+                                      padding: "10px",
+                                      borderRadius: "8px",
+                                      color: "#fff",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    {appliedDiscount > 0 ? "Clear Discount" : "Discount"}
+                                  </button>
+                                </div>
                                 <div
                                   style={{
-                                    padding: "10px 12px",
-                                    borderRight: "1px solid #333",
-                                    color: "#aaa",
-                                    fontWeight: 500,
+                                    borderTop: "1px solid #333",
+                                    marginTop: "20px",
+                                    paddingTop: "15px",
                                   }}
                                 >
-                                  +91
-                                </div>
-                                <input
-                                  value={customerMobile}
-                                  onChange={(e) => setCustomerMobile(e.target.value)}
-                                  placeholder="Enter mobile"
-                                  style={{
-                                    flex: 1,
-                                    background: "transparent",
-                                    border: "none",
-                                    outline: "none",
-                                    color: "#fff",
-                                    padding: "10px",
-                                  }}
-                                />
-                              </div>
-                              {loyaltyEnabled && (
-                                <>
-                                  <div style={{ fontSize: "13px", color: "#aaa" }}>
-                                    Available Points: {availablePoints}
-                                  </div>
-                                  {!customerMobile && (
-                                    <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
-                                      Walk-in billing — no loyalty points will be applied
-                                    </div>
-                                  )}
-                                  {verifyingCustomer && (
-                                    <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
-                                      Checking customer...
-                                    </div>
-                                  )}
-                                  {availablePoints > 0 && (
-                                    <div style={{ marginTop: 8 }}>
-                                      <div style={{ fontSize: "12px", color: "#aaa" }}>
-                                        Redeem Points
-                                      </div>
-                                      <input
-                                        type="number"
-                                        value={redeemPoints}
-                                        min={0}
-                                        max={availablePoints}
-                                        onChange={(e) => setRedeemPoints(Number(e.target.value))}
-                                        style={{
-                                          width: "100%",
-                                          background: "#111",
-                                          border: "1px solid #444",
-                                          padding: "10px",
-                                          borderRadius: "8px",
-                                          color: "#fff",
-                                          marginTop: "6px",
-                                        }}
-                                      />
-                                    </div>
-                                  )}
-                                  {showOtpInput && (
-                                    <div style={{ marginTop: 10 }}>
-                                      <input
-                                        placeholder="Enter OTP"
-                                        value={otp}
-                                        onChange={(e) => setOtp(e.target.value)}
-                                        style={{
-                                          width: "100%",
-                                          background: "#111",
-                                          border: "1px solid #444",
-                                          padding: "10px",
-                                          borderRadius: "8px",
-                                          color: "#fff",
-                                        }}
-                                      />
-                                    </div>
-                                  )}
-                                  {showOtpInput && (
-                                    <button
-                                      onClick={handleVerifyOtp}
-                                      disabled={verifyingOtp}
+                                  <label style={{ color: "#e6c37a", fontSize: "14px" }}>
+                                    Customer Mobile
+                                  </label>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      background: "#111",
+                                      border: "1px solid #444",
+                                      borderRadius: "8px",
+                                      overflow: "hidden",
+                                      marginTop: "6px",
+                                      marginBottom: "10px",
+                                    }}
+                                  >
+                                    <div
                                       style={{
-                                        marginTop: "10px",
-                                        width: "100%",
-                                        background: "#222",
-                                        border: "1px solid #555",
-                                        padding: "10px",
-                                        borderRadius: "8px",
-                                        color: "#fff",
-                                        cursor: verifyingOtp ? "not-allowed" : "pointer",
-                                        opacity: verifyingOtp ? 0.7 : 1,
+                                        padding: "10px 12px",
+                                        borderRight: "1px solid #333",
+                                        color: "#aaa",
+                                        fontWeight: 500,
                                       }}
                                     >
-                                      {verifyingOtp ? "Verifying..." : "Verify OTP"}
-                                    </button>
+                                      +91
+                                    </div>
+                                    <input
+                                      value={customerMobile}
+                                      onChange={(e) => setCustomerMobile(e.target.value)}
+                                      placeholder="Enter mobile"
+                                      style={{
+                                        flex: 1,
+                                        background: "transparent",
+                                        border: "none",
+                                        outline: "none",
+                                        color: "#fff",
+                                        padding: "10px",
+                                      }}
+                                    />
+                                  </div>
+                                  {loyaltyEnabled && (
+                                    <>
+                                      <div style={{ fontSize: "13px", color: "#aaa" }}>
+                                        Available Points: {availablePoints}
+                                      </div>
+                                      {!customerMobile && (
+                                        <div style={{ fontSize: "12px", color: "#facc15", marginTop: 6 }}>
+                                          Walk-in billing — no loyalty points will be applied
+                                        </div>
+                                      )}
+                                      {verifyingCustomer && (
+                                        <div style={{ fontSize: "12px", color: "#999", marginTop: 6 }}>
+                                          Checking customer...
+                                        </div>
+                                      )}
+                                      {availablePoints > 0 && (
+                                        <div style={{ marginTop: 8 }}>
+                                          <div style={{ fontSize: "12px", color: "#aaa" }}>
+                                            Redeem Points
+                                          </div>
+                                          <input
+                                            type="number"
+                                            value={redeemPoints}
+                                            min={0}
+                                            max={availablePoints}
+                                            onChange={(e) => setRedeemPoints(Number(e.target.value))}
+                                            style={{
+                                              width: "100%",
+                                              background: "#111",
+                                              border: "1px solid #444",
+                                              padding: "10px",
+                                              borderRadius: "8px",
+                                              color: "#fff",
+                                              marginTop: "6px",
+                                            }}
+                                          />
+                                        </div>
+                                      )}
+                                      {showOtpInput && (
+                                        <div style={{ marginTop: 10 }}>
+                                          <input
+                                            placeholder="Enter OTP"
+                                            value={otp}
+                                            onChange={(e) => setOtp(e.target.value)}
+                                            style={{
+                                              width: "100%",
+                                              background: "#111",
+                                              border: "1px solid #444",
+                                              padding: "10px",
+                                              borderRadius: "8px",
+                                              color: "#fff",
+                                            }}
+                                          />
+                                        </div>
+                                      )}
+                                      {showOtpInput && (
+                                        <button
+                                          onClick={handleVerifyOtp}
+                                          disabled={verifyingOtp}
+                                          style={{
+                                            marginTop: "10px",
+                                            width: "100%",
+                                            background: "#222",
+                                            border: "1px solid #555",
+                                            padding: "10px",
+                                            borderRadius: "8px",
+                                            color: "#fff",
+                                            cursor: verifyingOtp ? "not-allowed" : "pointer",
+                                            opacity: verifyingOtp ? 0.7 : 1,
+                                          }}
+                                        >
+                                          {verifyingOtp ? "Verifying..." : "Verify OTP"}
+                                        </button>
+                                      )}
+                                    </>
                                   )}
-                                </>
-                              )}
-                              <button
-                                onClick={() => {
-                                  const vendorToken =
-                                    typeof window !== "undefined"
-                                      ? localStorage.getItem(`vendorToken:${vendorId}`)
-                                      : null;
+                                  <button
+                                    onClick={() => {
+                                      const vendorToken =
+                                        typeof window !== "undefined"
+                                          ? localStorage.getItem(`vendorToken:${vendorId}`)
+                                          : null;
 
-                                  if (!vendorToken) {
-                                    setPendingAction("GENERATE_BILL");
-                                    setShowVendorLogin(true);
-                                    return;
-                                  }
+                                      if (!vendorToken) {
+                                        setPendingAction("GENERATE_BILL");
+                                        setShowVendorLogin(true);
+                                        return;
+                                      }
 
-                                  const storedVendorId =
-                                    typeof window !== "undefined"
-                                      ? localStorage.getItem("vendorSessionVendorId")
-                                      : null;
+                                      const storedVendorId =
+                                        typeof window !== "undefined"
+                                          ? localStorage.getItem("vendorSessionVendorId")
+                                          : null;
 
-                                  if (storedVendorId !== String(vendorId)) {
-                                    setPendingAction("GENERATE_BILL");
-                                    setShowVendorLogin(true);
-                                    return;
-                                  }
+                                      if (storedVendorId !== String(vendorId)) {
+                                        setPendingAction("GENERATE_BILL");
+                                        setShowVendorLogin(true);
+                                        return;
+                                      }
 
-                                  handleGenerateBill();
-                                }}
-                                style={{
-                                  marginTop: "14px",
-                                  width: "100%",
-                                  background: "#e6c37a",
-                                  color: "#000",
-                                  padding: "12px",
-                                  borderRadius: "10px",
-                                  fontWeight: "600",
-                                  opacity: canGenerateBill ? 1 : 0.6,
-                                  cursor:
-                                    canGenerateBill ? "pointer" : "not-allowed",
-                                }}
-                                disabled={!canGenerateBill}
-                              >
-                                {processingBill ? "Generating..." : "Generate Bill"}
-                              </button>
-                            </div>
+                                      handleGenerateBill();
+                                    }}
+                                    style={{
+                                      marginTop: "14px",
+                                      width: "100%",
+                                      background: "#e6c37a",
+                                      color: "#000",
+                                      padding: "12px",
+                                      borderRadius: "10px",
+                                      fontWeight: "600",
+                                      opacity: canGenerateBill ? 1 : 0.6,
+                                      cursor: canGenerateBill ? "pointer" : "not-allowed",
+                                    }}
+                                    disabled={!canGenerateBill}
+                                  >
+                                    {processingBill ? "Generating..." : "Generate Bill"}
+                                  </button>
+                                </div>
+                              </>
+                            ) : (
+                              <div style={{ marginTop: "10px", display: "flex", gap: 10 }}>
+                                <button
+                                  onClick={clearCart}
+                                  style={{
+                                    flex: 1,
+                                    background: "#222",
+                                    border: "1px solid #555",
+                                    padding: "10px",
+                                    borderRadius: "8px",
+                                    color: "#fff",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Clear Cart
+                                </button>
+                                <button
+                                  onClick={handleClassicEnquiryAction}
+                                  style={{
+                                    flex: 1,
+                                    background: "#e6c37a",
+                                    border: "1px solid #e6c37a",
+                                    padding: "10px",
+                                    borderRadius: "8px",
+                                    color: "#000",
+                                    fontWeight: "600",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Service Enquiry
+                                </button>
+                              </div>
+                            )}
                           </>
                         )}
                       </div>
@@ -5483,56 +5565,6 @@ function ExploreContent({ onReady, onOpenServices }) {
         </div>
       )}
 
-      {activeTemplateKey !== "ecommerce" ? (
-        <button
-          className="quick-actions-toggle-btn"
-          type="button"
-          onClick={() => setShowOptions((prev) => !prev)}
-        >
-          Options
-        </button>
-      ) : null}
-      {activeTemplateKey !== "ecommerce" && showOptions && (
-        <div className="quick-actions-panel">
-          <button
-            className="quick-action-btn"
-            type="button"
-            onClick={openQuickActionMenu}
-          >
-            Menu
-          </button>
-          {/* <button
-        className="quick-action-btn"
-        type="button"
-        onClick={() => {
-          if (vendorId) {
-            window.location.href = `/dashboard?vendorId=${vendorId}`;
-          }
-        }}
-      >
-        Dashboard 📊
-      </button> */}
-
-          <button
-            className="quick-action-btn"
-            type="button"
-            onClick={openQuickActionDashboard}
-          >
-            Dashboard
-          </button>
-
-          {/* <button
-        className="quick-action-btn"
-        type="button"
-        onClick={() => {
-          setViewMode("loyalty");
-          setShowOptions(false);
-        }}
-      >
-        Loyalty ⚙️
-      </button> */}
-        </div>
-      )}
       {showVendorLogin && (
         <div
           className="login-overlay vendor-login-overlay"

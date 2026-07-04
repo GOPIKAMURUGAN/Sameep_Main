@@ -333,6 +333,7 @@
 
 .modern-book-btn,
 .modern-logout-btn,
+.modern-admin-btn,
 .modern-primary-btn,
 .modern-request-btn,
 .modern-offer-btn {
@@ -343,6 +344,48 @@
   padding: 14px 28px;
   font-weight: 700;
   box-shadow: 0 18px 42px rgba(23, 23, 23, 0.14);
+}
+
+.modern-admin-menu {
+  position: relative;
+}
+
+.modern-admin-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 170px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(23, 23, 23, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 253, 250, 0.98);
+  box-shadow: 0 22px 40px rgba(52, 46, 26, 0.12);
+  z-index: 20;
+}
+
+.modern-admin-dropdown button {
+  border: 0;
+  border-radius: 14px;
+  background: rgba(23, 23, 23, 0.06);
+  color: var(--modern-text);
+  font-weight: 700;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.modern-mobile-admin-menu {
+  margin-top: 10px;
+}
+
+.modern-mobile-menu-admin {
+  margin-top: 0;
+}
+
+.modern-admin-dropdown-mobile {
+  position: static;
+  margin-top: 10px;
 }
 
 .modern-logout-btn {
@@ -2176,6 +2219,10 @@
   }
 
   .modern-book-btn {
+    display: none;
+  }
+
+  .modern-admin-menu {
     display: none;
   }
 

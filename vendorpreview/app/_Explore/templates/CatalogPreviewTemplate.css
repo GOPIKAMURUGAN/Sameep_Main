@@ -84,6 +84,7 @@
 }
 
 .catalog-book-btn,
+.catalog-admin-btn,
 .catalog-add-btn,
 .catalog-cart-open-btn {
   background: transparent;
@@ -99,6 +100,50 @@
 .catalog-book-btn {
   background: var(--catalog-accent);
   color: #fff;
+}
+
+.catalog-book-btn-secondary,
+.catalog-admin-btn {
+  background: transparent;
+  color: var(--catalog-accent);
+}
+
+.catalog-admin-menu {
+  position: relative;
+}
+
+.catalog-admin-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 170px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--catalog-border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: var(--catalog-shadow);
+  z-index: 20;
+}
+
+.catalog-admin-dropdown button {
+  background: rgba(217, 169, 78, 0.08);
+  border: 0;
+  border-radius: 14px;
+  color: var(--catalog-text);
+  font-weight: 700;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.catalog-mobile-admin-menu {
+  margin-top: 12px;
+}
+
+.catalog-admin-dropdown-mobile {
+  position: static;
+  margin-top: 10px;
 }
 
 .catalog-mobile-toggle,
@@ -652,7 +697,8 @@
   }
 
   .catalog-nav,
-  .catalog-book-btn {
+  .catalog-book-btn,
+  .catalog-admin-menu {
     display: none;
   }
 

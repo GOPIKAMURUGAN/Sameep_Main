@@ -5,6 +5,7 @@ import { API_BASE_URL } from "../../../config";
 import "./NurseriesPreviewTemplate.css";
 import ContactSection from "../../Contact/Contact";
 import { ENQUIRY_OPEN_EVENT } from "../../utils/enquiryFlow";
+import { openAdminDashboard, openAdminMenu } from "../../utils/adminQuickActions";
 
 function formatCurrency(value) {
   const amount = Number(value || 0);
@@ -599,6 +600,7 @@ export default function NurseriesPreviewTemplate({
   const [heroImageIndex, setHeroImageIndex] = useState(0);
   const [hierarchySearch, setHierarchySearch] = useState("");
   const [expandedHierarchyKeys, setExpandedHierarchyKeys] = useState([]);
+  const [showAdminMenu, setShowAdminMenu] = useState(false);
 
   const navItems = useMemo(() => {
     const webMenu = Array.isArray(category?.webMenu) ? category.webMenu : [];
@@ -1016,6 +1018,37 @@ export default function NurseriesPreviewTemplate({
                 <span className="nursery-header-action-meta">{phoneNumbers[0]}</span>
               </a>
             ) : null}
+            <div className="nursery-admin-menu">
+              <button
+                type="button"
+                className="nursery-header-action nursery-header-action-secondary"
+                onClick={() => setShowAdminMenu((current) => !current)}
+              >
+                <span className="nursery-header-action-label">Admin</span>
+              </button>
+              {showAdminMenu ? (
+                <div className="nursery-admin-dropdown">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAdminMenu(false);
+                      openAdminMenu();
+                    }}
+                  >
+                    Menu
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAdminMenu(false);
+                      openAdminDashboard();
+                    }}
+                  >
+                    Dashboard
+                  </button>
+                </div>
+              ) : null}
+            </div>
             {hasVendorSession ? (
               <button
                 type="button"
@@ -1074,6 +1107,39 @@ export default function NurseriesPreviewTemplate({
                 Logout
               </button>
             ) : null}
+            <div className="nursery-mobile-admin-menu">
+              <button
+                type="button"
+                className="nursery-mobile-menu-logout"
+                onClick={() => setShowAdminMenu((current) => !current)}
+              >
+                Admin
+              </button>
+              {showAdminMenu ? (
+                <div className="nursery-admin-dropdown nursery-admin-dropdown-mobile">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAdminMenu(false);
+                      setMobileMenuOpen(false);
+                      openAdminMenu();
+                    }}
+                  >
+                    Menu
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAdminMenu(false);
+                      setMobileMenuOpen(false);
+                      openAdminDashboard();
+                    }}
+                  >
+                    Dashboard
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </header>

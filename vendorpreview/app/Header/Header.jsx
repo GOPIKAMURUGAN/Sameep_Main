@@ -19,6 +19,10 @@ import {
   ENQUIRY_OPEN_EVENT,
   getEnquiryTypeLabel,
 } from "../utils/enquiryFlow";
+import {
+  openAdminDashboard,
+  openAdminMenu,
+} from "../utils/adminQuickActions";
 
 const PAGE_SECTIONS = {
   Home: "home",
@@ -34,8 +38,6 @@ export default function Header() {
   const { vendorInfo } = useVendor();
   const classicThemeKey =
     String(vendorInfo?.classicColorScheme || "blackgold").trim().toLowerCase() || "blackgold";
-  const selectedTemplateKey =
-    String(vendorInfo?.selectedTemplateKey || "").trim().toLowerCase();
 
   const rootCategoryId =
     vendorInfo?.categoryId ||
@@ -51,8 +53,8 @@ export default function Header() {
   const [galleryReadOnly, setGalleryReadOnly] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
-  const showHeaderLogout =
-    hasSession && vendorInfo && selectedTemplateKey !== "classic";
+  const [showAdminMenu, setShowAdminMenu] = useState(false);
+  const showHeaderLogout = hasSession && vendorInfo;
   // --------------------------------------------------
   // 🔹 Load category for Header (fallback-safe)
   // --------------------------------------------------
@@ -256,6 +258,38 @@ if (vendorId) {
                   </button>
                 </li>
               ) : null}
+
+              <li className="nav-item header-admin-menu">
+                <button
+                  className="header-admin-button"
+                  type="button"
+                  onClick={() => setShowAdminMenu((current) => !current)}
+                >
+                  Admin
+                </button>
+                {showAdminMenu ? (
+                  <div className="header-admin-dropdown">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAdminMenu(false);
+                        openAdminMenu();
+                      }}
+                    >
+                      Menu
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAdminMenu(false);
+                        openAdminDashboard();
+                      }}
+                    >
+                      Dashboard
+                    </button>
+                  </div>
+                ) : null}
+              </li>
 
               <li className="nav-item">
                 <button

@@ -8,6 +8,7 @@ import {
   buildVendorPreviewAnalyticsPayload,
   trackVendorPreviewEvent,
 } from "../../utils/siteAnalytics";
+import { openAdminDashboard, openAdminMenu } from "../../utils/adminQuickActions";
 import "./ModernPreviewTemplate.css";
 
 const DEFAULT_NAV = [
@@ -1163,6 +1164,7 @@ export default function ModernPreviewTemplate({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [galleryStartIndex, setGalleryStartIndex] = useState(0);
   const [hasVendorSession, setHasVendorSession] = useState(false);
+  const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [selectedInquiryInterest, setSelectedInquiryInterest] = useState("");
   const [dynamicInquiryValues, setDynamicInquiryValues] = useState({});
   const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
@@ -1942,6 +1944,38 @@ export default function ModernPreviewTemplate({
           ))}
         </nav>
 
+        <div className="modern-admin-menu">
+          <button
+            type="button"
+            className="modern-admin-btn"
+            onClick={() => setShowAdminMenu((current) => !current)}
+          >
+            Admin
+          </button>
+          {showAdminMenu ? (
+            <div className="modern-admin-dropdown">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdminMenu(false);
+                  openAdminMenu();
+                }}
+              >
+                Menu
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdminMenu(false);
+                  openAdminDashboard();
+                }}
+              >
+                Dashboard
+              </button>
+            </div>
+          ) : null}
+        </div>
+
         <button type="button" className="modern-book-btn" onClick={goToQuickInquiry}>
           {enquiryTypeLabel}
         </button>
@@ -1999,6 +2033,40 @@ export default function ModernPreviewTemplate({
           >
             {enquiryTypeLabel}
           </button>
+
+          <div className="modern-mobile-admin-menu">
+            <button
+              type="button"
+              className="modern-mobile-menu-book modern-mobile-menu-admin"
+              onClick={() => setShowAdminMenu((current) => !current)}
+            >
+              Admin
+            </button>
+            {showAdminMenu ? (
+              <div className="modern-admin-dropdown modern-admin-dropdown-mobile">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdminMenu(false);
+                    setMobileMenuOpen(false);
+                    openAdminMenu();
+                  }}
+                >
+                  Menu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdminMenu(false);
+                    setMobileMenuOpen(false);
+                    openAdminDashboard();
+                  }}
+                >
+                  Dashboard
+                </button>
+              </div>
+            ) : null}
+          </div>
 
           {hasVendorSession ? (
             <button
