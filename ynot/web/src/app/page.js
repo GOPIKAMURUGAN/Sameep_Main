@@ -16,6 +16,13 @@ import {
   trackSiteEvent,
   trackSitePageView,
 } from "../utils/siteAnalytics";
+import { PREVIEW_BASE_URL } from "../utils/config";
+
+function buildTrustedPartnerPreviewUrl(subdomain) {
+  const normalized = String(subdomain || "").trim().toLowerCase();
+  if (!normalized) return "";
+  return PREVIEW_BASE_URL.replace("://", `://${normalized}.`);
+}
 
 export default function Home() {
   const router = useRouter();
@@ -328,9 +335,11 @@ export default function Home() {
                 <div className="trustedPartnersTrack">
                   {trustedPartnersDisplay.map((partner, index) => {
                   const mediaUrl = partner.imageUrl || partner.categoryImageUrl || "";
-                  const cardProps = partner.googleProfileUrl
+                  const previewUrl = buildTrustedPartnerPreviewUrl(partner.subdomain);
+                  const destinationUrl = previewUrl || partner.googleProfileUrl || "";
+                  const cardProps = destinationUrl
                     ? {
-                        href: partner.googleProfileUrl,
+                        href: destinationUrl,
                         target: "_blank",
                         rel: "noreferrer",
                         onClick: () =>
@@ -339,13 +348,13 @@ export default function Home() {
                           }),
                       }
                     : {};
-                  const CardTag = partner.googleProfileUrl ? "a" : "div";
+                  const CardTag = destinationUrl ? "a" : "div";
 
                     return (
                       <CardTag
                         key={`${partner.vendorId}-${index}`}
                         className={`trustedPartnerCard ${
-                          partner.googleProfileUrl ? "isClickable" : "isStatic"
+                          destinationUrl ? "isClickable" : "isStatic"
                         }`}
                         {...cardProps}
                       >
@@ -360,7 +369,7 @@ export default function Home() {
                           )}
                         </div>
                         <div className="trustedPartnerContent">
-                          {partner.googleProfileUrl ? (
+                          {destinationUrl ? (
                             <span className="trustedPartnerLinkIcon" aria-hidden="true">
                               ↗
                             </span>

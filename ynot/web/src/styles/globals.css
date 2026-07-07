@@ -493,8 +493,7 @@ button {
   will-change: transform;
 }
 
-.trustedPartnersGrid:hover .trustedPartnersTrack,
-.trustedPartnersGrid:focus-within .trustedPartnersTrack {
+.trustedPartnersGrid:hover .trustedPartnersTrack {
   animation-play-state: paused;
 }
 

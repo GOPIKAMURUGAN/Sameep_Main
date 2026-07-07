@@ -651,7 +651,7 @@ router.get("/trusted-partners", async (req, res) => {
       status: "Published",
     })
       .populate("categoryId", "name imageUrl")
-      .select("businessName contactName logoUrl profilePictures serviceAreas location googlePlace categoryId")
+      .select("businessName contactName logoUrl profilePictures serviceAreas location googlePlace categoryId subdomain")
       .sort({ businessName: 1, createdAt: -1 })
       .lean();
 
@@ -669,6 +669,7 @@ router.get("/trusted-partners", async (req, res) => {
           (typeof vendor.logoUrl === "string" && vendor.logoUrl.trim()) ||
           (Array.isArray(vendor.profilePictures) && vendor.profilePictures.find(Boolean)) ||
           "",
+        subdomain: String(vendor.subdomain || "").trim().toLowerCase(),
         googleProfileUrl: buildGoogleProfileUrl(vendor),
       }))
       .filter((vendor) => vendor.businessName);
