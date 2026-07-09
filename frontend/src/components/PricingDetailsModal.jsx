@@ -365,6 +365,7 @@ export default function PricingDetailsModal({
             vendorPriceNodeId: nodeId,
             price: editForm.price === "" ? null : Number(editForm.price),
             terms: editForm.terms,
+            imageUrl: editForm.imageUrl,
             pricingStatus: editForm.pricingStatus,
           },
           adminRequestConfig()

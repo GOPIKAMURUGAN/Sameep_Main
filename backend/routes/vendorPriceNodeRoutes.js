@@ -581,7 +581,8 @@ router.put("/update", async (req, res) => {
       vendorPriceNodeId,
       price,
       terms,
-      offerText,        
+      offerText,
+      imageUrl,
       pricingStatus,
       visibleToUser,
       visibleToVendor,
@@ -619,6 +620,7 @@ router.put("/update", async (req, res) => {
     if (price !== undefined) record.price = price;
     if (terms !== undefined) record.terms = terms;
     if (offerText !== undefined) record.offerText = offerText;
+    if (imageUrl !== undefined) record.imageUrl = typeof imageUrl === "string" ? imageUrl.trim() : imageUrl;
     if (pricingStatus !== undefined)
       record.pricingStatus = pricingStatus;
     if (visibleToUser !== undefined)

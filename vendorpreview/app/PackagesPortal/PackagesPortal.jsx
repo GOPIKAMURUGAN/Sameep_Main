@@ -106,10 +106,15 @@ function mergeVendorWithCategory(vendorTree, categoryTree) {
   function walk(nodes) {
     return (nodes || []).map(vendorNode => {
       const meta = categoryMap.get(vendorNode.categoryId);
+      const rawImageUrl =
+        typeof vendorNode.imageUrl === "string"
+          ? vendorNode.imageUrl
+          : "";
 
       return {
         ...vendorNode,
-        imageUrl: vendorNode.imageUrl || meta?.imageUrl || null,
+        rawImageUrl,
+        imageUrl: rawImageUrl || meta?.imageUrl || null,
         packagesIncludes:
           meta?.packagesIncludes ??
           vendorNode.packagesIncludes ??
@@ -468,11 +473,16 @@ export default function PackagesPortal({ onClose, onLoaded, onPricingUpdated }) 
   function attachImagesToPricingTree(pricingNodes, imageMap) {
     function walk(nodes, inheritedImage = null) {
       return nodes.map(n => {
+        const rawImageUrl =
+          typeof n.rawImageUrl === "string"
+            ? n.rawImageUrl
+            : (typeof n.imageUrl === "string" ? n.imageUrl : "");
         const image =
-          imageMap[n.categoryId] || inheritedImage || null;
+          rawImageUrl || imageMap[n.categoryId] || inheritedImage || null;
 
         return {
           ...n,
+          rawImageUrl,
           imageUrl: image,
           children: walk(n.children || [], image),
         };
@@ -2011,7 +2021,11 @@ async function updateService(service, status) {
                           setModalDiscountPercent(service.discountPercent || "");
                           setModalTerms(service.terms || "");
                           setModalPackagesIncludes(service.packagesIncludes || "");
-                          setModalImageUrl(service.imageUrl || "");
+                          setModalImageUrl(
+                            isSelfManagedVendor
+                              ? (service.imageUrl || "")
+                              : (service.rawImageUrl || "")
+                          );
                           setModalOfferText(service.offerText || "");
                           setModalItemCode(service.itemCode || "");
                           setModalUnitLabel(service.unitLabel || "");
@@ -2064,7 +2078,11 @@ async function updateService(service, status) {
                           setModalDiscountPercent(service.discountPercent || "");
                           setModalTerms(service.terms || "");
                           setModalPackagesIncludes(service.packagesIncludes || "");
-                          setModalImageUrl(service.imageUrl || "");
+                          setModalImageUrl(
+                            isSelfManagedVendor
+                              ? (service.imageUrl || "")
+                              : (service.rawImageUrl || "")
+                          );
                           setModalOfferText(service.offerText || "");
                           setModalItemCode(service.itemCode || "");
                           setModalUnitLabel(service.unitLabel || "");
@@ -2429,7 +2447,11 @@ async function updateService(service, status) {
                 editingService.packagesIncludes = isSelfManagedVendor
                   ? (selfManagedEditTypeConfig.supportsPackagesIncludes ? modalPackagesIncludes.trim() : "")
                   : editingService.packagesIncludes;
-                editingService.imageUrl = modalImageUrl;
+                if (isSelfManagedVendor) {
+                  editingService.imageUrl = modalImageUrl;
+                } else {
+                  editingService.rawImageUrl = modalImageUrl;
+                }
                 editingService.offerText = isSelfManagedVendor
                   ? (selfManagedEditTypeConfig.customType === "offer" ? modalOfferText.trim() : "")
                   : modalOfferText;
@@ -2524,17 +2546,43 @@ async function updateService(service, status) {
                     })
                   );
                 } else {
+                  const categoryImageMap = buildImageMapFromTree(categoryTree);
+                  const nextDisplayImage =
+                    modalImageUrl || categoryImageMap[editingService.categoryId] || null;
+
                   await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/vendor-price-nodes/update`, {
                     method: "PUT",
                     body: JSON.stringify({
                       vendorPriceNodeId: editingService._id,   // ✅ FIX
                       price: Number(modalPrice),               // ✅ FIX
                       terms: resolvedTerms,
+                      imageUrl: modalImageUrl || "",
                       offerText: modalOfferText,
                       pricingStatus: "Active"
                     })
                   });
-                  setRootNodes([...rootNodes]);
+                  setRootNodes(nodes =>
+                    updateNodeFields(nodes, editingService._id, {
+                      name: editCategoryName,
+                      price: nextPrice,
+                      terms: resolvedTerms,
+                      offerText: modalOfferText,
+                      pricingStatus: "Active",
+                      rawImageUrl: modalImageUrl || "",
+                      imageUrl: nextDisplayImage,
+                    })
+                  );
+                  setPath(prev =>
+                    updatePathFields(prev, editingService._id, {
+                      name: editCategoryName,
+                      price: nextPrice,
+                      terms: resolvedTerms,
+                      offerText: modalOfferText,
+                      pricingStatus: "Active",
+                      rawImageUrl: modalImageUrl || "",
+                      imageUrl: nextDisplayImage,
+                    })
+                  );
                 }
                 await onPricingUpdated?.();
                 setShowEditModal(false);
