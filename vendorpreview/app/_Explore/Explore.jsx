@@ -336,7 +336,7 @@ function TermsList({ terms }) {
 
 
 
-function ServiceCard({ data, sectionName, openLogin, addToCart, isStandardMenu = false }) {
+function ServiceCard({ data, sectionName, openLogin, addToCart }) {
 
   const [selectedSubSub, setSelectedSubSub] = useState(null);
   const [selectedMain, setSelectedMain] = useState(
@@ -579,7 +579,7 @@ const cartKey = [
           ) : (
             data.img && (
               <img
-                className={isStandardMenu ? "ws-media-img ws-media-img-standard" : "ws-media-img"}
+                className="ws-media-img ws-media-img-standard"
                 src={data.img}
                 alt={data.title}
               />
@@ -639,7 +639,7 @@ const cartKey = [
   ) : (
     dynamicImg && (
       <img
-        className={isStandardMenu ? "ws-media-img ws-media-img-standard" : "ws-media-img"}
+        className="ws-media-img ws-media-img-standard"
         src={dynamicImg}
         alt={data.title}
       />
@@ -3904,7 +3904,6 @@ function ExploreContent({ onReady, onOpenServices }) {
                           sectionName={section.sectionName}
                           openLogin={openLogin}
                           addToCart={addToCart}
-                          isStandardMenu={vendorInfo?.pricingSource !== "self_managed"}
                         />
                       ))}
                     </div>
@@ -3928,7 +3927,6 @@ function ExploreContent({ onReady, onOpenServices }) {
                           sectionName={c.title}
                           openLogin={openLogin}
                           addToCart={addToCart}
-                          isStandardMenu={vendorInfo?.pricingSource !== "self_managed"}
                         />
                       </div>
                     ))}
