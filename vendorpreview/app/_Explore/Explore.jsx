@@ -336,7 +336,7 @@ function TermsList({ terms }) {
 
 
 
-function ServiceCard({ data, sectionName, openLogin, addToCart }) {
+function ServiceCard({ data, sectionName, openLogin, addToCart, isStandardMenu = false }) {
 
   const [selectedSubSub, setSelectedSubSub] = useState(null);
   const [selectedMain, setSelectedMain] = useState(
@@ -577,7 +577,13 @@ const cartKey = [
               {data.offerText}
             </div>
           ) : (
-            data.img && <img src={data.img} alt={data.title} />
+            data.img && (
+              <img
+                className={isStandardMenu ? "ws-media-img ws-media-img-standard" : "ws-media-img"}
+                src={data.img}
+                alt={data.title}
+              />
+            )
           )}
         </div>
 
@@ -631,7 +637,13 @@ const cartKey = [
       {selectedOfferText}
     </div>
   ) : (
-    dynamicImg && <img src={dynamicImg} alt={data.title} />
+    dynamicImg && (
+      <img
+        className={isStandardMenu ? "ws-media-img ws-media-img-standard" : "ws-media-img"}
+        src={dynamicImg}
+        alt={data.title}
+      />
+    )
   )}
 
 
@@ -3892,6 +3904,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                           sectionName={section.sectionName}
                           openLogin={openLogin}
                           addToCart={addToCart}
+                          isStandardMenu={vendorInfo?.pricingSource !== "self_managed"}
                         />
                       ))}
                     </div>
@@ -3915,6 +3928,7 @@ function ExploreContent({ onReady, onOpenServices }) {
                           sectionName={c.title}
                           openLogin={openLogin}
                           addToCart={addToCart}
+                          isStandardMenu={vendorInfo?.pricingSource !== "self_managed"}
                         />
                       </div>
                     ))}
