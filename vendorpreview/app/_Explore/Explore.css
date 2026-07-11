@@ -537,7 +537,8 @@ html, body {
   width: 100%;
   height: 230px;
   border-radius: 18px;
-  object-fit: cover;
+  object-fit: contain;
+  background: #050505;
 
   box-shadow:
     0 10px 22px rgba(0,0,0,0.45),
@@ -547,7 +548,7 @@ html, body {
 }
 
 .ws-media-img-standard {
-  object-position: top center;
+  object-position: center center;
 }
 
 .ws-card:hover .ws-media img {
