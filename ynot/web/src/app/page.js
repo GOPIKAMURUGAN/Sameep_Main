@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CategoryCard from "../components/CategoryCard";
 import {
@@ -24,8 +24,12 @@ function buildTrustedPartnerPreviewUrl(subdomain) {
   return PREVIEW_BASE_URL.replace("://", `://${normalized}.`);
 }
 
+const TRUSTED_PARTNER_SCROLL_SPEED = 150;
+const TRUSTED_PARTNER_MIN_DURATION = 60;
+
 export default function Home() {
   const router = useRouter();
+  const trustedPartnersTrackRef = useRef(null);
   const [categories, setCategories] = useState([]);
   const [siteContact, setSiteContact] = useState({
     addressLine1: "",
@@ -34,6 +38,7 @@ export default function Home() {
   });
   const [trustedPartners, setTrustedPartners] = useState([]);
   const [digitalScoreConfig, setDigitalScoreConfig] = useState(null);
+  const [trustedPartnersDuration, setTrustedPartnersDuration] = useState(90);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -102,6 +107,29 @@ export default function Home() {
     const payload = buildPageViewPayload({ pageType: "ynot_home" });
     trackSitePageView(payload);
   }, []);
+
+  useEffect(() => {
+    const track = trustedPartnersTrackRef.current;
+    if (!track || trustedPartners.length <= 1) return;
+
+    const updateTrustedPartnersDuration = () => {
+      const scrollDistance = track.scrollWidth / 2;
+      const duration = scrollDistance / TRUSTED_PARTNER_SCROLL_SPEED;
+      setTrustedPartnersDuration(Math.max(TRUSTED_PARTNER_MIN_DURATION, duration));
+    };
+
+    updateTrustedPartnersDuration();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateTrustedPartnersDuration);
+      return () => window.removeEventListener("resize", updateTrustedPartnersDuration);
+    }
+
+    const resizeObserver = new ResizeObserver(updateTrustedPartnersDuration);
+    resizeObserver.observe(track);
+
+    return () => resizeObserver.disconnect();
+  }, [trustedPartners.length]);
 
   const sortedCategories = useMemo(
     () =>
@@ -332,7 +360,13 @@ export default function Home() {
               </div>
 
               <div className="trustedPartnersGrid">
-                <div className="trustedPartnersTrack">
+                <div
+                  ref={trustedPartnersTrackRef}
+                  className="trustedPartnersTrack"
+                  style={{
+                    "--trusted-partners-duration": `${trustedPartnersDuration}s`,
+                  }}
+                >
                   {trustedPartnersDisplay.map((partner, index) => {
                   const mediaUrl = partner.imageUrl || partner.categoryImageUrl || "";
                   const previewUrl = buildTrustedPartnerPreviewUrl(partner.subdomain);

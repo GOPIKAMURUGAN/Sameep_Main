@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../../../../ynot-repo"
+		},
+		{
+			"path": "../../../YnotConnect"
 		}
 	],
 	"settings": {}
