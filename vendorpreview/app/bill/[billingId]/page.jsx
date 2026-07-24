@@ -64,6 +64,20 @@ function BillView({ data, error }) {
             <div style={styles.headerText}>
               {billDate ? <p style={styles.billDate}>Bill Date: {billDate}</p> : null}
               <h1 style={styles.title}>{vendorName}</h1>
+              {vendorPhone || websiteUrl ? (
+                <div style={styles.storeContactInline}>
+                  {vendorPhone ? (
+                    <a href={`tel:${vendorPhone}`} style={styles.storeContactLink}>
+                      {vendorPhone}
+                    </a>
+                  ) : null}
+                  {websiteUrl ? (
+                    <a href={websiteUrl} target="_blank" rel="noreferrer" style={styles.storeWebsiteLink}>
+                      {websiteLabel}
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -103,19 +117,6 @@ function BillView({ data, error }) {
                   <span style={styles.balanceLabel}>Current Loyalty Balance</span>
                   <strong style={styles.balanceValue}>{Number(totals.balance || 0)} points</strong>
                 </div>
-              </section>
-
-              <section style={styles.detailCard}>
-                <p style={styles.sectionEyebrow}>Store Contact</p>
-                {vendorPhone ? <p style={styles.contactLine}>{vendorPhone}</p> : null}
-                {websiteUrl ? (
-                  <p style={styles.contactLine}>
-                    <a href={websiteUrl} target="_blank" rel="noreferrer" style={styles.inlineLink}>
-                      {websiteLabel}
-                    </a>
-                  </p>
-                ) : null}
-                {data?.vendor?.address ? <p style={styles.addressText}>{data.vendor.address}</p> : null}
               </section>
             </div>
 
@@ -255,6 +256,28 @@ const styles = {
     lineHeight: 1.05,
     color: "#2f2417",
   },
+  storeContactInline: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "10px 16px",
+    alignItems: "center",
+    marginTop: "12px",
+    color: "#7a5c35",
+    fontSize: "16px",
+    lineHeight: 1.4,
+    overflowWrap: "anywhere",
+  },
+  storeContactLink: {
+    color: "#7a5c35",
+    textDecoration: "underline",
+    textUnderlineOffset: "3px",
+  },
+  storeWebsiteLink: {
+    color: "#9b6b2f",
+    fontWeight: 700,
+    textDecoration: "underline",
+    textUnderlineOffset: "3px",
+  },
   errorBox: {
     borderRadius: "18px",
     background: "#fff2f0",
@@ -294,7 +317,7 @@ const styles = {
   },
   detailsGrid: {
     display: "grid",
-    gridTemplateColumns: "minmax(240px, 1fr) minmax(280px, 1.2fr)",
+    gridTemplateColumns: "minmax(0, 1fr)",
     gap: "16px",
     marginBottom: "24px",
   },
@@ -323,22 +346,6 @@ const styles = {
     margin: "0 0 8px",
     color: "#6d5840",
     fontSize: "15px",
-  },
-  contactLine: {
-    margin: "0 0 8px",
-    color: "#6d5840",
-    fontSize: "16px",
-    lineHeight: 1.45,
-  },
-  addressText: {
-    margin: "12px 0 0",
-    color: "#6d5840",
-    fontSize: "15px",
-    lineHeight: 1.55,
-  },
-  inlineLink: {
-    color: "#9b6b2f",
-    textDecoration: "none",
   },
   balanceBox: {
     marginTop: "18px",
