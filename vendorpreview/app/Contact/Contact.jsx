@@ -208,7 +208,7 @@ export default function ContactSection({
     if (isEcommerceTemplate) return normalizedCartItems;
     if (!requiresCartSelection) return normalizedCartItems;
     if (!activeServiceInterest) return normalizedCartItems;
-    return normalizedCartItems.filter((item) => item.cartKey === activeServiceInterest);
+    return normalizedCartItems;
   }, [activeServiceInterest, isEcommerceTemplate, normalizedCartItems, requiresCartSelection]);
   const cartSummary = useMemo(() => {
     return effectiveCartItems
