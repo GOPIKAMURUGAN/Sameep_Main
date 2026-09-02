@@ -309,9 +309,9 @@ exports.getBillsDrilldown = async (req, res) => {
         if (bill.customerId) {
           const customer = await Customer.findById(bill.customerId).lean();
           if (customer?.phone) {
-            phone = maskPhone(customer.phone);
+            phone = customer.phone;
           } else if (customer?.fullNumber) {
-            phone = maskPhone(customer.fullNumber);
+            phone = customer.fullNumber;
           }
         }
 
@@ -333,11 +333,6 @@ exports.getBillsDrilldown = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
-function maskPhone(phone) {
-  if (!phone) return "";
-  return phone.slice(0, 5) + "****";
-}
 
 exports.getStylistPerformance = async (req, res) => {
   try {

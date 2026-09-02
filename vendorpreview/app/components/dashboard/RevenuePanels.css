@@ -208,6 +208,13 @@
   color: rgba(245, 242, 234, 0.68);
 }
 
+.revenue-panel-item-resource {
+  margin-top: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e6c37a;
+}
+
 .revenue-panel-item-value {
   color: #e6c37a;
   font-weight: 700;

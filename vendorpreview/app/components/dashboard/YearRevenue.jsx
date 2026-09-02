@@ -10,6 +10,36 @@ const currencyFmt = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
+function formatDateTime(value) {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function formatItemMeta(item) {
+  const parts = [];
+
+  if (Number(item?.qty || 0) > 0) {
+    parts.push(`Qty ${item.qty}`);
+  }
+
+  if (Array.isArray(item?.nodePath) && item.nodePath.length > 0) {
+    parts.push(item.nodePath.join(" / "));
+  }
+
+  return parts.join(" • ");
+}
+
+function formatItemResource(item) {
+  return String(item?.resourceName || "").trim();
+}
+
 export default function YearRevenue({
   vendorId,
   hrEnabled = true,
@@ -23,6 +53,9 @@ export default function YearRevenue({
   const [loading, setLoading] = useState(true);
   const [stylists, setStylists] = useState([]);
   const [loadingStylists, setLoadingStylists] = useState(true);
+  const [selectedBills, setSelectedBills] = useState([]);
+  const [loadingBills, setLoadingBills] = useState(false);
+  const [expandedBills, setExpandedBills] = useState({});
 
   useEffect(() => {
     if (!hrEnabled && activeSection === "stylists") {
@@ -180,6 +213,65 @@ export default function YearRevenue({
     };
   }, [vendorId, hrEnabled, hrLabelSingular, selectedMonth]);
 
+  useEffect(() => {
+    if (!vendorId || !selectedMonth?.startDate || !selectedMonth?.endDate) {
+      setSelectedBills([]);
+      setExpandedBills({});
+      setLoadingBills(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadBills = async () => {
+      try {
+        setLoadingBills(true);
+        const params = new URLSearchParams({
+          vendorId,
+          from: selectedMonth.startDate,
+          to: selectedMonth.endDate,
+          limit: "250",
+        });
+        const res = await fetch(
+          `${API_BASE_URL}/api/vendor/dashboard/bills?${params.toString()}`,
+          { cache: "no-store" }
+        );
+
+        if (!res.ok) {
+          throw new Error("Failed to load selected month bills");
+        }
+
+        const json = await res.json();
+        const rawBills = Array.isArray(json)
+          ? json
+          : Array.isArray(json?.data)
+            ? json.data
+            : [];
+
+        if (!cancelled) {
+          setSelectedBills(rawBills.filter((bill) => Number(bill?.total || 0) > 0));
+          setExpandedBills({});
+        }
+      } catch (error) {
+        console.error("Failed to fetch selected month bills", error);
+        if (!cancelled) {
+          setSelectedBills([]);
+          setExpandedBills({});
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingBills(false);
+        }
+      }
+    };
+
+    loadBills();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [vendorId, selectedMonth]);
+
   const totals = useMemo(() => {
     const summaryRevenue = Number(
       summary?.thisYearRevenue ?? summary?.yearRevenue ?? summary?.yearlyRevenue ?? 0
@@ -205,6 +297,13 @@ export default function YearRevenue({
   }, [months, summary]);
 
   const selectedMonthLabel = selectedMonth?.label || selectedMonth?.month || "Selected Month";
+
+  const toggleBill = (billKey) => {
+    setExpandedBills((prev) => ({
+      ...prev,
+      [billKey]: !prev[billKey],
+    }));
+  };
 
   return (
     <section className="revenue-panel">
@@ -296,6 +395,89 @@ export default function YearRevenue({
                       </div>
                     </button>
                   ))}
+                </div>
+              )}
+            </div>
+
+            <div className="revenue-panel-section">
+              <div className="revenue-panel-section-title">
+                {selectedMonthLabel} Bills
+                {selectedBills.length > 0 ? (
+                  <span className="revenue-panel-section-note">
+                    {selectedBills.length} bill{selectedBills.length === 1 ? "" : "s"}
+                  </span>
+                ) : null}
+              </div>
+              {loadingBills ? (
+                <div className="revenue-panel-loading">Loading selected month bills...</div>
+              ) : selectedBills.length === 0 ? (
+                <div className="revenue-panel-empty">No bill details found for {selectedMonthLabel}.</div>
+              ) : (
+                <div className="revenue-panel-list">
+                  {selectedBills.map((bill) => {
+                    const billKey = bill.billId || `${bill.phone}-${bill.createdAt}`;
+                    const isExpanded = expandedBills[billKey] === true;
+                    const billItems = Array.isArray(bill.items) ? bill.items : [];
+
+                    return (
+                      <div key={billKey} className="revenue-panel-list-item">
+                        <div className="revenue-panel-bill-content">
+                          <div className="revenue-panel-list-main">
+                            Bill #{String(bill.billId || "").slice(0, 8)}
+                          </div>
+                          <div className="revenue-panel-list-sub">
+                            {bill.phone || "Walk-in"} • {formatDateTime(bill.createdAt)}
+                          </div>
+                          <div className="revenue-panel-chip-row">
+                            <span className="revenue-panel-chip">Earned {Number(bill.earned || 0)}</span>
+                            <span className="revenue-panel-chip">Redeemed {Number(bill.redeemed || 0)}</span>
+                            <span className="revenue-panel-chip">{billItems.length} item(s)</span>
+                          </div>
+                          <div className="revenue-panel-bill-meta">
+                            {isExpanded ? "Expanded item details" : "Tap to inspect bill items"}
+                          </div>
+
+                          {isExpanded && billItems.length > 0 ? (
+                            <div className="revenue-panel-items-list">
+                              {billItems.map((item, index) => (
+                                <div
+                                  key={`${billKey}-item-${item.itemId || item.name || index}`}
+                                  className="revenue-panel-item-row"
+                                >
+                                  <div>
+                                    <div className="revenue-panel-item-name">{item.name || "Unnamed Item"}</div>
+                                    <div className="revenue-panel-item-meta">{formatItemMeta(item)}</div>
+                                    {formatItemResource(item) ? (
+                                      <div className="revenue-panel-item-resource">
+                                        Handled by {formatItemResource(item)}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                  <div className="revenue-panel-item-value">
+                                    {currencyFmt.format(Number(item.total || item.price || 0))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="revenue-panel-bill-actions">
+                          <div className="revenue-panel-list-value">
+                            {currencyFmt.format(Number(bill.total || 0))}
+                          </div>
+                          {billItems.length > 0 ? (
+                            <button
+                              type="button"
+                              className="revenue-panel-expand-btn"
+                              onClick={() => toggleBill(billKey)}
+                            >
+                              {isExpanded ? "Hide items" : "View items"}
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

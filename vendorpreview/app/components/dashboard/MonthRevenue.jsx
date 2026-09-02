@@ -36,6 +36,10 @@ function formatItemMeta(item) {
   return parts.join(" • ");
 }
 
+function formatItemResource(item) {
+  return String(item?.resourceName || "").trim();
+}
+
 function getMonthRange() {
   const start = new Date();
   start.setDate(1);
@@ -286,11 +290,16 @@ export default function MonthRevenue({
                             {bill.items.map((item, index) => (
                               <div
                                 key={`${bill.billId || bill.createdAt}-item-${item.itemId || item.name || index}`}
-                                className="revenue-panel-item-row"
-                              >
-                                <div>
+                              className="revenue-panel-item-row"
+                            >
+                              <div>
                                   <div className="revenue-panel-item-name">{item.name || "Unnamed Item"}</div>
                                   <div className="revenue-panel-item-meta">{formatItemMeta(item)}</div>
+                                  {formatItemResource(item) ? (
+                                    <div className="revenue-panel-item-resource">
+                                      Handled by {formatItemResource(item)}
+                                    </div>
+                                  ) : null}
                                 </div>
                                 <div className="revenue-panel-item-value">
                                   {currencyFmt.format(Number(item.total || item.price || 0))}

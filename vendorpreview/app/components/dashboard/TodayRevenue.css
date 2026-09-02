@@ -280,6 +280,13 @@
   font-size: 13px;
 }
 
+.today-revenue-item-resource {
+  margin-top: 5px;
+  color: #e6c37a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .today-revenue-stylist-list {
   display: grid;
   gap: 12px;

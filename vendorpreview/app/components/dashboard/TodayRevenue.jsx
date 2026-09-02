@@ -37,6 +37,10 @@ function formatItemMeta(item) {
   return parts.join(" • ");
 }
 
+function formatItemResource(item) {
+  return String(item?.resourceName || "").trim();
+}
+
 function getTodayRange() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -317,6 +321,11 @@ function TodayRevenue({
                               <div>
                                 <div className="today-revenue-item-name">{item.name || "Unnamed Item"}</div>
                                 <div className="today-revenue-item-meta">{formatItemMeta(item)}</div>
+                                {formatItemResource(item) ? (
+                                  <div className="today-revenue-item-resource">
+                                    Handled by {formatItemResource(item)}
+                                  </div>
+                                ) : null}
                               </div>
                               <div className="today-revenue-bill-total">
                                 {currencyFmt.format(Number(item.total || item.price || 0))}

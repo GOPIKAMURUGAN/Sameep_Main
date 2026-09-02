@@ -25,12 +25,31 @@ function formatDateTime(value) {
   });
 }
 
+function formatItemMeta(item) {
+  const parts = [];
+
+  if (Number(item?.qty || 0) > 0) {
+    parts.push(`Qty ${item.qty}`);
+  }
+
+  if (Array.isArray(item?.nodePath) && item.nodePath.length > 0) {
+    parts.push(item.nodePath.join(" / "));
+  }
+
+  return parts.join(" • ");
+}
+
+function formatItemResource(item) {
+  return String(item?.resourceName || "").trim();
+}
+
 export default function CustomerSearch({ vendorId }) {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [customerData, setCustomerData] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [expandedBills, setExpandedBills] = useState({});
 
   const sections = useMemo(() => {
     const customer = customerData?.customer || {};
@@ -108,13 +127,22 @@ export default function CustomerSearch({ vendorId }) {
       const json = await res.json();
       const payload = json?.data && typeof json.data === "object" ? json.data : json;
       setCustomerData(payload?.customer ? payload : null);
+      setExpandedBills({});
     } catch (error) {
       console.error("Failed to fetch customer data", error);
       setCustomerData(null);
+      setExpandedBills({});
       setErrorMessage("Unable to fetch customer data.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleBill = (billKey) => {
+    setExpandedBills((prev) => ({
+      ...prev,
+      [billKey]: !prev[billKey],
+    }));
   };
 
   return (
@@ -196,40 +224,79 @@ export default function CustomerSearch({ vendorId }) {
               <div className="revenue-panel-empty">No bills found for this customer.</div>
             ) : (
               <div className="revenue-panel-list">
-                {bills.map((bill, index) => (
-                  <div
-                    key={bill.billId || `${bill.phone}-${index}`}
-                    className="revenue-panel-list-item"
-                  >
-                    <div>
-                      <div className="revenue-panel-list-main">
-                        {currencyFmt.format(
-                          Number(bill.total || bill.amount || bill.totalAmount || 0)
-                        )}
-                      </div>
-                      <div className="revenue-panel-list-sub">
-                        {formatDateTime(bill.createdAt || bill.transactionDate)}
-                      </div>
-                      <div className="revenue-panel-list-sub">
-                        {(bill.items || [])
-                          .map((item) => item.name)
-                          .filter(Boolean)
-                          .join(", ") || "-"}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="revenue-panel-list-value">
-                        +{Number(bill.earned || bill.pointsEarned || 0)} pts
-                      </div>
-                      {Number(bill.redeemed || 0) > 0 ? (
-                        <div className="revenue-panel-list-sub">
-                          Redeemed {Number(bill.redeemed || 0)} pts
+                {bills.map((bill, index) => {
+                  const billKey = bill.billId || `${bill.phone}-${index}`;
+                  const isExpanded = expandedBills[billKey] === true;
+                  const billItems = Array.isArray(bill.items) ? bill.items : [];
+
+                  return (
+                    <div
+                      key={billKey}
+                      className="revenue-panel-list-item"
+                    >
+                      <div className="revenue-panel-bill-content">
+                        <div className="revenue-panel-list-main">
+                          {currencyFmt.format(
+                            Number(bill.total || bill.amount || bill.totalAmount || 0)
+                          )}
                         </div>
-                      ) : null}
+                        <div className="revenue-panel-list-sub">
+                          {formatDateTime(bill.createdAt || bill.transactionDate)}
+                        </div>
+                        <div className="revenue-panel-list-sub">
+                          {billItems
+                            .map((item) => item.name)
+                            .filter(Boolean)
+                            .join(", ") || "-"}
+                        </div>
+
+                        {isExpanded && billItems.length > 0 ? (
+                          <div className="revenue-panel-items-list">
+                            {billItems.map((item, itemIndex) => (
+                              <div
+                                key={`${billKey}-item-${item.itemId || item.name || itemIndex}`}
+                                className="revenue-panel-item-row"
+                              >
+                                <div>
+                                  <div className="revenue-panel-item-name">{item.name || "Unnamed Item"}</div>
+                                  <div className="revenue-panel-item-meta">{formatItemMeta(item)}</div>
+                                  {formatItemResource(item) ? (
+                                    <div className="revenue-panel-item-resource">
+                                      Handled by {formatItemResource(item)}
+                                    </div>
+                                  ) : null}
+                                </div>
+                                <div className="revenue-panel-item-value">
+                                  {currencyFmt.format(Number(item.total || item.price || 0))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="revenue-panel-bill-actions">
+                        <div className="revenue-panel-list-value">
+                          +{Number(bill.earned || bill.pointsEarned || 0)} pts
+                        </div>
+                        {Number(bill.redeemed || 0) > 0 ? (
+                          <div className="revenue-panel-list-sub">
+                            Redeemed {Number(bill.redeemed || 0)} pts
+                          </div>
+                        ) : null}
+                        {billItems.length > 0 ? (
+                          <button
+                            type="button"
+                            className="revenue-panel-expand-btn"
+                            onClick={() => toggleBill(billKey)}
+                          >
+                            {isExpanded ? "Hide items" : "View items"}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  );
+                })}
+	              </div>
             )}
           </div>
         </>

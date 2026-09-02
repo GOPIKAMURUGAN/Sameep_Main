@@ -90,12 +90,17 @@ exports.getVendorCustomer = async (req, res) => {
         createdAt: bill.createdAt,
         transactionDate: bill.createdAt,
         pointsEarned: ledger?.points ?? earned,
-        expiryDate: ledger?.expiryDate || null,
-        daysLeft,
-        phone: bill.phone || bill.customerPhone || customer.phone || customer.fullNumber || "Walk-in",
+	        expiryDate: ledger?.expiryDate || null,
+	        daysLeft,
+	        phone: bill.phone || bill.customerPhone || customer.phone || customer.fullNumber || "Walk-in",
         items: items.map((i) => ({
+          itemId: i.itemId ? String(i.itemId) : "",
           name: i.name,
+          qty: Number(i.qty || 0),
+          price: Number(i.price || 0),
+          total: Number(i.total || i.price || 0),
           nodePath: i.nodePath || [],
+          resourceName: i.resourceName || "",
         })),
       };
     });
