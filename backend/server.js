@@ -52,6 +52,8 @@ const digitalScoreRoutes = require("./routes/digitalScoreRoutes");
 const adminDigitalScoreRoutes = require("./routes/adminDigitalScoreRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const vendorPaymentConfigRoutes = require("./routes/vendorPaymentConfigRoutes");
+const vendorWhatsappBusinessRoutes = require("./routes/vendorWhatsappBusinessRoutes");
+const metaWhatsappWebhookRoutes = require("./routes/metaWhatsappWebhookRoutes");
 
 const vendorPriceNodeRoutes = require(
   path.resolve(__dirname, "routes", "vendorPriceNodeRoutes")
@@ -140,6 +142,9 @@ const uploadsDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 app.use("/uploads", express.static(uploadsDir));
 
+// Meta webhooks need access to the raw request body for signature validation.
+app.use("/api/webhooks/meta", metaWhatsappWebhookRoutes);
+
 // --------------------
 // Health
 // --------------------
@@ -171,6 +176,7 @@ app.use("/api/audit-logs", auditLogRoutes);
 app.use("/api/google/places", googlePlacesRoutes);
 app.use("/api/setup-progress", setupProgressRoutes);
 app.use("/api/vendor-flow", vendorFlowRoutes);
+app.use("/api/vendor/whatsapp-business", vendorWhatsappBusinessRoutes);
 app.use("/api", require("./routes/vendorFlowRoutes"));
 app.use("/api/billing", billingRoutes);
 app.use("/api/loyalty", loyaltyRoutes);

@@ -1,4 +1,8 @@
 const mongoose = require("mongoose");
+const {
+  getDefaultWhatsappBusinessConfig,
+  whatsappBusinessConfigSchema,
+} = require("./whatsappBusinessConfigSchema");
 
 /**
  * Google Place metadata (read-only)
@@ -174,6 +178,11 @@ trustSummary: {
   socialLinks: {
     type: Object,
     default: {},
+  },
+
+  whatsappBusiness: {
+    type: whatsappBusinessConfigSchema,
+    default: getDefaultWhatsappBusinessConfig,
   },
 
   // Custom fields for preview Home section

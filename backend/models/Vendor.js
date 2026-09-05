@@ -1,4 +1,8 @@
 const mongoose = require("mongoose");
+const {
+  getDefaultWhatsappBusinessConfig,
+  whatsappBusinessConfigSchema,
+} = require("./whatsappBusinessConfigSchema");
 
 const vendorSchema = new mongoose.Schema({
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", required: true },
@@ -41,6 +45,11 @@ const vendorSchema = new mongoose.Schema({
   // Stores inventory selections keyed by categoryId
   // Shape: { [categoryId]: Array<{ at:number, categoryId:string, selections: { [family]: { [field]: string } } }> }
   inventorySelections: { type: Object, default: {} },
+
+  whatsappBusiness: {
+    type: whatsappBusinessConfigSchema,
+    default: getDefaultWhatsappBusinessConfig,
+  },
 
   // Custom fields for preview Home section (Add-On Text)
   customFields: {

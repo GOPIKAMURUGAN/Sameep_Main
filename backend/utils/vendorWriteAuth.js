@@ -49,6 +49,9 @@ async function validateVendorWriteRequest(req, vendorId) {
 
   const token = getTokenFromRequest(req);
   const sessionResult = await validateCustomerSession(token);
+  if (sessionResult.ok) {
+    req.vendorSessionAuth = sessionResult;
+  }
   if (!sessionResult.ok) {
     return {
       ok: false,
@@ -83,6 +86,107 @@ async function validateVendorWriteRequest(req, vendorId) {
     vendorId: normalizedVendorId,
     customerId: sessionResult.customerId,
     sessionId: sessionResult.sessionId,
+  };
+}
+
+async function validateVendorRequestFromExistingAuth(req, requestedVendorId = "") {
+  const token = getTokenFromRequest(req);
+
+  const adminResult = validateAdminTokenFromRequest(req);
+  if (adminResult.ok) {
+    const normalizedVendorId = normalizeId(requestedVendorId);
+    if (!normalizedVendorId) {
+      return { ok: false, status: 400, message: "Vendor ID is required" };
+    }
+
+    return {
+      ok: true,
+      authType: "admin",
+      vendorId: normalizedVendorId,
+      admin: adminResult.admin,
+    };
+  }
+
+  const sessionResult = await validateCustomerSession(token);
+  if (!sessionResult.ok) {
+    return {
+      ok: false,
+      status: 401,
+      message: "Vendor session invalid or expired",
+      code: sessionResult.code || "invalid_session",
+    };
+  }
+
+  const sessionVendorId = normalizeId(sessionResult.vendorId);
+  const normalizedRequestedVendorId = normalizeId(requestedVendorId);
+  const vendorId = sessionVendorId || normalizedRequestedVendorId;
+
+  if (!vendorId) {
+    return {
+      ok: false,
+      status: 400,
+      message: "Vendor ID is required",
+      code: "vendor_id_required",
+    };
+  }
+
+  if (sessionVendorId && normalizedRequestedVendorId && sessionVendorId !== normalizedRequestedVendorId) {
+    return {
+      ok: false,
+      status: 403,
+      message: "Session does not match this vendor",
+      code: "vendor_mismatch",
+    };
+  }
+
+  const ownsVendor = await customerOwnsVendor(sessionResult.customerId, vendorId);
+  if (!ownsVendor) {
+    return {
+      ok: false,
+      status: 403,
+      message: "Vendor owner session required",
+      code: "vendor_owner_required",
+    };
+  }
+
+  req.vendorSessionAuth = sessionResult;
+
+  return {
+    ok: true,
+    authType: "vendor",
+    vendorId,
+    customerId: sessionResult.customerId,
+    sessionId: sessionResult.sessionId,
+  };
+}
+
+function requireVendorAccessFromExistingAuth(resolveRequestedVendorId) {
+  return async (req, res, next) => {
+    try {
+      const requestedVendorId =
+        typeof resolveRequestedVendorId === "function"
+          ? await resolveRequestedVendorId(req)
+          : resolveRequestedVendorId;
+      const result = await validateVendorRequestFromExistingAuth(req, requestedVendorId);
+
+      if (!result.ok) {
+        return res.status(result.status || 403).json({
+          success: false,
+          message: result.message || "Vendor access denied",
+          code: result.code || "forbidden",
+        });
+      }
+
+      req.vendorWriteAuth = result;
+      return next();
+    } catch (error) {
+      console.error("Vendor auth error:", error.message || error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to validate vendor access",
+        code: "vendor_auth_error",
+      });
+    }
   };
 }
 
@@ -127,7 +231,9 @@ function requireOwnedDocumentVendorAccess(Model, idParam = "id") {
 }
 
 module.exports = {
+  requireVendorAccessFromExistingAuth,
   validateVendorWriteRequest,
+  validateVendorRequestFromExistingAuth,
   requireVendorWriteAccess,
   requireVendorParamWriteAccess,
   requireVendorBodyWriteAccess,

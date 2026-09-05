@@ -22,6 +22,7 @@ import LoyaltySettings from "../components/dashboard/LoyaltySettings";
 import SubscriptionDashboard from "../components/dashboard/SubscriptionDashboard";
 import EnquiriesDashboard from "../components/dashboard/EnquiriesDashboard";
 import WebsiteAnalyticsDashboard from "../components/dashboard/WebsiteAnalyticsDashboard";
+import WhatsappBusinessDashboard from "../components/dashboard/WhatsappBusinessDashboard";
 import { useSearchParams } from "next/navigation";
 import { useSessionGuard } from "../Login/useSessionGuard";
 import ModernPreviewTemplate from "./templates/ModernPreviewTemplate";
@@ -5269,6 +5270,13 @@ function ExploreContent({ onReady, onOpenServices }) {
                   },
                 },
                 {
+                  title: "Manage My WhatsApp Business",
+                  description: "Manage WhatsApp Business setup, messaging, and customer communication.",
+                  onClick: () => {
+                    setViewMode("whatsapp-business-dashboard");
+                  },
+                },
+                {
                   title: "Website Analytics",
                   description: "Check visitors, CTA clicks, enquiries, and traffic sources.",
                   onClick: () => {
@@ -5501,6 +5509,16 @@ function ExploreContent({ onReady, onOpenServices }) {
               vendorId={vendorId}
             />
 
+          </div>
+        </div>
+      )}
+
+      {viewMode === "whatsapp-business-dashboard" && (
+        <div className="new-dashboard-overlay">
+          <div className="new-dashboard-shell">
+            {renderDashboardHeader("Manage My WhatsApp Business", () => setViewMode("new-dashboard"))}
+
+            <WhatsappBusinessDashboard vendorId={vendorId} />
           </div>
         </div>
       )}
