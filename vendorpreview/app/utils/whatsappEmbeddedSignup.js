@@ -1,5 +1,18 @@
 export const META_EMBEDDED_SIGNUP_EVENT_TYPE = "WA_EMBEDDED_SIGNUP";
+export const META_EMBEDDED_SIGNUP_EVENT_TYPE_MISSPELLING = "WA_EMEDDED_SIGNUP";
 export const META_EMBEDDED_SIGNUP_ORIGIN = "https://www.facebook.com";
+
+function parseMessageData(data) {
+  if (typeof data !== "string") {
+    return data && typeof data === "object" ? data : null;
+  }
+
+  try {
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
 
 export function parseMetaEmbeddedSignupMessage(event) {
   if (event?.origin !== META_EMBEDDED_SIGNUP_ORIGIN) {
@@ -16,6 +29,35 @@ export function parseMetaEmbeddedSignupMessage(event) {
   } catch {
     return null;
   }
+}
+
+export function getMetaEmbeddedSignupDiagnostics(event) {
+  const payload = parseMessageData(event?.data);
+  const rawMessage = typeof event?.data === "string" ? event.data : "";
+  const type = String(payload?.type || "");
+  const isSignupRelated =
+    type === META_EMBEDDED_SIGNUP_EVENT_TYPE ||
+    type === META_EMBEDDED_SIGNUP_EVENT_TYPE_MISSPELLING ||
+    rawMessage.includes(META_EMBEDDED_SIGNUP_EVENT_TYPE) ||
+    rawMessage.includes(META_EMBEDDED_SIGNUP_EVENT_TYPE_MISSPELLING);
+
+  if (!isSignupRelated) {
+    return null;
+  }
+
+  const data = payload?.data && typeof payload.data === "object" ? payload.data : null;
+  const sessionInfo = extractEmbeddedSignupSessionInfo(payload);
+
+  return {
+    origin: event?.origin || "",
+    originAccepted: event?.origin === META_EMBEDDED_SIGNUP_ORIGIN,
+    type: payload?.type || "",
+    event: payload?.event || "",
+    hasData: Boolean(data),
+    dataFieldNames: data ? Object.keys(data) : [],
+    wabaId: sessionInfo.wabaId || "",
+    phoneNumberId: sessionInfo.phoneNumberId || "",
+  };
 }
 
 function firstString(...values) {

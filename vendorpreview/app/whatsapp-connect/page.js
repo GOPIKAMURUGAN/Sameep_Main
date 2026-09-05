@@ -5,12 +5,32 @@ import { useSearchParams } from "next/navigation";
 import { API_BASE_URL } from "../../config";
 import {
   extractEmbeddedSignupSessionInfo,
+  getMetaEmbeddedSignupDiagnostics,
   hasCompleteEmbeddedSignupResult,
   parseMetaEmbeddedSignupMessage,
 } from "../utils/whatsappEmbeddedSignup";
 import "./whatsapp-connect.css";
 
 const FACEBOOK_SDK_SRC = "https://connect.facebook.net/en_US/sdk.js";
+const IS_DEVELOPMENT = process.env.NODE_ENV !== "production";
+
+function logMetaDiagnostic(message, details = {}) {
+  if (!IS_DEVELOPMENT) return;
+  console.info(message, details);
+}
+
+function logCompletionReadiness({ authCode, sessionInfo }) {
+  const readiness = {
+    authCodeReceived: Boolean(authCode),
+    sessionInfoReceived: Boolean(sessionInfo),
+    wabaIdReceived: Boolean(sessionInfo?.wabaId),
+    phoneNumberIdReceived: Boolean(sessionInfo?.phoneNumberId),
+    readyToCallBackend: hasCompleteEmbeddedSignupResult({ code: authCode, sessionInfo }),
+  };
+
+  logMetaDiagnostic("YNOT Meta completion readiness", readiness);
+  return readiness;
+}
 
 function parseApiError(res, payload, fallback) {
   const message = payload?.message || fallback;
@@ -98,6 +118,7 @@ function WhatsappConnectContent() {
   const [returnUrl, setReturnUrl] = useState("");
   const [authCode, setAuthCode] = useState("");
   const [sessionInfo, setSessionInfo] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -160,16 +181,33 @@ function WhatsappConnectContent() {
 
   useEffect(() => {
     const handleMessage = (event) => {
+      const diagnostics = getMetaEmbeddedSignupDiagnostics(event);
+      if (diagnostics) {
+        logMetaDiagnostic("Meta Embedded Signup message received", diagnostics);
+
+        if (!diagnostics.originAccepted) {
+          logMetaDiagnostic("Meta Embedded Signup message rejected by origin check", {
+            origin: diagnostics.origin,
+          });
+        }
+      }
+
       const payload = parseMetaEmbeddedSignupMessage(event);
       if (!payload) return;
 
-      console.info("Meta Embedded Signup session event", {
+      logMetaDiagnostic("Meta Embedded Signup session event", {
         event: payload.event,
         hasData: Boolean(payload.data),
       });
 
       if (payload.event === "FINISH") {
-        setSessionInfo(extractEmbeddedSignupSessionInfo(payload));
+        const nextSessionInfo = extractEmbeddedSignupSessionInfo(payload);
+        setSessionInfo(nextSessionInfo);
+
+        if (!nextSessionInfo.phoneNumberId) {
+          setStatus("Waiting for phone number details");
+          setError("Meta signup completed. YNOT is waiting for phone number details.");
+        }
       }
 
       if (payload.event === "CANCEL" || payload.event === "ERROR") {
@@ -185,12 +223,32 @@ function WhatsappConnectContent() {
   useEffect(() => {
     async function completeConnection() {
       if (completionStartedRef.current) return;
-      if (!hasCompleteEmbeddedSignupResult({ code: authCode, sessionInfo })) return;
+      const readiness = logCompletionReadiness({ authCode, sessionInfo });
+
+      if (!readiness.readyToCallBackend) {
+        if (authCode && !sessionInfo) {
+          setStatus("Waiting for signup details");
+          setError("Meta authorization received. YNOT is waiting for signup details.");
+        } else if (sessionInfo?.wabaId && !sessionInfo.phoneNumberId) {
+          setStatus("Waiting for phone number details");
+          setError("Meta signup completed. YNOT is waiting for phone number details.");
+        } else if (sessionInfo && !authCode) {
+          setStatus("Waiting for Meta authorization");
+          setError("WhatsApp account details received. YNOT is waiting for Meta authorization.");
+        }
+        return;
+      }
 
       try {
         completionStartedRef.current = true;
         setStatus("Verifying");
         setError("");
+        logMetaDiagnostic("Calling YNOT Meta completion endpoint", {
+          connectTokenPresent: Boolean(connectToken),
+          authorizationCodePresent: Boolean(authCode),
+          wabaIdPresent: Boolean(sessionInfo?.wabaId),
+          phoneNumberIdPresent: Boolean(sessionInfo?.phoneNumberId),
+        });
 
         const res = await fetch(`${API_BASE_URL}/api/vendor/whatsapp-business/meta/complete`, {
           method: "POST",
@@ -209,11 +267,16 @@ function WhatsappConnectContent() {
           "Unable to complete WhatsApp Business connection"
         );
 
+        logMetaDiagnostic("YNOT Meta completion response", {
+          httpStatus: res.status,
+          success: Boolean(payload?.success),
+          message: payload?.message || "",
+          code: payload?.code || "",
+        });
+
         setStatus("Connected");
-        const destination = payload.returnUrl || returnUrl || "/";
-        window.setTimeout(() => {
-          window.location.assign(destination);
-        }, 1400);
+        setSuccessMessage("WhatsApp Business connected successfully. You can close this tab and return to your vendor dashboard.");
+        setReturnUrl(payload.returnUrl || returnUrl || "");
       } catch (err) {
         console.error("WhatsApp setup completion failed", err);
         setStatus("Error");
@@ -244,6 +307,12 @@ function WhatsappConnectContent() {
       fb.login(
         (response) => {
           const code = response?.authResponse?.code || "";
+          logMetaDiagnostic("FB.login callback", {
+            callbackReceived: Boolean(response),
+            authorizationCodeReceived: Boolean(code),
+            status: response?.status || "",
+          });
+
           if (!code) {
             setStatus("Error");
             setError("WhatsApp Business setup was cancelled. Please try again when you are ready.");
@@ -282,6 +351,16 @@ function WhatsappConnectContent() {
         </div>
 
         {error && <div className="whatsapp-connect-error">{error}</div>}
+        {successMessage && (
+          <div className="whatsapp-connect-success">
+            {successMessage}
+            {returnUrl && (
+              <a href={returnUrl} className="whatsapp-connect-return-link">
+                Return to vendor dashboard
+              </a>
+            )}
+          </div>
+        )}
 
         <button
           type="button"

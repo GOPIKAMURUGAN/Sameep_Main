@@ -87,6 +87,23 @@
   font-weight: 700;
 }
 
+.whatsapp-connect-success {
+  display: grid;
+  gap: 10px;
+  margin: 0 auto 16px;
+  max-width: 560px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  color: #047857;
+  background: #d1fae5;
+  font-weight: 800;
+}
+
+.whatsapp-connect-return-link {
+  color: #065f46;
+  text-decoration: underline;
+}
+
 .whatsapp-connect-button {
   display: inline-flex;
   align-items: center;

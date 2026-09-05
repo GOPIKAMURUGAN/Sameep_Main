@@ -165,6 +165,16 @@ export default function WhatsappBusinessDashboard({ vendorId }) {
   const launchCentralMetaSignup = async () => {
     if (!vendorId || actionLoading) return;
 
+    const connectBaseUrl = getWhatsappConnectBaseUrl();
+    const connectWindow =
+      typeof window !== "undefined" && connectBaseUrl
+        ? window.open("about:blank", "_blank")
+        : null;
+
+    if (connectWindow) {
+      connectWindow.opener = null;
+    }
+
     try {
       setActionLoading("connect");
       setError("");
@@ -191,7 +201,6 @@ export default function WhatsappBusinessDashboard({ vendorId }) {
 
       const json = await parseApiResponse(prepareRes, "Unable to start WhatsApp setup");
       const connectToken = json?.data?.connectToken;
-      const connectBaseUrl = getWhatsappConnectBaseUrl();
 
       if (!connectToken || !connectBaseUrl) {
         throw new Error("WhatsApp setup link could not be created");
@@ -200,10 +209,15 @@ export default function WhatsappBusinessDashboard({ vendorId }) {
       const connectUrl = new URL("/whatsapp-connect", connectBaseUrl);
       connectUrl.searchParams.set("connectToken", connectToken);
 
-      if (typeof window !== "undefined") {
-        window.location.assign(connectUrl.toString());
+      if (connectWindow && !connectWindow.closed) {
+        connectWindow.location.href = connectUrl.toString();
+      } else if (typeof window !== "undefined") {
+        window.open(connectUrl.toString(), "_blank", "noopener,noreferrer");
       }
     } catch (err) {
+      if (connectWindow && !connectWindow.closed) {
+        connectWindow.close();
+      }
       console.error("WhatsApp Business setup launch failed", err);
       setError(
         "Your WhatsApp Business connection could not be completed. YNOT will continue sending bills from the YNOT WhatsApp number."
