@@ -5,6 +5,13 @@ import { API_BASE_URL } from "../../../config";
 import "./WhatsappBusinessDashboard.css";
 
 const CONNECTED_STATUSES = new Set(["connected", "template_pending", "ready"]);
+const TEMPLATE_STATUS_LABELS = {
+  not_configured: "Not Set Up",
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
+  error: "Error",
+};
 
 function getVendorAuthToken(vendorId) {
   if (typeof window === "undefined") return "";
@@ -53,6 +60,17 @@ function getStatusTone(status) {
   return "idle";
 }
 
+function getTemplateStatusLabel(status) {
+  return TEMPLATE_STATUS_LABELS[status] || formatStatus(status || "not_configured");
+}
+
+function getTemplateStatusTone(status) {
+  if (status === "approved") return "ready";
+  if (status === "pending") return "pending";
+  if (status === "rejected" || status === "error") return "error";
+  return "idle";
+}
+
 function getWhatsappConnectBaseUrl() {
   const configured = process.env.NEXT_PUBLIC_WHATSAPP_CONNECT_BASE_URL;
   if (configured && configured.trim()) {
@@ -72,7 +90,11 @@ function getHasWhatsappConnectLauncher() {
 
 export default function WhatsappBusinessDashboard({ vendorId }) {
   const [config, setConfig] = useState(null);
+  const [dashboardMode, setDashboardMode] = useState("overview");
+  const [templateLibrary, setTemplateLibrary] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [templateLoading, setTemplateLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -157,6 +179,95 @@ export default function WhatsappBusinessDashboard({ vendorId }) {
       console.error("WhatsApp Business action failed", err);
       setError(err.message || "Unable to update WhatsApp Business settings");
       return null;
+    } finally {
+      setActionLoading("");
+    }
+  };
+
+  const fetchTemplateLibrary = async () => {
+    if (!vendorId) return;
+
+    try {
+      setTemplateLoading(true);
+      setError("");
+      setMessage("");
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/vendor/whatsapp-business/templates?vendorId=${encodeURIComponent(vendorId)}`,
+        {
+          cache: "no-store",
+          headers: getAuthHeaders(vendorId),
+        }
+      );
+      const json = await parseApiResponse(res, "Unable to load WhatsApp templates");
+
+      setTemplateLibrary(json.data?.templates || []);
+      setSelectedTemplate(null);
+      setDashboardMode("library");
+    } catch (err) {
+      console.error("WhatsApp template library fetch failed", err);
+      setError(err.message || "Unable to load WhatsApp templates");
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
+
+  const fetchTemplatePreview = async (templateKey) => {
+    if (!vendorId || !templateKey) return;
+
+    try {
+      setTemplateLoading(true);
+      setError("");
+      setMessage("");
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/vendor/whatsapp-business/templates/${encodeURIComponent(templateKey)}?vendorId=${encodeURIComponent(vendorId)}`,
+        {
+          cache: "no-store",
+          headers: getAuthHeaders(vendorId),
+        }
+      );
+      const json = await parseApiResponse(res, "Unable to load WhatsApp template preview");
+
+      setSelectedTemplate(json.data || null);
+      setDashboardMode("preview");
+    } catch (err) {
+      console.error("WhatsApp template preview fetch failed", err);
+      setError(err.message || "Unable to load WhatsApp template preview");
+    } finally {
+      setTemplateLoading(false);
+    }
+  };
+
+  const postTemplateAction = async (templateKey, action) => {
+    if (!vendorId || !templateKey || actionLoading) return;
+
+    try {
+      setActionLoading(action);
+      setError("");
+      setMessage("");
+
+      const res = await fetch(
+        `${API_BASE_URL}/api/vendor/whatsapp-business/templates/${encodeURIComponent(templateKey)}/${action}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(vendorId),
+          },
+          body: JSON.stringify({ vendorId }),
+        }
+      );
+      const json = await parseApiResponse(res, "Unable to update WhatsApp template");
+
+      setSelectedTemplate(json.data || null);
+      setMessage(json.message || "WhatsApp template updated");
+      await fetchTemplateLibrary();
+      setSelectedTemplate(json.data || null);
+      setDashboardMode("preview");
+    } catch (err) {
+      console.error("WhatsApp template action failed", err);
+      setError(err.message || "Unable to update WhatsApp template");
     } finally {
       setActionLoading("");
     }
@@ -247,6 +358,10 @@ export default function WhatsappBusinessDashboard({ vendorId }) {
   const isConnected = CONNECTED_STATUSES.has(status);
   const statusTone = getStatusTone(status);
   const hasConnectLauncher = getHasWhatsappConnectLauncher();
+  const selectedTemplateStatus =
+    selectedTemplate?.vendorTemplate?.status || "not_configured";
+  const canSubmitSelectedTemplate = selectedTemplateStatus === "not_configured";
+  const canCheckSelectedTemplateStatus = selectedTemplateStatus !== "not_configured";
 
   return (
     <section className="whatsapp-business-panel">
@@ -279,7 +394,7 @@ export default function WhatsappBusinessDashboard({ vendorId }) {
             </div>
           )}
 
-          {isConnected ? (
+          {isConnected && dashboardMode === "overview" ? (
             <div className="whatsapp-business-grid">
               <div className="whatsapp-business-card">
                 <span>Business</span>
@@ -302,7 +417,153 @@ export default function WhatsappBusinessDashboard({ vendorId }) {
                 </strong>
               </div>
             </div>
-          ) : (
+          ) : null}
+
+          {isConnected && dashboardMode === "library" ? (
+            <div className="whatsapp-template-section">
+              <div className="whatsapp-template-section-header">
+                <div>
+                  <h3>Template Library</h3>
+                  <p>Choose a YNOT-approved message type for your connected WhatsApp number.</p>
+                </div>
+                <button
+                  type="button"
+                  className="whatsapp-business-button secondary compact"
+                  onClick={() => setDashboardMode("overview")}
+                >
+                  Back
+                </button>
+              </div>
+
+              <h4>Billing & Customer Updates</h4>
+              {templateLoading ? (
+                <div className="whatsapp-business-state">Loading templates...</div>
+              ) : (
+                <div className="whatsapp-template-list">
+                  {templateLibrary.map((item) => {
+                    const itemStatus = item.vendorTemplate?.status || "not_configured";
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        className="whatsapp-template-card"
+                        onClick={() => fetchTemplatePreview(item.key)}
+                      >
+                        <div>
+                          <strong>{item.displayName}</strong>
+                          <span>{formatStatus(item.metaCategory)}</span>
+                          <p>
+                            Send the customer&apos;s bill and YNOT loyalty/reward information
+                            from the business&apos;s connected WhatsApp number.
+                          </p>
+                        </div>
+                        <em className={`whatsapp-template-status ${getTemplateStatusTone(itemStatus)}`}>
+                          {getTemplateStatusLabel(itemStatus)}
+                        </em>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {isConnected && dashboardMode === "preview" && selectedTemplate ? (
+            <div className="whatsapp-template-section">
+              <div className="whatsapp-template-section-header">
+                <div>
+                  <h3>{selectedTemplate.template.displayName}</h3>
+                  <p>
+                    This template will be submitted to Meta for approval for your connected
+                    WhatsApp Business account.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="whatsapp-business-button secondary compact"
+                  onClick={() => setDashboardMode("library")}
+                >
+                  Back
+                </button>
+              </div>
+
+              <div className="whatsapp-template-meta-grid">
+                <div>
+                  <span>Template</span>
+                  <strong>{selectedTemplate.template.displayName}</strong>
+                </div>
+                <div>
+                  <span>Purpose</span>
+                  <strong>{formatStatus(selectedTemplate.template.purpose)}</strong>
+                </div>
+                <div>
+                  <span>Category</span>
+                  <strong>{formatStatus(selectedTemplate.template.metaCategory)}</strong>
+                </div>
+                <div>
+                  <span>Language</span>
+                  <strong>English</strong>
+                </div>
+                <div>
+                  <span>Status</span>
+                  <strong>{getTemplateStatusLabel(selectedTemplateStatus)}</strong>
+                </div>
+              </div>
+
+              <div className="whatsapp-template-preview">
+                <span>Sample message</span>
+                <p>{selectedTemplate.preview?.sampleMessage}</p>
+              </div>
+
+              {selectedTemplateStatus === "approved" && (
+                <div className="whatsapp-business-alert success">
+                  Standard Bill is approved and ready for test. Production billing is not enabled yet.
+                </div>
+              )}
+              {selectedTemplateStatus === "pending" && (
+                <div className="whatsapp-business-alert warning">
+                  Standard Bill is pending Meta approval. Use Check Status to refresh the latest result.
+                </div>
+              )}
+              {selectedTemplateStatus === "rejected" && (
+                <div className="whatsapp-business-alert error">
+                  {selectedTemplate.vendorTemplate?.lastError
+                    ? `Meta rejection reason: ${selectedTemplate.vendorTemplate.lastError}`
+                    : "Standard Bill was rejected by Meta. A controlled resubmit path can be added next."}
+                </div>
+              )}
+              {selectedTemplateStatus === "error" && (
+                <div className="whatsapp-business-alert error">
+                  Standard Bill needs attention before it can be used for testing.
+                </div>
+              )}
+
+              <div className="whatsapp-business-actions">
+                {canSubmitSelectedTemplate && (
+                  <button
+                    type="button"
+                    className="whatsapp-business-button primary"
+                    disabled={Boolean(actionLoading)}
+                    onClick={() => postTemplateAction(selectedTemplate.template.key, "submit")}
+                  >
+                    {actionLoading === "submit" ? "Submitting..." : "Submit for Approval"}
+                  </button>
+                )}
+                {canCheckSelectedTemplateStatus && (
+                  <button
+                    type="button"
+                    className="whatsapp-business-button secondary"
+                    disabled={Boolean(actionLoading)}
+                    onClick={() => postTemplateAction(selectedTemplate.template.key, "check-status")}
+                  >
+                    {actionLoading === "check-status" ? "Checking..." : "Check Status"}
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {!isConnected ? (
             <div className="whatsapp-business-empty-card">
               <h3>Use your own WhatsApp number</h3>
               <p>
@@ -310,18 +571,19 @@ export default function WhatsappBusinessDashboard({ vendorId }) {
                 until your Meta WhatsApp Business connection is fully ready.
               </p>
             </div>
-          )}
+          ) : null}
 
-          <div className="whatsapp-business-actions">
+          {dashboardMode === "overview" && (
+            <div className="whatsapp-business-actions">
             {isConnected ? (
               <>
 	                <button
 	                  type="button"
 	                  className="whatsapp-business-button primary"
-	                  disabled={Boolean(actionLoading)}
-	                  onClick={() => setMessage("Template setup is coming next.")}
+	                  disabled={Boolean(actionLoading) || templateLoading}
+	                  onClick={fetchTemplateLibrary}
 	                >
-	                  Continue Setup
+	                  {templateLoading ? "Loading..." : "Continue Setup"}
 	                </button>
                 <button
                   type="button"
@@ -342,7 +604,8 @@ export default function WhatsappBusinessDashboard({ vendorId }) {
                 {actionLoading === "connect" ? "Connecting..." : "Connect WhatsApp"}
               </button>
             )}
-          </div>
+            </div>
+          )}
         </>
       )}
     </section>

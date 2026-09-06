@@ -24,6 +24,20 @@ function getSafeMetaError(error) {
   };
 }
 
+function getSafeMetaErrorDetails(error) {
+  const metaError = error?.response?.data?.error || {};
+  return {
+    status: error?.response?.status || null,
+    type: metaError.type || "",
+    code: metaError.code || "",
+    subcode: metaError.error_subcode || "",
+    message: metaError.message || error?.message || "Meta request failed",
+    errorUserTitle: metaError.error_user_title || "",
+    errorUserMessage: metaError.error_user_msg || "",
+    fbtraceId: metaError.fbtrace_id || "",
+  };
+}
+
 function getMetaOAuthExchangeErrorDetails(error) {
   const metaError = error?.response?.data?.error || {};
 
@@ -245,17 +259,92 @@ async function sendTemplateMessage() {
   throw new Error("sendTemplateMessage is reserved for Phase 4 provider routing.");
 }
 
-async function createTemplate() {
-  throw new Error("createTemplate is reserved for Phase 3 template setup.");
+function normalizeTemplateName(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
-async function getTemplateStatus() {
-  throw new Error("getTemplateStatus is reserved for Phase 3 template setup.");
+function buildMetaTemplatePayload({ name, template }) {
+  if (!template?.key) {
+    const error = new Error("Template definition is required");
+    error.code = "meta_template_definition_required";
+    throw error;
+  }
+
+  return {
+    name: normalizeTemplateName(name),
+    language: template.language,
+    category: template.metaCategory,
+    components: template.components,
+  };
+}
+
+async function createTemplate({ wabaId, accessToken, payload }) {
+  const id = String(wabaId || "").trim();
+  if (!id || !accessToken || !payload?.name) {
+    const error = new Error("WABA ID, access token, and template payload are required");
+    error.code = "meta_template_submission_payload_invalid";
+    throw error;
+  }
+
+  try {
+    const response = await axios.post(graphUrl(`${id}/message_templates`), payload, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    return response.data || {};
+  } catch (error) {
+    console.error("[Meta Template Create Error]", getSafeMetaErrorDetails(error));
+    const wrapped = new Error("Unable to submit WhatsApp template to Meta");
+    wrapped.code = "meta_template_submission_failed";
+    wrapped.metaError = getSafeMetaError(error);
+    throw wrapped;
+  }
+}
+
+async function findTemplateByName({ wabaId, accessToken, name }) {
+  const id = String(wabaId || "").trim();
+  const templateName = normalizeTemplateName(name);
+  if (!id || !accessToken || !templateName) return null;
+
+  try {
+    const response = await axios.get(graphUrl(`${id}/message_templates`), {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      params: {
+        name: templateName,
+        fields: "id,name,status,category,language,rejected_reason",
+      },
+    });
+
+    const templates = Array.isArray(response.data?.data) ? response.data.data : [];
+    return templates.find((template) => template.name === templateName) || templates[0] || null;
+  } catch (error) {
+    console.error("[Meta Template Lookup Error]", getSafeMetaErrorDetails(error));
+    const wrapped = new Error("Unable to read WhatsApp template status from Meta");
+    wrapped.code = "meta_template_lookup_failed";
+    wrapped.metaError = getSafeMetaError(error);
+    throw wrapped;
+  }
+}
+
+async function getTemplateStatus({ wabaId, accessToken, name }) {
+  return findTemplateByName({ wabaId, accessToken, name });
 }
 
 module.exports = {
+  buildMetaTemplatePayload,
   createTemplate,
   disconnectAuthorization,
+  findTemplateByName,
   getAuthorizedBusinesses,
   getPhoneNumbers,
   getTemplateStatus,

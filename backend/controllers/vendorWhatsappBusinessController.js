@@ -3,10 +3,19 @@ const DummyVendor = require("../models/DummyVendor");
 const Vendor = require("../models/Vendor");
 const { getDefaultWhatsappBusinessConfig } = require("../models/whatsappBusinessConfigSchema");
 const { getPublicMetaWhatsAppConfig } = require("../config/metaWhatsAppConfig");
-const { encryptMetaAccessToken } = require("../services/metaTokenStorage");
+const { decryptMetaAccessToken, encryptMetaAccessToken } = require("../services/metaTokenStorage");
 const { createWhatsappConnectToken } = require("../utils/whatsappConnectToken");
 const {
+  getMasterTemplate,
+  getTemplateVariablesInOrder,
+  listMasterTemplates,
+} = require("../services/whatsappTemplates/masterTemplateLibrary");
+const {
+  buildMetaTemplatePayload,
+  createTemplate,
   exchangeEmbeddedSignupCode,
+  getTemplateStatus,
+  findTemplateByName,
   runMetaConfigurationDiagnostics,
   validateConnection,
 } = require("../services/metaWhatsAppService");
@@ -64,6 +73,156 @@ function sanitizeWhatsappBusinessConfig(config) {
       ? "Connection needs attention. Please contact YNOT support."
       : "",
   };
+}
+
+function formatTemplateStatus(value) {
+  const status = String(value || "").trim().toUpperCase();
+  if (status === "APPROVED") return "approved";
+  if (status === "REJECTED") return "rejected";
+  if (status === "PENDING" || status === "IN_APPEAL" || status === "PENDING_DELETION") {
+    return "pending";
+  }
+  if (!status) return "not_configured";
+  return "error";
+}
+
+function getTemplateStatusDates(status, previous = {}) {
+  const now = new Date();
+  return {
+    approvedAt: status === "approved" ? previous.approvedAt || now : previous.approvedAt || null,
+    rejectedAt: status === "rejected" ? previous.rejectedAt || now : previous.rejectedAt || null,
+  };
+}
+
+function getTemplateInstance(config, masterTemplateKey) {
+  const instances = Array.isArray(config?.templateInstances) ? config.templateInstances : [];
+  return (
+    instances.find((instance) => instance.masterTemplateKey === masterTemplateKey) ||
+    null
+  );
+}
+
+function sanitizeTemplateInstance(instance) {
+  const source = instance && typeof instance.toObject === "function" ? instance.toObject() : instance;
+  if (!source) return null;
+
+  return {
+    masterTemplateKey: source.masterTemplateKey || "",
+    metaTemplateName: source.metaTemplateName || "",
+    metaTemplateId: source.metaTemplateId || "",
+    metaCategory: source.metaCategory || "",
+    language: source.language || "en",
+    status: source.status || "not_configured",
+    submittedAt: source.submittedAt || null,
+    approvedAt: source.approvedAt || null,
+    rejectedAt: source.rejectedAt || null,
+    lastError: source.lastError || "",
+    isActive: Boolean(source.isActive),
+  };
+}
+
+function makeTemplateInstance({ template, metaTemplateName, metaTemplate, previous = {} }) {
+  const rawStatus = String(metaTemplate?.status || previous.status || "").trim();
+  const status = formatTemplateStatus(rawStatus);
+  const statusDates = getTemplateStatusDates(status, previous);
+
+  return {
+    masterTemplateKey: template.key,
+    metaTemplateName,
+    metaTemplateId: String(metaTemplate?.id || previous.metaTemplateId || ""),
+    metaCategory: String(metaTemplate?.category || previous.metaCategory || template.metaCategory || ""),
+    language: String(metaTemplate?.language || previous.language || template.language || "en"),
+    status,
+    submittedAt: previous.submittedAt || new Date(),
+    approvedAt: statusDates.approvedAt,
+    rejectedAt: statusDates.rejectedAt,
+    lastError:
+      status === "rejected"
+        ? String(metaTemplate?.rejected_reason || previous.lastError || "")
+        : status === "error" && rawStatus
+        ? `Meta returned template status: ${rawStatus}`
+        : "",
+    isActive: Boolean(previous.isActive),
+    createdAt: previous.createdAt || new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+function upsertTemplateInstance(config, instance) {
+  const instances = Array.isArray(config.templateInstances)
+    ? config.templateInstances.map((item) =>
+        item && typeof item.toObject === "function" ? item.toObject() : item
+      )
+    : [];
+  const index = instances.findIndex(
+    (item) => item.masterTemplateKey === instance.masterTemplateKey
+  );
+
+  if (index >= 0) {
+    instances[index] = { ...instances[index], ...instance };
+  } else {
+    instances.push(instance);
+  }
+
+  return instances;
+}
+
+function getTemplateName(template) {
+  return `ynot_${String(template.key || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")}_v${template.version || 1}`;
+}
+
+function getTemplatePreview(template) {
+  const body = template.components.find((component) => component.type === "BODY") || {};
+  const sampleValues = body.example?.body_text?.[0] || [];
+  const message = sampleValues.reduce(
+    (text, value, index) => text.replace(`{{${index + 1}}}`, value),
+    body.text || ""
+  );
+
+  return {
+    sampleMessage: message,
+    variables: getTemplateVariablesInOrder(template.key),
+  };
+}
+
+function assertConnectedMetaConfig(config) {
+  if (config.provider !== "meta" || config.connectionStatus !== "connected") {
+    const error = new Error("Connect WhatsApp Business before setting up templates");
+    error.code = "meta_whatsapp_not_connected";
+    throw error;
+  }
+
+  if (!config.wabaId || !config.metaAuth?.accessTokenEncrypted) {
+    const error = new Error("Meta WhatsApp connection is missing required setup details");
+    error.code = "meta_whatsapp_connection_incomplete";
+    throw error;
+  }
+}
+
+function getDecryptedMetaToken(config) {
+  return decryptMetaAccessToken(config.metaAuth?.accessTokenEncrypted || "");
+}
+
+function sendTemplateError(res, error) {
+  const status =
+    error.code === "meta_whatsapp_not_connected" ||
+    error.code === "meta_whatsapp_connection_incomplete" ||
+    error.code === "master_template_not_found"
+      ? 400
+      : 500;
+
+  return res.status(status).json({
+    success: false,
+    code: error.code || "whatsapp_template_error",
+    message:
+      error.code === "meta_whatsapp_not_connected"
+        ? "Please connect WhatsApp Business before setting up templates."
+        : error.code === "master_template_not_found"
+        ? "The selected WhatsApp template is not available."
+        : "Unable to update WhatsApp template setup. Please try again.",
+  });
 }
 
 function sendVendorNotFound(res) {
@@ -202,6 +361,218 @@ async function updateWhatsappBusinessConfig(req, res) {
       success: false,
       message: "Failed to update WhatsApp Business configuration",
     });
+  }
+}
+
+async function getWhatsappTemplateLibrary(req, res) {
+  try {
+    const record = await findVendorRecord(getAuthorizedVendorId(req));
+    if (!record) return sendVendorNotFound(res);
+
+    const config = normalizeWhatsappBusinessConfig(record.vendor.whatsappBusiness);
+    const templates = listMasterTemplates({ activeOnly: true }).map((template) => ({
+      ...template,
+      preview: getTemplatePreview(template),
+      vendorTemplate: sanitizeTemplateInstance(getTemplateInstance(config, template.key)),
+    }));
+
+    return res.json({
+      success: true,
+      data: {
+        templates,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to fetch WhatsApp template library:", error.code || error.message || error);
+    return sendTemplateError(res, error);
+  }
+}
+
+async function getWhatsappTemplatePreview(req, res) {
+  try {
+    const template = getMasterTemplate(req.params.masterTemplateKey);
+    if (!template) {
+      const error = new Error("Template not found");
+      error.code = "master_template_not_found";
+      throw error;
+    }
+
+    const record = await findVendorRecord(getAuthorizedVendorId(req));
+    if (!record) return sendVendorNotFound(res);
+
+    const config = normalizeWhatsappBusinessConfig(record.vendor.whatsappBusiness);
+
+    return res.json({
+      success: true,
+      data: {
+        template,
+        preview: getTemplatePreview(template),
+        vendorTemplate: sanitizeTemplateInstance(getTemplateInstance(config, template.key)),
+      },
+    });
+  } catch (error) {
+    console.error("Failed to fetch WhatsApp template preview:", error.code || error.message || error);
+    return sendTemplateError(res, error);
+  }
+}
+
+async function submitWhatsappTemplate(req, res) {
+  try {
+    const template = getMasterTemplate(req.params.masterTemplateKey);
+    if (!template) {
+      const error = new Error("Template not found");
+      error.code = "master_template_not_found";
+      throw error;
+    }
+
+    const record = await findVendorRecord(getAuthorizedVendorId(req));
+    if (!record) return sendVendorNotFound(res);
+
+    const config = normalizeWhatsappBusinessConfig(record.vendor.whatsappBusiness);
+    assertConnectedMetaConfig(config);
+
+    const existing = getTemplateInstance(config, template.key);
+    const metaTemplateName = existing?.metaTemplateName || getTemplateName(template);
+    const accessToken = getDecryptedMetaToken(config);
+
+    let metaTemplate = null;
+    if (existing?.metaTemplateName) {
+      metaTemplate = await findTemplateByName({
+        wabaId: config.wabaId,
+        accessToken,
+        name: existing.metaTemplateName,
+      });
+    }
+
+    if (!metaTemplate) {
+      metaTemplate = await findTemplateByName({
+        wabaId: config.wabaId,
+        accessToken,
+        name: metaTemplateName,
+      });
+    }
+
+    if (!metaTemplate) {
+      const payload = buildMetaTemplatePayload({
+        name: metaTemplateName,
+        template,
+      });
+      metaTemplate = await createTemplate({
+        wabaId: config.wabaId,
+        accessToken,
+        payload,
+      });
+    }
+
+    const templateInstance = makeTemplateInstance({
+      template,
+      metaTemplateName,
+      metaTemplate,
+      previous: existing || {},
+    });
+    const whatsappBusiness = {
+      ...config,
+      enabled: false,
+      provider: "meta",
+      templateStatus: templateInstance.status,
+      templateInstances: upsertTemplateInstance(config, templateInstance),
+    };
+
+    await record.Model.updateOne(
+      { _id: record.vendor._id },
+      { $set: { whatsappBusiness } }
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        template,
+        preview: getTemplatePreview(template),
+        vendorTemplate: sanitizeTemplateInstance(templateInstance),
+      },
+      message: "Standard Bill template submitted to Meta for approval.",
+    });
+  } catch (error) {
+    console.error("Failed to submit WhatsApp template:", error.code || error.message || error);
+    return sendTemplateError(res, error);
+  }
+}
+
+async function checkWhatsappTemplateStatus(req, res) {
+  try {
+    const template = getMasterTemplate(req.params.masterTemplateKey);
+    if (!template) {
+      const error = new Error("Template not found");
+      error.code = "master_template_not_found";
+      throw error;
+    }
+
+    const record = await findVendorRecord(getAuthorizedVendorId(req));
+    if (!record) return sendVendorNotFound(res);
+
+    const config = normalizeWhatsappBusinessConfig(record.vendor.whatsappBusiness);
+    assertConnectedMetaConfig(config);
+
+    const existing = getTemplateInstance(config, template.key);
+    const metaTemplateName = existing?.metaTemplateName || getTemplateName(template);
+    const accessToken = getDecryptedMetaToken(config);
+    const metaTemplate = await getTemplateStatus({
+      wabaId: config.wabaId,
+      accessToken,
+      name: metaTemplateName,
+    });
+
+    if (!metaTemplate) {
+      const templateInstance = existing || {
+        masterTemplateKey: template.key,
+        metaTemplateName,
+        metaCategory: template.metaCategory,
+        language: template.language,
+        status: "not_configured",
+      };
+
+      return res.json({
+        success: true,
+        data: {
+          template,
+          preview: getTemplatePreview(template),
+          vendorTemplate: sanitizeTemplateInstance(templateInstance),
+        },
+        message: "Template has not been submitted to Meta yet.",
+      });
+    }
+
+    const templateInstance = makeTemplateInstance({
+      template,
+      metaTemplateName,
+      metaTemplate,
+      previous: existing || {},
+    });
+    const whatsappBusiness = {
+      ...config,
+      enabled: false,
+      provider: "meta",
+      templateStatus: templateInstance.status,
+      templateInstances: upsertTemplateInstance(config, templateInstance),
+    };
+
+    await record.Model.updateOne(
+      { _id: record.vendor._id },
+      { $set: { whatsappBusiness } }
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        template,
+        preview: getTemplatePreview(template),
+        vendorTemplate: sanitizeTemplateInstance(templateInstance),
+      },
+      message: "Template status refreshed from Meta.",
+    });
+  } catch (error) {
+    console.error("Failed to refresh WhatsApp template status:", error.code || error.message || error);
+    return sendTemplateError(res, error);
   }
 }
 
@@ -413,12 +784,16 @@ async function disconnectWhatsappBusiness(req, res) {
 }
 
 module.exports = {
+  checkWhatsappTemplateStatus,
   disconnectWhatsappBusiness,
   completeMetaWhatsappConnection,
   createMetaConnectSession,
   getMetaDiagnostics,
   getMetaEmbeddedSignupConfig,
+  getWhatsappTemplateLibrary,
+  getWhatsappTemplatePreview,
   getWhatsappBusinessConfig,
   prepareWhatsappBusinessConnect,
+  submitWhatsappTemplate,
   updateWhatsappBusinessConfig,
 };

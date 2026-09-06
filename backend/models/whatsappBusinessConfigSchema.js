@@ -11,6 +11,37 @@ const WHATSAPP_BUSINESS_CONNECTION_STATUSES = [
   "error",
 ];
 
+const WHATSAPP_BUSINESS_TEMPLATE_STATUSES = [
+  "not_configured",
+  "pending",
+  "approved",
+  "rejected",
+  "error",
+];
+
+const whatsappBusinessTemplateInstanceSchema = new mongoose.Schema(
+  {
+    masterTemplateKey: { type: String, required: true, trim: true },
+    metaTemplateName: { type: String, default: "", trim: true },
+    metaTemplateId: { type: String, default: "", trim: true },
+    metaCategory: { type: String, default: "", trim: true },
+    language: { type: String, default: "en", trim: true },
+    status: {
+      type: String,
+      enum: WHATSAPP_BUSINESS_TEMPLATE_STATUSES,
+      default: "not_configured",
+    },
+    submittedAt: { type: Date, default: null },
+    approvedAt: { type: Date, default: null },
+    rejectedAt: { type: Date, default: null },
+    lastError: { type: String, default: "" },
+    isActive: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const whatsappBusinessConfigSchema = new mongoose.Schema(
   {
     enabled: { type: Boolean, default: false },
@@ -30,6 +61,15 @@ const whatsappBusinessConfigSchema = new mongoose.Schema(
     displayPhoneNumber: { type: String, default: "" },
     displayName: { type: String, default: "" },
     templateStatus: { type: String, default: "" },
+    templateInstances: {
+      type: [whatsappBusinessTemplateInstanceSchema],
+      default: [],
+    },
+    activeTemplatesByPurpose: {
+      type: Map,
+      of: String,
+      default: {},
+    },
     connectedAt: { type: Date, default: null },
     lastError: { type: String, default: "" },
     metaAuth: {
@@ -52,6 +92,8 @@ function getDefaultWhatsappBusinessConfig() {
     displayPhoneNumber: "",
     displayName: "",
     templateStatus: "",
+    templateInstances: [],
+    activeTemplatesByPurpose: {},
     connectedAt: null,
     lastError: "",
     metaAuth: {
@@ -64,7 +106,9 @@ function getDefaultWhatsappBusinessConfig() {
 
 module.exports = {
   WHATSAPP_BUSINESS_CONNECTION_STATUSES,
+  WHATSAPP_BUSINESS_TEMPLATE_STATUSES,
   WHATSAPP_BUSINESS_PROVIDERS,
   getDefaultWhatsappBusinessConfig,
+  whatsappBusinessTemplateInstanceSchema,
   whatsappBusinessConfigSchema,
 };
