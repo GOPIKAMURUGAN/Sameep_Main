@@ -68,15 +68,12 @@ async function exchangeEmbeddedSignupCode(code) {
       code: authorizationCode,
     };
 
-    if (config.redirectUri) {
-      params.redirect_uri = config.redirectUri;
-    }
-
     console.log("[Meta OAuth Exchange Diagnostic]", {
       appId: config.appId,
       graphVersion: config.graphApiVersion,
       redirectUri: config.redirectUri || "",
       redirectUriConfigured: Boolean(config.redirectUri),
+      redirectUriSentToMeta: false,
       exchangeEndpoint,
     });
 

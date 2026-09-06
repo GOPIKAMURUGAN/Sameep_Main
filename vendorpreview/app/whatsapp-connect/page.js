@@ -108,20 +108,6 @@ function getFrontendMetaConfig() {
   };
 }
 
-function getMetaRedirectUri() {
-  const configuredBaseUrl = process.env.NEXT_PUBLIC_WHATSAPP_CONNECT_BASE_URL;
-
-  if (configuredBaseUrl && configuredBaseUrl.trim()) {
-    return new URL("/whatsapp-connect", configuredBaseUrl.trim()).toString();
-  }
-
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}${window.location.pathname}`;
-  }
-
-  return "";
-}
-
 function logMetaEmbeddedSignupDiagnostic({ metaConfig, loginOptions }) {
   if (typeof window === "undefined") return;
 
@@ -335,7 +321,6 @@ function WhatsappConnectContent() {
         config_id: metaConfig.embeddedSignupConfigId,
         response_type: "code",
         override_default_response_type: true,
-        redirect_uri: getMetaRedirectUri(),
         extras: { version: "v4" },
       };
 
