@@ -108,6 +108,34 @@ function getFrontendMetaConfig() {
   };
 }
 
+function getMetaRedirectUri() {
+  const configuredBaseUrl = process.env.NEXT_PUBLIC_WHATSAPP_CONNECT_BASE_URL;
+
+  if (configuredBaseUrl && configuredBaseUrl.trim()) {
+    return new URL("/whatsapp-connect", configuredBaseUrl.trim()).toString();
+  }
+
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}${window.location.pathname}`;
+  }
+
+  return "";
+}
+
+function logMetaEmbeddedSignupDiagnostic({ metaConfig, loginOptions }) {
+  if (typeof window === "undefined") return;
+
+  logMetaDiagnostic("[Meta Embedded Signup Diagnostic]", {
+    pageOrigin: window.location.origin,
+    pagePathname: window.location.pathname,
+    pageSearchPresent: Boolean(window.location.search),
+    pageHrefWithoutQuery: `${window.location.origin}${window.location.pathname}`,
+    explicitRedirectUri: loginOptions.redirect_uri || null,
+    configId: metaConfig?.embeddedSignupConfigId || "",
+    responseType: loginOptions.response_type || "",
+  });
+}
+
 function WhatsappConnectContent() {
   const searchParams = useSearchParams();
   const connectToken = searchParams.get("connectToken") || "";
@@ -303,6 +331,15 @@ function WhatsappConnectContent() {
         appId: metaConfig.appId,
         graphApiVersion: metaConfig.graphApiVersion,
       });
+      const loginOptions = {
+        config_id: metaConfig.embeddedSignupConfigId,
+        response_type: "code",
+        override_default_response_type: true,
+        redirect_uri: getMetaRedirectUri(),
+        extras: { version: "v4" },
+      };
+
+      logMetaEmbeddedSignupDiagnostic({ metaConfig, loginOptions });
 
       fb.login(
         (response) => {
@@ -321,12 +358,7 @@ function WhatsappConnectContent() {
 
           setAuthCode(code);
         },
-        {
-          config_id: metaConfig.embeddedSignupConfigId,
-          response_type: "code",
-          override_default_response_type: true,
-          extras: { version: "v4" },
-        }
+        loginOptions
       );
     } catch (err) {
       console.error("Meta SDK launch failed", err);

@@ -24,6 +24,21 @@ function getSafeMetaError(error) {
   };
 }
 
+function getMetaOAuthExchangeErrorDetails(error) {
+  const metaError = error?.response?.data?.error || {};
+
+  return {
+    status: error?.response?.status || null,
+    type: metaError.type || "",
+    code: metaError.code || "",
+    subcode: metaError.error_subcode || "",
+    message: metaError.message || error?.message || "Meta request failed",
+    errorUserTitle: metaError.error_user_title || "",
+    errorUserMessage: metaError.error_user_msg || "",
+    fbtraceId: metaError.fbtrace_id || "",
+  };
+}
+
 function ensureTokenExchangeConfig() {
   const config = getMetaWhatsAppConfig();
   if (!config.isTokenExchangeConfigured) {
@@ -46,6 +61,7 @@ async function exchangeEmbeddedSignupCode(code) {
   }
 
   try {
+    const exchangeEndpoint = graphUrl("/oauth/access_token");
     const params = {
       client_id: config.appId,
       client_secret: config.appSecret,
@@ -56,10 +72,19 @@ async function exchangeEmbeddedSignupCode(code) {
       params.redirect_uri = config.redirectUri;
     }
 
-    const response = await axios.get(graphUrl("/oauth/access_token"), { params });
+    console.log("[Meta OAuth Exchange Diagnostic]", {
+      appId: config.appId,
+      graphVersion: config.graphApiVersion,
+      redirectUri: config.redirectUri || "",
+      redirectUriConfigured: Boolean(config.redirectUri),
+      exchangeEndpoint,
+    });
+
+    const response = await axios.get(exchangeEndpoint, { params });
     return response.data || {};
   } catch (error) {
     console.error("Meta authorization code exchange failed:", getErrorMessage(error));
+    console.error("[Meta OAuth Exchange Error]", getMetaOAuthExchangeErrorDetails(error));
     const wrapped = new Error("Unable to complete Meta authorization");
     wrapped.code = "meta_code_exchange_failed";
     throw wrapped;
